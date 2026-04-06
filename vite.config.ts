@@ -1,10 +1,13 @@
 import { defineConfig } from 'vite';
 import { readFileSync } from 'fs';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
 
-const config = JSON.parse(readFileSync('hub.config.json', 'utf-8'));
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const config = JSON.parse(readFileSync(resolve(__dirname, 'hub.config.json'), 'utf-8'));
 
 export default defineConfig({
-  root: '.',
+  root: __dirname,
   base: './',
   define: {
     __HUB_CONFIG__: JSON.stringify(config),
