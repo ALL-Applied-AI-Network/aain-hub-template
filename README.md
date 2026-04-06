@@ -5,6 +5,13 @@
 </p>
 
 <p align="center">
+  <a href="https://all-applied-ai-network.github.io/aain-hub-template/">Demo</a> ·
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#customization">Customization</a> ·
+  <a href="https://github.com/ALL-Applied-AI-Network/aain-content">Content Library</a>
+</p>
+
+<p align="center">
   <a href="https://github.com/ALL-Applied-AI-Network/aain-hub-template/actions/workflows/pages.yml"><img src="https://img.shields.io/github/actions/workflow/status/ALL-Applied-AI-Network/aain-hub-template/pages.yml?label=pages%20deploy&style=flat-square" alt="Deploy" /></a>
   <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License" /></a>
 </p>
@@ -13,41 +20,15 @@
 
 This is the website template for chapters in the **ALL Applied AI Network**. It gives every university AI club a professional website that automatically pulls curriculum, workshops, and playbooks from the [shared content library](https://github.com/ALL-Applied-AI-Network/aain-content).
 
+**[See the live demo &rarr;](https://all-applied-ai-network.github.io/aain-hub-template/)**
+
 ## Quick Start
 
 ### Option 1: Start a new chapter website
 
 1. Click **[Use this template](https://github.com/ALL-Applied-AI-Network/aain-hub-template/generate)** (green button, top right)
 2. Name your repo (e.g., `msoe-ai-club`)
-3. Edit **`hub.config.json`** with your chapter details:
-
-```json
-{
-  "hub_name": "MSOE AI Club",
-  "hub_acronym": "MAIC",
-  "hub_id": "msoe-ai-club",
-  "university": "Milwaukee School of Engineering",
-  "description": "Building the next generation of applied AI engineers.",
-  "theme": {
-    "primary_color": "#B1003E",
-    "accent_color": "#06b6d4"
-  },
-  "links": {
-    "discord": "https://discord.gg/your-server",
-    "github": "https://github.com/your-org",
-    "instagram": "",
-    "linkedin": "",
-    "email": "ai-club@msoe.edu"
-  },
-  "features": {
-    "learning_tree": true,
-    "playbooks": true,
-    "workshops": true
-  },
-  "content_url": "https://all-ai-network.org"
-}
-```
-
+3. Edit **`hub.config.json`** with your chapter details (see [Customization](#customization) for all options)
 4. Enable GitHub Pages in your repo settings (Settings > Pages > Source: GitHub Actions)
 5. Push — your site deploys automatically
 
@@ -84,32 +65,87 @@ The content library is a static JSON + Markdown API — no authentication, no SD
 
 ## What you get
 
-- **Learning tree** — Interactive skill tree fetched from the network's shared curriculum. Starts at absolute zero, builds to shipping AI products.
+- **Learning tree** — Shared curriculum rendered inline on your site. Starts at absolute zero, builds to shipping AI products.
 - **Workshops** — Hands-on session content with facilitator guides. Ready to run at your next meeting.
 - **Playbooks** — Operational guides for running a hub: getting started, sponsors, hackathons, speaker series, research groups.
+- **Events** — List your club's upcoming events, meetings, and hackathons right in the config.
+- **Officers** — Showcase your leadership team with names, roles, and optional photos.
+- **Custom about** — Write your club's story in the config — no HTML editing required.
 - **Auto-deploy** — Push to `main` and GitHub Pages deploys. No CI config needed.
 - **Theming** — Set two colors in the config and the entire site adapts.
+- **Inline content** — Articles render on your site, not on a separate domain. Students stay on your hub.
 
 Content updates happen upstream in [`aain-content`](https://github.com/ALL-Applied-AI-Network/aain-content). Your hub fetches it at runtime — when the network adds a new learning node or workshop, every hub gets it automatically.
 
 ## Customization
 
-### Branding
-
-Set `hub_acronym` to your club's short name — it appears in the nav bar as a gradient wordmark. Set `hub_name` for the full name used in the hero and page title.
+Everything is driven by `hub.config.json`. Here's the full config with all options:
 
 ```json
-"hub_name": "MSOE AI Club",
-"hub_acronym": "MAIC"
+{
+  "hub_name": "MSOE AI Club",
+  "hub_acronym": "MAIC",
+  "hub_id": "msoe-ai-club",
+  "university": "Milwaukee School of Engineering",
+  "description": "Building the next generation of applied AI engineers.",
+  "about": "Your club's story goes here. This text appears in the About section.\n\nUse \\n for paragraph breaks. No HTML needed.",
+  "theme": {
+    "primary_color": "#B1003E",
+    "accent_color": "#06b6d4"
+  },
+  "links": {
+    "discord": "https://discord.gg/your-server",
+    "github": "https://github.com/your-org",
+    "instagram": "",
+    "linkedin": "",
+    "email": "ai-club@msoe.edu"
+  },
+  "officers": [
+    { "name": "Alex Johnson", "role": "President", "image": "" },
+    { "name": "Sam Rivera", "role": "VP of Engineering", "image": "" }
+  ],
+  "events": [
+    {
+      "title": "Weekly Meeting",
+      "date": "Every Thursday",
+      "time": "7:00 PM",
+      "location": "Room 201, Engineering Hall",
+      "description": "Hands-on workshop and project time."
+    }
+  ],
+  "features": {
+    "learning_tree": true,
+    "playbooks": true,
+    "workshops": true
+  },
+  "content_url": "https://all-ai-network.org"
+}
 ```
+
+### Branding
+
+| Field | What it does |
+|---|---|
+| `hub_name` | Full name — used in hero, page title, nav |
+| `hub_acronym` | Short name — gradient wordmark in the nav bar |
+| `description` | One-liner shown below the title in the hero |
+| `about` | Your club's story (About section). Use `\n` for paragraph breaks. |
 
 ### Theming
 
-Set `primary_color` and `accent_color` in `hub.config.json`. These drive the hero gradient, nav wordmark, buttons, card hover effects, and accents across the entire site. Choose your university's brand colors.
+Set `primary_color` and `accent_color`. These drive the hero gradient, nav wordmark, buttons, card hover effects, and accents across the entire site. Choose your university's brand colors.
+
+### Events
+
+Add upcoming events as an array. Each event shows a date card, title, location, and description. Remove the array or leave it empty to hide the Events section entirely.
+
+### Officers
+
+Add your leadership team. Each officer gets an avatar (initials if no image provided), name, and role. Remove the array to hide the Leadership section.
 
 ### Features
 
-Toggle sections on or off:
+Toggle content sections on or off:
 
 ```json
 "features": {
@@ -119,23 +155,11 @@ Toggle sections on or off:
 }
 ```
 
-Disabled sections are hidden entirely — no empty states.
+Disabled sections and their nav links are hidden entirely.
 
 ### Social links
 
-Fill in what you have, leave the rest empty:
-
-```json
-"links": {
-  "discord": "https://discord.gg/your-server",
-  "github": "",
-  "instagram": "https://instagram.com/your-club",
-  "linkedin": "",
-  "email": "your-club@university.edu"
-}
-```
-
-Only links with URLs show up on the site.
+Fill in what you have, leave the rest empty. Only links with URLs appear on the site.
 
 ## Development
 
@@ -150,11 +174,14 @@ npm run preview   # Preview production build
 
 ```
 hub.config.json          Your chapter identity, theme, and feature flags
-index.html               Site entry point
+index.html               Home page
+article.html             Inline content viewer (learning articles, workshops, playbooks)
 src/
-├── main.ts              Config application, content fetching, rendering
+├── main.ts              Home page: config, content fetching, rendering
+├── article.ts           Article page: markdown rendering with custom directives
 └── styles/
-    └── hub.css          Full site styles (themed by config)
+    ├── hub.css          Home page styles (themed by config)
+    └── article.css      Article content styles (callouts, code blocks, tabs, etc.)
 .github/
 └── workflows/
     └── pages.yml        GitHub Pages auto-deploy on push to main
@@ -166,6 +193,7 @@ src/
 |---|---|
 | Build | Vite |
 | Language | TypeScript |
+| Markdown | marked + DOMPurify (with custom directive support) |
 | Styling | Vanilla CSS (no framework dependencies) |
 | Content | Fetched at runtime from [`aain-content`](https://github.com/ALL-Applied-AI-Network/aain-content) GitHub Pages |
 | Deployment | GitHub Pages (via GitHub Actions) |

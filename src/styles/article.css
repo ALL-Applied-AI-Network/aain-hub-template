@@ -1,0 +1,251 @@
+/* ── Article Layout ───────────────────────────────────── */
+
+.article-layout {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+  min-height: 60vh;
+}
+
+.article-breadcrumb {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-bottom: 2rem;
+}
+
+.article-breadcrumb a { color: var(--color-accent); }
+.article-breadcrumb .sep { margin: 0 0.4rem; opacity: 0.5; }
+
+/* ── Article Content ─────────────────────────────────── */
+
+.article-content h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 1.5rem;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.article-content h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 2.5rem 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.article-content h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 2rem 0 0.75rem;
+}
+
+.article-content h4 { font-size: 1rem; font-weight: 600; margin: 1.5rem 0 0.5rem; }
+
+.article-content p { margin-bottom: 1rem; line-height: 1.7; }
+
+.article-content a { color: var(--color-accent); }
+.article-content a:hover { text-decoration: underline; }
+
+.article-content ul, .article-content ol {
+  margin: 0 0 1rem 1.5rem;
+  line-height: 1.7;
+}
+
+.article-content li { margin-bottom: 0.25rem; }
+
+.article-content blockquote {
+  border-left: 3px solid var(--color-primary);
+  padding: 0.5rem 1rem;
+  margin: 1rem 0;
+  color: var(--color-text-muted);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.article-content img {
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+  margin: 1.5rem 0;
+}
+
+.article-content hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 2rem 0;
+}
+
+.article-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+
+.article-content th, .article-content td {
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.article-content th {
+  background: var(--color-surface);
+  font-weight: 600;
+}
+
+/* ── Code ────────────────────────────────────────────── */
+
+.article-content code {
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.85em;
+  background: var(--color-surface);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+}
+
+.article-content pre {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.article-content pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* ── Callouts ────────────────────────────────────────── */
+
+.callout {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: var(--radius-sm);
+  margin: 1.25rem 0;
+  border: 1px solid;
+}
+
+.callout--tip { background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.25); }
+.callout--info { background: rgba(59, 130, 246, 0.08); border-color: rgba(59, 130, 246, 0.25); }
+.callout--warning { background: rgba(245, 158, 11, 0.08); border-color: rgba(245, 158, 11, 0.25); }
+.callout--danger { background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.25); }
+
+.callout__icon { font-size: 1.1rem; flex-shrink: 0; padding-top: 0.1rem; }
+.callout__title { font-weight: 600; margin-bottom: 0.25rem; font-size: 0.9rem; }
+.callout__body { font-size: 0.9rem; line-height: 1.6; }
+.callout__body p:last-child { margin-bottom: 0; }
+
+/* ── Build Challenge ─────────────────────────────────── */
+
+.build-challenge {
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius);
+  margin: 1.5rem 0;
+  overflow: hidden;
+}
+
+.build-challenge__header {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  padding: 0.6rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.build-challenge__content { padding: 1rem; }
+.build-challenge__content p:last-child { margin-bottom: 0; }
+
+/* ── Definition ──────────────────────────────────────── */
+
+.definition {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.definition__term {
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: var(--color-accent);
+}
+
+.definition__body { font-size: 0.9rem; }
+.definition__body p:last-child { margin-bottom: 0; }
+
+/* ── Collapsible / Details ───────────────────────────── */
+
+.collapsible {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  margin: 1rem 0;
+}
+
+.collapsible__trigger {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  list-style: none;
+}
+
+.collapsible__trigger::-webkit-details-marker { display: none; }
+.collapsible__trigger::before { content: '\25B6'; margin-right: 0.5rem; font-size: 0.7em; }
+.collapsible[open] .collapsible__trigger::before { content: '\25BC'; }
+
+.collapsible__content { padding: 0 1rem 1rem; }
+
+/* ── Tabs ────────────────────────────────────────────── */
+
+.tabs {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  margin: 1rem 0;
+  overflow: hidden;
+}
+
+.tabs__nav {
+  display: flex;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tabs__tab {
+  padding: 0.6rem 1rem;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.tabs__tab:hover { color: var(--color-text); }
+.tabs__tab--active { color: var(--color-accent); border-bottom-color: var(--color-accent); }
+
+.tabs__panel { display: none; padding: 1rem; }
+.tabs__panel--active { display: block; }
+
+/* ── Responsive ──────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .article-layout { padding: 1.5rem 1rem 3rem; }
+  .article-content h1 { font-size: 1.6rem; }
+  .article-content h2 { font-size: 1.2rem; }
+}

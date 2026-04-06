@@ -6,11 +6,14 @@ interface HubConfig {
   hub_id: string;
   university: string;
   description: string;
+  about: string;
   theme: {
     primary_color: string;
     accent_color: string;
   };
   links: Record<string, string>;
+  officers: { name: string; role: string; image: string }[];
+  events: { title: string; date: string; time: string; location: string; description: string }[];
   features: {
     learning_tree: boolean;
     playbooks: boolean;
@@ -79,16 +82,12 @@ function applyConfig() {
   }
 
   // Hide nav links for disabled features
-  if (!config.features.learning_tree) {
-    hideNavLink('learning');
-  }
-  if (!config.features.workshops) {
-    hideNavLink('workshops');
-  }
-  if (!config.features.playbooks) {
-    hideNavLink('playbooks');
-  }
+  if (!config.features.learning_tree) hideNavLink('learning');
+  if (!config.features.workshops) hideNavLink('workshops');
 
+  renderAbout();
+  renderOfficers();
+  renderEvents();
   renderSocialLinks();
 }
 
@@ -102,16 +101,75 @@ function hideNavLink(sectionId: string) {
   if (link) link.style.display = 'none';
 }
 
+function renderAbout() {
+  const container = document.getElementById('about-content');
+  if (!container) return;
+
+  if (config.about) {
+    container.innerHTML = config.about
+      .split('\n')
+      .filter(p => p.trim())
+      .map(p => `<p>${p}</p>`)
+      .join('');
+  } else {
+    container.innerHTML = `
+      <p>We're part of the <strong>ALL Applied AI Network</strong> — a nationwide network of university AI chapters focused on applied AI engineering.</p>
+      <p>Our curriculum starts at absolute zero and builds a path to shipping real AI products. No prior experience required.</p>
+    `;
+  }
+}
+
+function renderOfficers() {
+  const container = document.getElementById('officers-grid');
+  if (!container || !config.officers?.length) return;
+
+  container.innerHTML = `
+    <h3 class="officers__title">Leadership</h3>
+    <div class="officers__grid">
+      ${config.officers.map(o => `
+        <div class="officer">
+          <div class="officer__avatar">${o.image ? `<img src="${o.image}" alt="${o.name}" />` : o.name.split(' ').map(n => n[0]).join('')}</div>
+          <div class="officer__name">${o.name}</div>
+          <div class="officer__role">${o.role}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderEvents() {
+  const container = document.getElementById('events-grid');
+  if (!container) return;
+
+  if (!config.events?.length) {
+    hideSection('events');
+    const navLink = document.querySelector('.nav__link[href="#events"]') as HTMLElement;
+    if (navLink) navLink.style.display = 'none';
+    return;
+  }
+
+  container.innerHTML = config.events.map(event => `
+    <div class="event-card">
+      <div class="event-card__date">
+        <div class="event-card__date-text">${event.date}</div>
+        <div class="event-card__time">${event.time}</div>
+      </div>
+      <div class="event-card__body">
+        <h3 class="event-card__title">${event.title}</h3>
+        <p class="event-card__location">${event.location}</p>
+        <p class="event-card__desc">${event.description}</p>
+      </div>
+    </div>
+  `).join('');
+}
+
 function renderSocialLinks() {
   const container = document.getElementById('social-links');
   if (!container) return;
 
   const icons: Record<string, string> = {
-    discord: 'Discord',
-    github: 'GitHub',
-    instagram: 'Instagram',
-    linkedin: 'LinkedIn',
-    email: 'Email',
+    discord: 'Discord', github: 'GitHub', instagram: 'Instagram',
+    linkedin: 'LinkedIn', email: 'Email',
   };
 
   const links = Object.entries(config.links)
@@ -121,9 +179,7 @@ function renderSocialLinks() {
       return `<a href="${href}" class="btn btn--ghost btn--sm" target="_blank" rel="noopener">${icons[key] || key}</a>`;
     });
 
-  if (links.length) {
-    container.innerHTML = links.join('');
-  }
+  if (links.length) container.innerHTML = links.join('');
 }
 
 async function fetchJSON<T>(url: string): Promise<T | null> {
@@ -137,7 +193,7 @@ async function fetchJSON<T>(url: string): Promise<T | null> {
   }
 }
 
-function renderCard(entry: { title: string; description?: string; thumbnail?: string; path?: string; difficulty?: string; estimated_minutes?: number }, linkBase: string): string {
+function renderCard(entry: { title: string; description?: string; thumbnail?: string; path?: string; difficulty?: string; estimated_minutes?: number }): string {
   const thumb = entry.thumbnail
     ? `<img class="card__thumb" src="${config.content_url}/${entry.thumbnail}" alt="" loading="lazy" />`
     : '';
@@ -147,10 +203,11 @@ function renderCard(entry: { title: string; description?: string; thumbnail?: st
     entry.estimated_minutes ? `<span class="card__meta">${entry.estimated_minutes} min</span>` : '',
   ].filter(Boolean).join('');
 
-  const href = entry.path ? `${linkBase}${entry.path}` : '#';
+  // Link to local article page for inline rendering
+  const href = entry.path ? `./article.html?path=${entry.path}` : '#';
 
   return `
-    <a href="${href}" class="card" target="_blank" rel="noopener">
+    <a href="${href}" class="card">
       ${thumb}
       <div class="card__body">
         <h3 class="card__title">${entry.title}</h3>
@@ -191,7 +248,7 @@ async function loadLearningTree() {
       path: node.content_path,
       difficulty: node.difficulty,
       estimated_minutes: node.estimated_minutes,
-    }, `${config.content_url}/article.html?path=`)
+    })
   ).join('');
 }
 
@@ -215,9 +272,7 @@ async function loadManifestSection(type: 'workshop' | 'playbook', gridId: string
     return;
   }
 
-  const linkBase = `${config.content_url}/playbook.html?path=`;
-
-  grid.innerHTML = items.map(item => renderCard(item, linkBase)).join('');
+  grid.innerHTML = items.map(item => renderCard(item)).join('');
 }
 
 function hideSection(id: string) {
