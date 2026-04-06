@@ -1,292 +1,170 @@
-# ALL Applied AI Network — Hub
+# ALL Applied AI Network — Hub Template
 
 <p align="center">
-  <img src="public/all-aain-banner.png" alt="ALL Applied AI Network" width="600" />
+  <strong>Fork this repo. Edit one file. Your chapter website is live.</strong>
 </p>
 
 <p align="center">
-  <strong>Launch your university AI hub in 5 minutes.</strong>
-</p>
-
-<p align="center">
-  <a href="https://github.com/all-aain/hub/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/all-aain/hub/ci.yml?label=CI&style=flat-square" alt="CI" /></a>
-  <a href="https://www.npmjs.com/package/@all-aain/hub"><img src="https://img.shields.io/npm/v/@all-aain/hub?style=flat-square&color=blue" alt="npm" /></a>
-  <a href="https://www.npmjs.com/package/create-all-aain-hub"><img src="https://img.shields.io/npm/v/create-all-aain-hub?style=flat-square&color=blue&label=CLI" alt="CLI" /></a>
+  <a href="https://github.com/ALL-Applied-AI-Network/aain-hub-template/actions/workflows/pages.yml"><img src="https://img.shields.io/github/actions/workflow/status/ALL-Applied-AI-Network/aain-hub-template/pages.yml?label=pages%20deploy&style=flat-square" alt="Deploy" /></a>
   <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License" /></a>
-  <a href="https://all-aain.org"><img src="https://img.shields.io/badge/network-all--aain.org-purple?style=flat-square" alt="Network" /></a>
-</p>
-
-<p align="center">
-  <a href="https://all-aain.org">Website</a> ·
-  <a href="https://all-aain.org/docs">Docs</a> ·
-  <a href="#quick-start">Quick Start</a> ·
-  <a href="#sdk">SDK</a> ·
-  <a href="#features">Features</a> ·
-  <a href="#customization">Customization</a> ·
-  <a href="https://discord.gg/all-aain">Discord</a>
 </p>
 
 ---
 
-### Sponsors
-
-<p align="center">
-  <em>Sponsors fund the network so students learn for free.</em>
-</p>
-
-<table align="center">
-  <tr>
-    <td align="center"><strong>NVIDIA</strong></td>
-    <td align="center"><strong>Direct Supply</strong></td>
-    <td align="center"><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</strong></td>
-    <td align="center"><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</strong></td>
-  </tr>
-  <tr>
-    <td align="center"><a href="https://nvidia.com"><img src="public/sponsors/nvidia.png" alt="NVIDIA" height="48" /></a></td>
-    <td align="center"><a href="https://directsupply.com"><img src="public/sponsors/direct-supply.png" alt="Direct Supply" height="48" /></a></td>
-    <td align="center"><a href="https://all-aain.org/sponsors"><em>Your logo here</em></a></td>
-    <td align="center"><a href="https://all-aain.org/sponsors"><em>Your logo here</em></a></td>
-  </tr>
-</table>
-
-<p align="center">
-  <a href="https://all-aain.org/sponsors"><strong>Become a sponsor &rarr;</strong></a>
-</p>
-
----
-
-Everything you need to run a university AI chapter — a professional website, automated attendance, an interactive learning tree, and impact reporting that gets you institutional buy-in.
-
-It works three ways depending on what you need:
-
-| You are... | Use... | What you get |
-|---|---|---|
-| **Starting fresh** | `npx create-all-aain-hub` | A fully deployed site at `{you}.all-aain.org` in 5 minutes |
-| **Technical and opinionated** | This repo as a GitHub template | Full control — clone, customize, deploy wherever you want |
-| **Already have a site** | `npm install @all-aain/hub` | Drop-in components, hooks, and a typed API client |
-
-All three connect to the same [content CDN](https://github.com/all-aain/content) and platform API. Your hub gets the full learning tree, attendance tracking, and sponsor network regardless of how you set up.
+This is the website template for chapters in the **ALL Applied AI Network**. It gives every university AI club a professional website that automatically pulls curriculum, workshops, and playbooks from the [shared content library](https://github.com/ALL-Applied-AI-Network/aain-content).
 
 ## Quick Start
 
-### Option 1: The CLI (recommended)
+### Option 1: Start a new chapter website
 
-```bash
-npx create-all-aain-hub
-```
+1. Click **[Use this template](https://github.com/ALL-Applied-AI-Network/aain-hub-template/generate)** (green button, top right)
+2. Name your repo (e.g., `msoe-ai-club`)
+3. Edit **`hub.config.json`** with your chapter details:
 
-You'll be prompted for your hub name, university, and brand color. That's it.
-
-Without an API key, you get a local project with the full open-source curriculum. With a key (free — create one at [all-aain.org/create](https://all-aain.org/create)), you also get:
-
-- Managed deployment at `{hub-id}.all-aain.org`
-- Attendance tracking and event management
-- Member progress tracking on the learning tree
-- Auto-generated impact reports for your university
-
-### Option 2: GitHub template
-
-1. Click **[Use this template](https://github.com/all-aain/hub/generate)**
-2. Edit `hub.config.ts`:
-
-```typescript
-import { defineHubConfig } from '@all-aain/hub';
-
-export default defineHubConfig({
-  hub: {
-    id: 'msoe-maic',
-    name: 'MSOE AI Club',
-    university: 'Milwaukee School of Engineering',
-    apiKey: process.env.ALL_AAIN_API_KEY,
+```json
+{
+  "hub_name": "MSOE AI Club",
+  "hub_id": "msoe-ai-club",
+  "university": "Milwaukee School of Engineering",
+  "description": "Building the next generation of applied AI engineers.",
+  "theme": {
+    "primary_color": "#B1003E",
+    "accent_color": "#06b6d4"
   },
-  theme: {
-    primaryColor: '#B1003E',
-    logo: '/assets/logo.png',
+  "links": {
+    "discord": "https://discord.gg/your-server",
+    "github": "https://github.com/your-org",
+    "instagram": "",
+    "linkedin": "",
+    "email": "ai-club@msoe.edu"
   },
-  features: {
-    learningTree: true,
-    innovationLabs: true,
-    attendance: true,
+  "features": {
+    "learning_tree": true,
+    "playbooks": true,
+    "workshops": true
   },
-});
-```
-
-3. `npm install && npm run dev` — you're running locally
-4. Push to GitHub — CI builds and deploys automatically
-
-### Option 3: SDK only {#sdk}
-
-For hubs with an existing website that just want the network integration:
-
-```bash
-npm install @all-aain/hub
-```
-
-```typescript
-import { ContentClient, PlatformClient, useTree, useAttendance } from '@all-aain/hub';
-
-// Fetch the learning tree
-const content = new ContentClient();
-const tree = await content.getTree();
-
-// Track attendance
-const platform = new PlatformClient({ apiKey: process.env.ALL_AAIN_API_KEY });
-await platform.attendance.checkIn({ eventId: 'weekly-meeting', memberId: 'student-123' });
-```
-
-Drop-in React components are also available:
-
-```tsx
-import { LearningTree, AttendanceWidget, EventCard } from '@all-aain/hub/components';
-
-function MyExistingPage() {
-  return (
-    <>
-      <LearningTree hubId="msoe-maic" />
-      <AttendanceWidget eventId="weekly-meeting" />
-    </>
-  );
+  "content_url": "https://ALL-Applied-AI-Network.github.io/aain-content"
 }
 ```
 
-## Features
+4. Enable GitHub Pages in your repo settings (Settings > Pages > Source: GitHub Actions)
+5. Push — your site deploys automatically
 
-### Learning Tree
-An interactive skill tree visualization powered by the [ALL content CDN](https://github.com/all-aain/content). Students see what they've completed, what's unlocked next, and recommended paths. Hubs can add local nodes for university-specific content (e.g., campus HPC tutorials, local research topics) that merge seamlessly with the central tree.
+Your site is now live at `https://{your-username}.github.io/{repo-name}/`.
 
-### Attendance & Events
-QR-based check-in system. Leaders generate a QR code for each event, students scan to check in. Everything flows to the platform API — no spreadsheets, no sign-in sheets.
+### Option 2: Custom subdomain (e.g., `msoe.all-ai-network.org`)
 
-### Impact Reports
-Auto-generated reports for your dean and faculty advisor: attendance trends, member growth, skill progression, event metrics. The feature that gets you institutional buy-in and keeps it.
+Want your site at a subdomain on the ALL network domain? After completing the steps above:
 
-### Innovation Labs
-Run sponsor-backed competitions. Team formation, project tracking, judging workflows, and a direct hiring pipeline for sponsors.
+1. Contact the ALL network team to request a subdomain
+2. We add a DNS record pointing `{your-hub}.all-ai-network.org` to your GitHub Pages site
+3. Add your subdomain to your repo's Pages settings (Settings > Pages > Custom domain)
 
-### Member Dashboard
-Students track their own progress: learning tree completion, attendance history, projects, and a portable skills portfolio.
+That's it — GitHub handles HTTPS automatically.
 
-### Admin Dashboard
-Hub leaders manage events, view analytics, generate QR codes, and export reports — all from the browser.
+### Option 3: Hook into an existing website
+
+If your chapter already has a website and you just want the content, fetch directly from the content library:
+
+```typescript
+const CONTENT = 'https://ALL-Applied-AI-Network.github.io/aain-content';
+
+// Get the full learning tree (nodes, edges, prerequisites)
+const tree = await fetch(`${CONTENT}/tree.json`).then(r => r.json());
+
+// Get a content manifest (all playbooks, workshops, learning nodes)
+const manifest = await fetch(`${CONTENT}/manifest.json`).then(r => r.json());
+
+// Fetch a specific article as markdown
+const article = await fetch(`${CONTENT}/learning/foundations/what-is-ai/what-is-ai.md`).then(r => r.text());
+```
+
+The content library is a static JSON + Markdown API — no authentication, no SDK, no dependencies. Fetch and render however you want.
+
+## What you get
+
+- **Learning tree** — Interactive skill tree fetched from the network's shared curriculum. Starts at absolute zero, builds to shipping AI products.
+- **Workshops** — Hands-on session content with facilitator guides. Ready to run at your next meeting.
+- **Playbooks** — Operational guides for running a hub: getting started, sponsors, hackathons, speaker series, research groups.
+- **Auto-deploy** — Push to `main` and GitHub Pages deploys. No CI config needed.
+- **Theming** — Set two colors in the config and the entire site adapts.
+
+Content updates happen upstream in [`aain-content`](https://github.com/ALL-Applied-AI-Network/aain-content). Your hub fetches it at runtime — when the network adds a new learning node or workshop, every hub gets it automatically.
 
 ## Customization
 
 ### Theming
 
-Everything is driven by `hub.config.ts`. Set your primary color and the entire design system adapts — buttons, links, gradients, chart colors, dark mode variants. Override individual tokens in `src/styles/globals.css` if you need finer control.
+Set `primary_color` and `accent_color` in `hub.config.json`. These drive the gradient, buttons, badges, and accents across the entire site. Choose your university's brand colors.
 
-### Pages
+### Features
 
-Add hub-specific pages in `hub-content/pages/`. The router picks them up automatically. Common additions: About, E-Board, Merch, Contact, Research Groups.
+Toggle sections on or off:
 
-### Local Learning Content
-
-Add university-specific learning nodes in `hub-content/learning/local/`. Each node has a `node.yaml` that can reference central tree nodes as prerequisites:
-
-```yaml
-# hub-content/learning/local/campus-hpc/node.yaml
-id: "local/campus-hpc"
-title: "Running ML Jobs on Campus HPC"
-prerequisites:
-  - "intermediate/production/deployment-fundamentals"
-hub_only: true
-content_file: "campus-hpc.md"
+```json
+"features": {
+  "learning_tree": true,
+  "playbooks": true,
+  "workshops": false
+}
 ```
 
-Local nodes appear in your hub's learning tree with a visual indicator showing they're hub-specific.
+Disabled sections are hidden entirely — no empty states.
 
-### Feature Flags
+### Social links
 
-Turn features on or off in `hub.config.ts`:
+Fill in what you have, leave the rest empty:
 
-```typescript
-features: {
-  learningTree: true,       // Interactive skill tree
-  innovationLabs: true,     // Sponsor competitions
-  researchGroups: false,    // Disable if your hub doesn't run research
-  speakerSeries: true,      // Speaker event management
-  memberDashboard: true,    // Student-facing dashboard
-  attendance: true,         // QR check-in system
-},
+```json
+"links": {
+  "discord": "https://discord.gg/your-server",
+  "github": "",
+  "instagram": "https://instagram.com/your-club",
+  "linkedin": "",
+  "email": "your-club@university.edu"
+}
+```
+
+Only links with URLs show up on the site.
+
+## Development
+
+```bash
+npm install
+npm run dev       # Local dev server with hot reload
+npm run build     # Production build to dist/
+npm run preview   # Preview production build
+```
+
+## Project Structure
+
+```
+hub.config.json          Your chapter identity, theme, and feature flags
+index.html               Site entry point
+src/
+├── main.ts              Config application, content fetching, rendering
+└── styles/
+    └── hub.css          Full site styles (themed by config)
+.github/
+└── workflows/
+    └── pages.yml        GitHub Pages auto-deploy on push to main
 ```
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Framework | React 19 + TypeScript |
 | Build | Vite |
-| Styling | Tailwind CSS |
-| Routing | React Router |
-| API Client | Auto-generated from OpenAPI spec + Zod runtime validation |
-| Testing | Vitest (unit/integration) · Playwright (E2E) · MSW (API mocking) |
-| CI/CD | GitHub Actions |
-| Content | Fetched at runtime from [`cdn.all-aain.org`](https://github.com/all-aain/content) |
-| Deployment | Managed (S3 + CloudFront) · Vercel · Netlify · self-hosted |
-
-## Project Structure
-
-```
-hub.config.ts              Hub identity, theme, feature flags
-
-src/
-├── pages/                 Route-level components
-│   ├── Home.tsx
-│   ├── LearnTree.tsx      Interactive skill tree
-│   ├── LearnArticle.tsx   Article renderer (markdown → React)
-│   ├── Events.tsx
-│   ├── MemberDashboard.tsx
-│   └── admin/             Admin-only pages
-├── components/
-│   ├── ui/                Design system (themed by config)
-│   ├── learning-tree/     DAG visualization
-│   ├── attendance/        QR generation + scan
-│   ├── content/           Markdown renderer + custom components
-│   └── layout/            Header, footer, navigation
-└── lib/
-    ├── content-client.ts  CDN fetcher
-    ├── api-client.ts      Platform API wrapper
-    ├── tree-merger.ts     Central tree + local nodes → merged tree
-    └── config.ts          Reads hub.config.ts
-
-hub-content/               Hub-specific content (optional)
-├── learning/local/        Local learning tree nodes
-├── pages/                 Custom pages
-└── images/
-
-packages/
-├── hub/                   @all-aain/hub npm package (SDK)
-└── create-all-aain-hub/   CLI scaffolder
-
-tests/
-├── unit/
-├── integration/
-├── e2e/
-└── mocks/                 MSW handlers + fixtures
-```
-
-## Development
-
-```bash
-npm install              # Install dependencies
-npm run dev              # Start dev server
-npm test                 # Run tests
-npm run typecheck        # Type-check
-npm run lint             # Lint
-npm run build            # Build for production
-npm run preview          # Preview production build
-```
-
-## AI-Native Development
-
-This project is built for students who use AI coding tools. It includes structured context for AI agents:
-
-- **`.claude/CLAUDE.md`** — project context for [Claude Code](https://claude.ai/code)
-- **`.skills/`** — [SerpentStack](https://github.com/Benja-Pauls/SerpentStack) skill files for architecture, testing, styling, and more
-
-Combined with comprehensive test suites (80%+ coverage enforced in CI), Zod runtime validation, and typed API contracts, AI agents can build on this codebase confidently and correctly.
+| Language | TypeScript |
+| Styling | Vanilla CSS (no framework dependencies) |
+| Content | Fetched at runtime from [`aain-content`](https://github.com/ALL-Applied-AI-Network/aain-content) GitHub Pages |
+| Deployment | GitHub Pages (via GitHub Actions) |
 
 ---
+
+<p align="center">
+  Part of the <a href="https://github.com/ALL-Applied-AI-Network">ALL Applied AI Network</a> — open-source curriculum, free forever.
+</p>
 
 <p align="center">
   <sub>&copy; 2026 ALL Applied AI Network LLC. All rights reserved.</sub><br />

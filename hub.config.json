@@ -1,0 +1,23 @@
+{
+  "hub_name": "My AI Club",
+  "hub_id": "my-ai-club",
+  "university": "My University",
+  "description": "A student-run applied AI community.",
+  "theme": {
+    "primary_color": "#6366f1",
+    "accent_color": "#06b6d4"
+  },
+  "links": {
+    "discord": "",
+    "github": "",
+    "instagram": "",
+    "linkedin": "",
+    "email": ""
+  },
+  "features": {
+    "learning_tree": true,
+    "playbooks": true,
+    "workshops": true
+  },
+  "content_url": "https://ALL-Applied-AI-Network.github.io/aain-content"
+}

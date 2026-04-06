@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hub — ALL Applied AI Network</title>
+  <meta name="description" content="A student-run applied AI community powered by the ALL Applied AI Network." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/styles/hub.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav__inner">
+      <a href="/" class="nav__brand">
+        <span class="nav__logo">ALL</span>
+        <span class="nav__name" id="nav-hub-name">Hub</span>
+      </a>
+      <div class="nav__links">
+        <a href="#learning" class="nav__link">Learn</a>
+        <a href="#workshops" class="nav__link">Workshops</a>
+        <a href="#playbooks" class="nav__link">Playbooks</a>
+        <a href="#about" class="nav__link">About</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero" id="hero">
+    <div class="hero__badge">ALL APPLIED AI NETWORK</div>
+    <h1 class="hero__title" id="hero-title">My AI Club</h1>
+    <p class="hero__subtitle" id="hero-subtitle">A student-run applied AI community.</p>
+    <p class="hero__university" id="hero-university">My University</p>
+    <div class="hero__actions">
+      <a href="#learning" class="btn btn--primary">Start Learning</a>
+      <a href="#about" class="btn btn--ghost">About Us</a>
+    </div>
+  </header>
+
+  <section class="section" id="learning">
+    <div class="section__inner">
+      <h2 class="section__title">Learning Tree</h2>
+      <p class="section__desc">An interactive skill tree — from absolute zero to shipping AI products. Pick a node, learn, and unlock the next.</p>
+      <div class="content-grid" id="learning-grid">
+        <div class="loading">Loading learning tree...</div>
+      </div>
+      <p class="section__footer">
+        <a href="" id="tree-link" class="link">Explore the full interactive tree &rarr;</a>
+      </p>
+    </div>
+  </section>
+
+  <section class="section section--alt" id="workshops">
+    <div class="section__inner">
+      <h2 class="section__title">Workshops</h2>
+      <p class="section__desc">Hands-on, session-ready workshops with facilitator guides and student materials.</p>
+      <div class="content-grid" id="workshops-grid">
+        <div class="loading">Loading workshops...</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="playbooks">
+    <div class="section__inner">
+      <h2 class="section__title">Playbooks</h2>
+      <p class="section__desc">Battle-tested guides for running your hub — from getting started to scaling operations.</p>
+      <div class="content-grid" id="playbooks-grid">
+        <div class="loading">Loading playbooks...</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--alt" id="about">
+    <div class="section__inner">
+      <h2 class="section__title">About</h2>
+      <div class="about" id="about-content">
+        <p>We're part of the <strong>ALL Applied AI Network</strong> — a nationwide network of university AI chapters focused on applied AI engineering.</p>
+        <p>Our curriculum starts at absolute zero and builds a path to shipping real AI products. No prior experience required.</p>
+      </div>
+      <div class="about__links" id="social-links"></div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="footer__inner">
+      <p>Powered by the <a href="https://github.com/ALL-Applied-AI-Network" class="link">ALL Applied AI Network</a></p>
+      <p class="footer__sub">Open-source curriculum. Free forever.</p>
+    </div>
+  </footer>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
