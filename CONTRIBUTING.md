@@ -1,34 +1,36 @@
-# Contributing to ALL Applied AI Network Hub
+# Contributing to ALL Applied AI Network Hub Template
 
 Thank you for helping improve the hub template that powers university AI chapters across the network. Whether you're fixing a bug, adding a feature, or improving docs — it helps every hub in the network.
 
 ## Before You Start
 
 - Read the project [README](README.md) to understand the architecture
-- Check [open issues](https://github.com/all-aain/hub/issues) for things that need work
+- Check [open issues](https://github.com/ALL-Applied-AI-Network/aain-hub-template/issues) for things that need work
 - For large changes, open an issue first to discuss the approach
 
 ## Development Setup
 
 ```bash
-git clone https://github.com/all-aain/hub.git
-cd hub
+git clone https://github.com/ALL-Applied-AI-Network/aain-hub-template.git
+cd aain-hub-template
 npm install
 npm run dev
 ```
 
-The dev server starts at `http://localhost:5173`. It uses mock data by default — no API key needed for development.
+The dev server starts at `http://localhost:5173`. It fetches content from the [content library](https://github.com/ALL-Applied-AI-Network/aain-content) GitHub Pages deployment.
 
-## Project Structure at a Glance
+## Project Structure
 
 ```
-src/pages/          → Route-level components (add new pages here)
-src/components/     → Reusable UI components
-src/lib/            → Core logic (API client, content fetcher, tree merger)
-packages/hub/       → @all-aain/hub npm package (SDK)
-packages/create-*/  → CLI scaffolder
-tests/              → Unit, integration, E2E tests
-hub-content/        → Hub-specific content (for template users)
+hub.config.json          Chapter identity, theme, and feature flags
+index.html               Site entry point
+src/
+├── main.ts              Config application, content fetching, rendering
+└── styles/
+    └── hub.css          Full site styles (themed by config)
+.github/
+└── workflows/
+    └── pages.yml        GitHub Pages auto-deploy on push to main
 ```
 
 ## Making Changes
@@ -41,42 +43,34 @@ git checkout -b feat/my-feature   # new features
 git checkout -b docs/my-update    # documentation
 ```
 
-### 2. Write code + tests
-
-We enforce **80% test coverage** on core modules. If you're touching `src/lib/` or `src/components/`, add tests.
+### 2. Write code and test locally
 
 ```bash
-npm test                   # Run unit + integration tests
-npm run test:e2e           # Run Playwright E2E tests
-npm run typecheck          # TypeScript check
-npm run lint               # ESLint
+npm run dev            # Local dev server with hot reload
+npm run build          # TypeScript check + production build
+npm run preview        # Preview production build
 ```
 
 ### 3. Open a pull request
 
-CI runs automatically: lint → typecheck → test → build. All checks must pass.
+Push your branch and open a PR against `main`. CI builds the site automatically. All checks must pass.
 
 ## Conventions
 
-- **TypeScript everywhere.** No `any` types unless absolutely necessary (and explain why in a comment).
-- **Zod for runtime validation.** API responses and config are validated at runtime, not just compile time.
-- **Components are tested.** Use Vitest + Testing Library for component tests, MSW for API mocking.
-- **Commits are descriptive.** Use conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`.
+- **TypeScript everywhere.** No `any` types unless absolutely necessary.
+- **Vanilla CSS.** No framework dependencies — keep the template lightweight.
+- **Config-driven.** New features should be toggleable via `hub.config.json`.
+- **Commits are descriptive.** Use conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`.
 
 ## AI-Native Development
 
-We actively encourage using AI coding tools (Cursor, Claude Code, etc.) to contribute. The repo includes:
-
-- **`.claude/CLAUDE.md`** — project context for Claude Code
-- **`.skills/`** — SerpentStack skill files for architecture, testing, styling
-
-These files help AI agents understand the codebase and generate correct code. If you add a major new feature, consider updating the relevant skill file.
+We actively encourage using AI coding tools (Cursor, Claude Code, etc.) to contribute. The repo is structured for AI agents to understand and generate correct code.
 
 ## Questions?
 
-- Open a [discussion](https://github.com/all-aain/hub/discussions)
-- Join our [Discord](https://discord.gg/all-aain)
-- Email: contribute@all-aain.org
+- Open a [discussion](https://github.com/ALL-Applied-AI-Network/aain-hub-template/discussions)
+- Join our [Discord](https://discord.gg/all-applied-ai)
+- Email: contribute@all-ai-network.org
 
 ---
 

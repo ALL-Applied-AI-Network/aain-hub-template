@@ -44,7 +44,7 @@ This is the website template for chapters in the **ALL Applied AI Network**. It 
     "playbooks": true,
     "workshops": true
   },
-  "content_url": "https://ALL-Applied-AI-Network.github.io/aain-content"
+  "content_url": "https://all-ai-network.org"
 }
 ```
 
@@ -68,7 +68,7 @@ That's it — GitHub handles HTTPS automatically.
 If your chapter already has a website and you just want the content, fetch directly from the content library:
 
 ```typescript
-const CONTENT = 'https://ALL-Applied-AI-Network.github.io/aain-content';
+const CONTENT = 'https://all-ai-network.org';
 
 // Get the full learning tree (nodes, edges, prerequisites)
 const tree = await fetch(`${CONTENT}/tree.json`).then(r => r.json());
