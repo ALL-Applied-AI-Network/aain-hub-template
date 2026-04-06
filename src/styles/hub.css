@@ -3,6 +3,7 @@
 :root {
   --color-primary: #6366f1;
   --color-accent: #06b6d4;
+  --color-primary-rgb: 99, 102, 241;
   --color-bg: #0a0a1a;
   --color-surface: #111128;
   --color-surface-alt: #0d0d22;
@@ -87,21 +88,10 @@ img { max-width: 100%; display: block; }
 /* ── Hero ────────────────────────────────────────────── */
 
 .hero {
+  position: relative;
   text-align: center;
-  padding: 6rem 1.5rem 4rem;
-  background: radial-gradient(ellipse at 50% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 70%);
-}
-
-.hero__badge {
-  display: inline-block;
-  padding: 0.3rem 0.9rem;
-  border-radius: 100px;
-  border: 1px solid var(--color-border);
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  color: var(--color-accent);
-  margin-bottom: 1.5rem;
+  padding: 6rem 1.5rem 5rem;
+  background: radial-gradient(ellipse at 50% 0%, rgba(var(--color-primary-rgb), 0.12) 0%, transparent 70%);
 }
 
 .hero__title {
@@ -134,6 +124,35 @@ img { max-width: 100%; display: block; }
   gap: 1rem;
   justify-content: center;
   flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+
+.hero__attribution {
+  position: absolute;
+  bottom: 1.25rem;
+  right: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.hero__attribution:hover {
+  opacity: 0.85;
+  text-decoration: none;
+  color: var(--color-accent);
+}
+
+.hero__attribution-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  flex-shrink: 0;
 }
 
 /* ── Buttons ─────────────────────────────────────────── */
@@ -214,13 +233,14 @@ img { max-width: 100%; display: block; }
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   overflow: hidden;
-  transition: border-color 0.2s, transform 0.2s;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
   color: var(--color-text);
 }
 
 .card:hover {
   border-color: var(--color-primary);
   transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(var(--color-primary-rgb), 0.1);
   text-decoration: none;
 }
 
@@ -328,7 +348,14 @@ img { max-width: 100%; display: block; }
 @media (max-width: 640px) {
   .nav__links { gap: 1rem; }
   .nav__link { font-size: 0.8rem; }
-  .hero { padding: 4rem 1rem 3rem; }
+  .hero { padding: 4rem 1rem 4.5rem; }
+  .hero__attribution {
+    position: relative;
+    bottom: auto;
+    right: auto;
+    justify-content: center;
+    margin-top: 0.5rem;
+  }
   .section { padding: 3rem 1rem; }
   .content-grid { grid-template-columns: 1fr; }
 }

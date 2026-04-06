@@ -2,6 +2,7 @@ declare const __HUB_CONFIG__: HubConfig;
 
 interface HubConfig {
   hub_name: string;
+  hub_acronym: string;
   hub_id: string;
   university: string;
   description: string;
@@ -47,6 +48,14 @@ interface TreeData {
 
 const config = __HUB_CONFIG__;
 
+function hexToRgb(hex: string): string {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  return `${r}, ${g}, ${b}`;
+}
+
 function applyConfig() {
   document.title = `${config.hub_name} — ALL Applied AI Network`;
 
@@ -56,7 +65,9 @@ function applyConfig() {
   const root = document.documentElement;
   root.style.setProperty('--color-primary', config.theme.primary_color);
   root.style.setProperty('--color-accent', config.theme.accent_color);
+  root.style.setProperty('--color-primary-rgb', hexToRgb(config.theme.primary_color));
 
+  setText('nav-acronym', config.hub_acronym);
   setText('nav-hub-name', config.hub_name);
   setText('hero-title', config.hub_name);
   setText('hero-subtitle', config.description);
@@ -67,12 +78,28 @@ function applyConfig() {
     treeLink.href = `${config.content_url}/tree.html`;
   }
 
+  // Hide nav links for disabled features
+  if (!config.features.learning_tree) {
+    hideNavLink('learning');
+  }
+  if (!config.features.workshops) {
+    hideNavLink('workshops');
+  }
+  if (!config.features.playbooks) {
+    hideNavLink('playbooks');
+  }
+
   renderSocialLinks();
 }
 
 function setText(id: string, text: string) {
   const el = document.getElementById(id);
   if (el) el.textContent = text;
+}
+
+function hideNavLink(sectionId: string) {
+  const link = document.querySelector(`.nav__link[href="#${sectionId}"]`) as HTMLElement;
+  if (link) link.style.display = 'none';
 }
 
 function renderSocialLinks() {
@@ -147,7 +174,6 @@ async function loadLearningTree() {
     return;
   }
 
-  // Show layer 0 nodes as entry points
   const entryNodes = tree.nodes
     .filter(n => n.layer === 0)
     .sort((a, b) => a.title.localeCompare(b.title));
@@ -189,9 +215,7 @@ async function loadManifestSection(type: 'workshop' | 'playbook', gridId: string
     return;
   }
 
-  const linkBase = type === 'workshop'
-    ? `${config.content_url}/playbook.html?path=`
-    : `${config.content_url}/playbook.html?path=`;
+  const linkBase = `${config.content_url}/playbook.html?path=`;
 
   grid.innerHTML = items.map(item => renderCard(item, linkBase)).join('');
 }

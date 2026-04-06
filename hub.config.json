@@ -1,5 +1,6 @@
 {
   "hub_name": "My AI Club",
+  "hub_acronym": "MAIC",
   "hub_id": "my-ai-club",
   "university": "My University",
   "description": "A student-run applied AI community.",

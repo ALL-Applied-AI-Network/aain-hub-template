@@ -24,6 +24,7 @@ This is the website template for chapters in the **ALL Applied AI Network**. It 
 ```json
 {
   "hub_name": "MSOE AI Club",
+  "hub_acronym": "MAIC",
   "hub_id": "msoe-ai-club",
   "university": "Milwaukee School of Engineering",
   "description": "Building the next generation of applied AI engineers.",
@@ -93,9 +94,18 @@ Content updates happen upstream in [`aain-content`](https://github.com/ALL-Appli
 
 ## Customization
 
+### Branding
+
+Set `hub_acronym` to your club's short name — it appears in the nav bar as a gradient wordmark. Set `hub_name` for the full name used in the hero and page title.
+
+```json
+"hub_name": "MSOE AI Club",
+"hub_acronym": "MAIC"
+```
+
 ### Theming
 
-Set `primary_color` and `accent_color` in `hub.config.json`. These drive the gradient, buttons, badges, and accents across the entire site. Choose your university's brand colors.
+Set `primary_color` and `accent_color` in `hub.config.json`. These drive the hero gradient, nav wordmark, buttons, card hover effects, and accents across the entire site. Choose your university's brand colors.
 
 ### Features
 
