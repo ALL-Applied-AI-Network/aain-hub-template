@@ -118,6 +118,20 @@ Everything is driven by `hub.config.json`. Here's the full config with all optio
     "playbooks": true,
     "workshops": true
   },
+  "content": {
+    "exclude_paths": ["advanced/research-papers"],
+    "custom_order": ["learning/foundations/what-is-ai/what-is-ai.md", "learning/foundations/python-setup/python-setup.md"],
+    "local_content": [
+      {
+        "title": "Fall 2025 Innovation Labs Recap",
+        "description": "Project highlights from our first Innovation Labs event.",
+        "path": "local/innovation-labs-fall-2025.md",
+        "type": "local",
+        "section": "learning",
+        "thumbnail": ""
+      }
+    ]
+  },
   "content_url": "https://all-ai-network.org"
 }
 ```
@@ -157,6 +171,60 @@ Toggle content sections on or off:
 
 Disabled sections and their nav links are hidden entirely.
 
+### Content Customization
+
+The `content` block lets you curate what your hub shows — exclude content that's not relevant to your chapter, set a custom learning order, and add your own local articles.
+
+#### Exclude content
+
+Remove specific paths from the shared content library. Useful for hiding advanced topics your club hasn't reached yet, or content that doesn't fit your focus:
+
+```json
+"exclude_paths": ["advanced/research-papers", "learning/specialized/robotics"]
+```
+
+Paths match exactly or as prefixes — `"advanced"` excludes everything under the `advanced/` folder.
+
+#### Custom ordering
+
+Control the order content appears on your site instead of the default alphabetical sort:
+
+```json
+"custom_order": [
+  "learning/foundations/what-is-ai/what-is-ai.md",
+  "learning/foundations/python-setup/python-setup.md"
+]
+```
+
+Items listed here appear first, in the order specified. Everything else follows alphabetically after.
+
+#### Local content
+
+Add your own markdown articles — event recaps, project write-ups, sponsor spotlights, announcements — that live in your hub repo, not the shared content library:
+
+```json
+"local_content": [
+  {
+    "title": "Fall 2025 Innovation Labs Recap",
+    "description": "Project highlights and outcomes from our first Innovation Labs event.",
+    "path": "local/innovation-labs-fall-2025.md",
+    "type": "local",
+    "section": "learning",
+    "thumbnail": ""
+  }
+]
+```
+
+| Field | What it does |
+|---|---|
+| `title` | Card title on the home page |
+| `description` | Card description text |
+| `path` | Path to your `.md` file relative to the repo root (must be in `local/`) |
+| `section` | Where the card appears: `"learning"`, `"workshops"`, or `"playbooks"` |
+| `thumbnail` | Optional image path (relative to repo root) |
+
+Local content cards are tagged with a **Chapter** badge so students can distinguish hub-specific content from the shared curriculum. Drop your `.md` files in the `local/` folder and reference them in the config.
+
 ### Social links
 
 Fill in what you have, leave the rest empty. Only links with URLs appear on the site.
@@ -173,11 +241,12 @@ npm run preview   # Preview production build
 ## Project Structure
 
 ```
-hub.config.json          Your chapter identity, theme, and feature flags
+hub.config.json          Your chapter identity, theme, content curation, and feature flags
 index.html               Home page
 article.html             Inline content viewer (learning articles, workshops, playbooks)
+local/                   Your chapter's own markdown content (event recaps, projects, etc.)
 src/
-├── main.ts              Home page: config, content fetching, rendering
+├── main.ts              Home page: config, content fetching, filtering, rendering
 ├── article.ts           Article page: markdown rendering with custom directives
 └── styles/
     ├── hub.css          Home page styles (themed by config)

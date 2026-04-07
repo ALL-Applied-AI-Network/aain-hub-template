@@ -198,33 +198,41 @@ async function init() {
   document.documentElement.style.setProperty('--color-accent', (config as any).theme?.accent_color || '#06b6d4');
 
   const params = new URLSearchParams(window.location.search);
-  const path = params.get('path');
+  const remotePath = params.get('path');
+  const localPath = params.get('local');
 
   const container = document.getElementById('article-content');
-  if (!container || !path) {
+  if (!container || (!remotePath && !localPath)) {
     if (container) container.innerHTML = '<p class="muted">No content path specified.</p>';
     return;
   }
+
+  const isLocal = !!localPath;
+  const path = (localPath || remotePath)!;
 
   // Set breadcrumb
   const parts = path.split('/');
   const sectionName = parts[0] || 'Content';
   const fileName = parts[parts.length - 1]?.replace('.md', '').replace(/^\d+-/, '').replace(/-/g, ' ') || '';
-  setText('breadcrumb-section', `${sectionName.charAt(0).toUpperCase() + sectionName.slice(1)} / ${fileName}`);
+  const breadcrumbPrefix = isLocal ? 'Chapter' : sectionName.charAt(0).toUpperCase() + sectionName.slice(1);
+  setText('breadcrumb-section', `${breadcrumbPrefix} / ${fileName}`);
 
-  // Fetch content from the content repo
-  const url = `${config.content_url}/${path}`;
+  // Local content is served from the hub's own build output; remote from content_url
+  const url = isLocal ? `./${path}` : `${config.content_url}/${path}`;
+  const basePath = path.substring(0, path.lastIndexOf('/') + 1);
+
   try {
     const resp = await fetch(url);
     if (!resp.ok) throw new Error(`${resp.status}`);
     const md = await resp.text();
 
-    // Rewrite relative image paths to absolute
-    const basePath = path.substring(0, path.lastIndexOf('/') + 1);
-    const rewrittenMd = md.replace(
-      /!\[([^\]]*)\]\((?!https?:\/\/)([^)]+)\)/g,
-      (_, alt, src) => `![${alt}](${config.content_url}/${basePath}${src})`
-    );
+    // Rewrite relative image paths — local images stay relative, remote get absolute URLs
+    const rewrittenMd = isLocal
+      ? md  // Local content: images are relative to the hub site, no rewriting needed
+      : md.replace(
+          /!\[([^\]]*)\]\((?!https?:\/\/)([^)]+)\)/g,
+          (_, alt, src) => `![${alt}](${config.content_url}/${basePath}${src})`
+        );
 
     const html = await renderMarkdown(rewrittenMd);
     container.innerHTML = html;
@@ -242,8 +250,13 @@ async function init() {
     container.querySelectorAll<HTMLAnchorElement>('a[href]').forEach(a => {
       const href = a.getAttribute('href') || '';
       if (href.endsWith('.md') && !href.startsWith('http')) {
-        const resolvedPath = new URL(href, `${config.content_url}/${basePath}`).pathname.replace(/^\//, '');
-        a.href = `./article.html?path=${resolvedPath}`;
+        if (isLocal) {
+          // Local links resolve relative to the local/ folder
+          a.href = `./article.html?local=${basePath}${href}`;
+        } else {
+          const resolvedPath = new URL(href, `${config.content_url}/${basePath}`).pathname.replace(/^\//, '');
+          a.href = `./article.html?path=${resolvedPath}`;
+        }
       }
     });
 

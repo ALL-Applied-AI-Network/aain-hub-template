@@ -42,5 +42,19 @@
     "playbooks": true,
     "workshops": true
   },
+  "content": {
+    "exclude_paths": [],
+    "custom_order": [],
+    "local_content": [
+      {
+        "title": "Fall 2025 Innovation Labs Recap",
+        "description": "Project highlights and outcomes from our first Innovation Labs event.",
+        "path": "local/innovation-labs-fall-2025.md",
+        "type": "local",
+        "section": "learning",
+        "thumbnail": ""
+      }
+    ]
+  },
   "content_url": "https://all-ai-network.org"
 }

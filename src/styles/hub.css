@@ -281,6 +281,7 @@ img { max-width: 100%; display: block; }
 .card__badge--intermediate { background: #1e3a5f; color: #7dd3fc; }
 .card__badge--advanced { background: #4c1d95; color: #c4b5fd; }
 .card__badge--expert { background: #7f1d1d; color: #fca5a5; }
+.card__badge--local { background: rgba(var(--color-primary-rgb), 0.2); color: var(--color-primary); }
 
 .card__meta {
   font-size: 0.75rem;

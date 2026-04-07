@@ -1,5 +1,20 @@
 declare const __HUB_CONFIG__: HubConfig;
 
+interface LocalContentEntry {
+  title: string;
+  description: string;
+  path: string;
+  type: 'local';
+  section: 'learning' | 'workshops' | 'playbooks';
+  thumbnail?: string;
+}
+
+interface ContentConfig {
+  exclude_paths: string[];
+  custom_order: string[];
+  local_content: LocalContentEntry[];
+}
+
 interface HubConfig {
   hub_name: string;
   hub_acronym: string;
@@ -19,6 +34,7 @@ interface HubConfig {
     playbooks: boolean;
     workshops: boolean;
   };
+  content?: ContentConfig;
   content_url: string;
 }
 
@@ -193,18 +209,29 @@ async function fetchJSON<T>(url: string): Promise<T | null> {
   }
 }
 
-function renderCard(entry: { title: string; description?: string; thumbnail?: string; path?: string; difficulty?: string; estimated_minutes?: number }): string {
-  const thumb = entry.thumbnail
-    ? `<img class="card__thumb" src="${config.content_url}/${entry.thumbnail}" alt="" loading="lazy" />`
+function isLocalPath(path: string): boolean {
+  return path.startsWith('local/');
+}
+
+function renderCard(entry: { title: string; description?: string; thumbnail?: string; path?: string; difficulty?: string; estimated_minutes?: number; isLocal?: boolean }): string {
+  const local = entry.isLocal || (entry.path && isLocalPath(entry.path));
+  const thumbSrc = entry.thumbnail
+    ? (local ? entry.thumbnail : `${config.content_url}/${entry.thumbnail}`)
+    : '';
+  const thumb = thumbSrc
+    ? `<img class="card__thumb" src="${thumbSrc}" alt="" loading="lazy" />`
     : '';
 
   const meta = [
     entry.difficulty ? `<span class="card__badge card__badge--${entry.difficulty}">${entry.difficulty}</span>` : '',
     entry.estimated_minutes ? `<span class="card__meta">${entry.estimated_minutes} min</span>` : '',
+    local ? '<span class="card__badge card__badge--local">Chapter</span>' : '',
   ].filter(Boolean).join('');
 
-  // Link to local article page for inline rendering
-  const href = entry.path ? `./article.html?path=${entry.path}` : '#';
+  // Local content uses a local= param; remote uses path= param
+  const href = entry.path
+    ? (local ? `./article.html?local=${entry.path}` : `./article.html?path=${entry.path}`)
+    : '#';
 
   return `
     <a href="${href}" class="card">
@@ -216,6 +243,34 @@ function renderCard(entry: { title: string; description?: string; thumbnail?: st
       </div>
     </a>
   `;
+}
+
+function isPathExcluded(path: string | undefined): boolean {
+  if (!path || !config.content?.exclude_paths?.length) return false;
+  return config.content.exclude_paths.some(excluded =>
+    path === excluded || path.startsWith(excluded + '/')
+  );
+}
+
+function applyCustomOrder<T extends { path?: string; content_path?: string }>(items: T[]): T[] {
+  const order = config.content?.custom_order;
+  if (!order?.length) return items;
+
+  const orderMap = new Map(order.map((p, i) => [p, i]));
+
+  return items.sort((a, b) => {
+    const pathA = a.path || a.content_path || '';
+    const pathB = b.path || b.content_path || '';
+    const idxA = orderMap.has(pathA) ? orderMap.get(pathA)! : Infinity;
+    const idxB = orderMap.has(pathB) ? orderMap.get(pathB)! : Infinity;
+    if (idxA !== Infinity || idxB !== Infinity) return idxA - idxB;
+    // Fallback: alphabetical for un-ordered items
+    return (a as any).title?.localeCompare?.((b as any).title) || 0;
+  });
+}
+
+function getLocalContentForSection(section: string): LocalContentEntry[] {
+  return config.content?.local_content?.filter(lc => lc.section === section) || [];
 }
 
 async function loadLearningTree() {
@@ -231,16 +286,21 @@ async function loadLearningTree() {
     return;
   }
 
-  const entryNodes = tree.nodes
+  // Filter out excluded paths
+  let entryNodes = tree.nodes
     .filter(n => n.layer === 0)
-    .sort((a, b) => a.title.localeCompare(b.title));
+    .filter(n => !isPathExcluded(n.content_path));
 
-  if (!entryNodes.length) {
-    grid.innerHTML = '<p class="muted">No learning content available yet.</p>';
-    return;
+  // Apply custom ordering
+  entryNodes = applyCustomOrder(entryNodes);
+
+  // If no custom order, default to alphabetical
+  if (!config.content?.custom_order?.length) {
+    entryNodes.sort((a, b) => a.title.localeCompare(b.title));
   }
 
-  grid.innerHTML = entryNodes.map(node =>
+  // Build cards from remote content
+  const remoteCards = entryNodes.map(node =>
     renderCard({
       title: node.title,
       description: node.description,
@@ -249,7 +309,27 @@ async function loadLearningTree() {
       difficulty: node.difficulty,
       estimated_minutes: node.estimated_minutes,
     })
-  ).join('');
+  );
+
+  // Inject local content for the learning section
+  const localCards = getLocalContentForSection('learning').map(lc =>
+    renderCard({
+      title: lc.title,
+      description: lc.description,
+      thumbnail: lc.thumbnail,
+      path: lc.path,
+      isLocal: true,
+    })
+  );
+
+  const allCards = [...localCards, ...remoteCards];
+
+  if (!allCards.length) {
+    grid.innerHTML = '<p class="muted">No learning content available yet.</p>';
+    return;
+  }
+
+  grid.innerHTML = allCards.join('');
 }
 
 async function loadManifestSection(type: 'workshop' | 'playbook', gridId: string, sectionId: string) {
@@ -266,13 +346,33 @@ async function loadManifestSection(type: 'workshop' | 'playbook', gridId: string
     return;
   }
 
-  const items = manifest.content.filter(c => c.type === type);
-  if (!items.length) {
+  // Filter out excluded paths from remote content
+  const items = manifest.content
+    .filter(c => c.type === type)
+    .filter(c => !isPathExcluded(c.path));
+
+  const remoteCards = items.map(item => renderCard(item));
+
+  // Inject local content for this section
+  const sectionKey = type === 'workshop' ? 'workshops' : 'playbooks';
+  const localCards = getLocalContentForSection(sectionKey).map(lc =>
+    renderCard({
+      title: lc.title,
+      description: lc.description,
+      thumbnail: lc.thumbnail,
+      path: lc.path,
+      isLocal: true,
+    })
+  );
+
+  const allCards = [...localCards, ...remoteCards];
+
+  if (!allCards.length) {
     grid.innerHTML = `<p class="muted">No ${type}s available yet.</p>`;
     return;
   }
 
-  grid.innerHTML = items.map(item => renderCard(item)).join('');
+  grid.innerHTML = allCards.join('');
 }
 
 function hideSection(id: string) {
