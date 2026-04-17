@@ -1,4 +1,10 @@
-# ALL Applied AI Network — Hub Template
+<p align="center">
+  <a href="https://all-ai-network.org">
+    <img src="public/all-logo-transparent.png" alt="ALL Applied AI Network" width="140" />
+  </a>
+</p>
+
+<h1 align="center">ALL Applied AI Network — Hub Template</h1>
 
 <p align="center">
   <strong>Fork this repo. Edit one file. Your chapter website is live.</strong>
