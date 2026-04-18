@@ -83,6 +83,16 @@ The content library is a static JSON + Markdown API — no authentication, no SD
 
 Content updates happen upstream in [`aain-content`](https://github.com/ALL-Applied-AI-Network/aain-content). Your hub fetches it at runtime — when the network adds a new learning node or workshop, every hub gets it automatically.
 
+## Dashboard integrations
+
+Every hub can pull live data from the ALL Applied AI Network dashboard (events, leaderboard, chapter stats) using an API key. The canonical list of available integrations lives in **[`public/integrations.json`](./public/integrations.json)** — it describes every supported endpoint with code snippets, response shapes, and agent prompts.
+
+This file is the single source of truth:
+- The **hub template** itself uses these definitions to render live widgets.
+- The **dashboard** (`dashboard.all-ai-network.org/website`) fetches this file and surfaces the same snippets to every hub.
+
+To add a new integration, edit `integrations.json` here. Both surfaces update on the next deploy.
+
 ## Customization
 
 Everything is driven by `hub.config.json`. Here's the full config with all options:

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://all-ai-network.org/schemas/integrations.schema.json",
+  "version": "1.0.0",
+  "description": "Canonical list of ALL Applied AI Network dashboard API integrations. This file is the ground truth for the hub website template — it drives both the template's own rendering code and the Website tab inside dashboard.all-ai-network.org. Edit this file to add or change integrations.",
+  "apiBase": "https://dashboard.all-ai-network.org",
+  "envVar": "AAIN_API_KEY",
+  "integrations": [
+    {
+      "id": "events",
+      "title": "Upcoming events",
+      "description": "Render your chapter's next events on your homepage. Auto-updates as you add events in the dashboard.",
+      "iconKey": "calendar",
+      "accent": "#4f8fea",
+      "endpoint": {
+        "method": "GET",
+        "path": "/api/v1/events",
+        "example": "/api/v1/events?upcoming=true&limit=5",
+        "queryParams": [
+          { "name": "upcoming", "type": "boolean", "description": "Return only events in the future" },
+          { "name": "limit", "type": "integer", "description": "Max number of events to return (1-100)" }
+        ]
+      },
+      "templatePath": "src/components/events-section.ts",
+      "snippets": {
+        "javascript": "// Fetch the next 5 upcoming events\nconst res = await fetch(\n  \"https://dashboard.all-ai-network.org/api/v1/events?upcoming=true&limit=5\",\n  {\n    headers: { Authorization: `Bearer ${process.env.AAIN_API_KEY}` },\n  }\n);\nconst { events } = await res.json();\n\n// Render however you like\nevents.forEach((e) => {\n  console.log(e.title, new Date(e.date).toLocaleString());\n});",
+        "curl": "curl -H \"Authorization: Bearer $AAIN_API_KEY\" \\\n  \"https://dashboard.all-ai-network.org/api/v1/events?upcoming=true&limit=5\"",
+        "response": "{\n  \"events\": [\n    {\n      \"id\": \"evt_abc123\",\n      \"title\": \"Intro to Applied AI\",\n      \"description\": \"Kick-off session for the semester.\",\n      \"type\": \"workshop\",\n      \"date\": \"2026-09-12T23:30:00.000Z\",\n      \"points_attend\": 10,\n      \"points_win\": 0,\n      \"checkin_count\": 42\n    }\n  ]\n}",
+        "agentPrompt": "Add an \"Upcoming Events\" section to the homepage of this site.\n\nData source: ALL Applied AI Network dashboard API.\n- Endpoint: GET https://dashboard.all-ai-network.org/api/v1/events?upcoming=true&limit=5\n- Auth: `Authorization: Bearer ${process.env.AAIN_API_KEY}` (the env var is already set — never hardcode it)\n- Response:\n    {\n      \"events\": [\n        { \"id\": \"evt_...\", \"title\": \"Intro to Applied AI\", \"description\": \"...\", \"type\": \"workshop\", \"date\": \"2026-09-12T23:30:00.000Z\", \"points_attend\": 10, \"points_win\": 0, \"checkin_count\": 42 }\n      ]\n    }\n\nRequirements:\n1. Fetch server-side (or at build time) so the API key never ships to the browser.\n2. Render each event as a card showing the title, a one-line description, a human-formatted date (\"Sep 12 · 6:30 PM\"), an event-type badge, and the checkin count.\n3. Empty state when there are no upcoming events — show a friendly message and a link to the chapter's Discord or email, whichever is set in hub.config.json.\n4. Match the existing design tokens (typography, spacing, colors) used by the rest of this codebase. Inspect sibling components before writing styles.\n5. Handle fetch errors gracefully — render a simple \"Check back soon\" fallback instead of crashing the page.\n\nPlace the section between the hero and the about-us content."
+      }
+    },
+    {
+      "id": "leaderboard",
+      "title": "Leaderboard",
+      "description": "Show the top members by XP. Great for a homepage widget or a dedicated members page.",
+      "iconKey": "leaderboard",
+      "accent": "#f59e0b",
+      "endpoint": {
+        "method": "GET",
+        "path": "/api/v1/leaderboard",
+        "example": "/api/v1/leaderboard?limit=10",
+        "queryParams": [
+          { "name": "limit", "type": "integer", "description": "Max number of members to return (1-100)" }
+        ]
+      },
+      "templatePath": "src/components/leaderboard-widget.ts",
+      "snippets": {
+        "javascript": "// Fetch the top 10 members by XP\nconst res = await fetch(\n  \"https://dashboard.all-ai-network.org/api/v1/leaderboard?limit=10\",\n  {\n    headers: { Authorization: `Bearer ${process.env.AAIN_API_KEY}` },\n  }\n);\nconst { leaderboard } = await res.json();\n\nleaderboard.forEach((row) => {\n  console.log(`#${row.rank} ${row.name} — ${row.points} XP`);\n});",
+        "curl": "curl -H \"Authorization: Bearer $AAIN_API_KEY\" \\\n  \"https://dashboard.all-ai-network.org/api/v1/leaderboard?limit=10\"",
+        "response": "{\n  \"leaderboard\": [\n    { \"name\": \"Jane Doe\",   \"points\": 1250, \"events_attended\": 18, \"rank\": 1 },\n    { \"name\": \"John Smith\", \"points\": 1100, \"events_attended\": 16, \"rank\": 2 },\n    { \"name\": \"Aisha Khan\", \"points\":  980, \"events_attended\": 14, \"rank\": 3 }\n  ]\n}",
+        "agentPrompt": "Add a \"Top Members\" leaderboard widget to this site.\n\nData source: ALL Applied AI Network dashboard API.\n- Endpoint: GET https://dashboard.all-ai-network.org/api/v1/leaderboard?limit=10\n- Auth: `Authorization: Bearer ${process.env.AAIN_API_KEY}` (env var already set)\n- Response:\n    {\n      \"leaderboard\": [\n        { \"name\": \"Jane Doe\", \"points\": 1250, \"events_attended\": 18, \"rank\": 1 }\n      ]\n    }\n\nRequirements:\n1. Fetch server-side so the API key stays private.\n2. Render as a ranked list: 3 columns — rank (prominent), name (with events_attended as secondary text below), XP (right-aligned, large).\n3. Give the top 3 a gold/silver/bronze treatment (accent color on the rank number + subtle background tint).\n4. Cache for 1 hour (or per-request if this site is fully static).\n5. Match the existing design system — reuse typography and spacing tokens from sibling components.\n\nAdd it as a homepage section below events, or as a dedicated /leaderboard route — whichever fits the current routing conventions."
+      }
+    },
+    {
+      "id": "chapter",
+      "title": "Chapter stats",
+      "description": "Pull your chapter's name, university, member count, and event count — perfect for a hero banner or footer.",
+      "iconKey": "building",
+      "accent": "#a855f7",
+      "endpoint": {
+        "method": "GET",
+        "path": "/api/v1/chapter",
+        "example": "/api/v1/chapter",
+        "queryParams": []
+      },
+      "templatePath": "src/components/hero.ts",
+      "snippets": {
+        "javascript": "// Fetch chapter metadata + headline stats\nconst res = await fetch(\n  \"https://dashboard.all-ai-network.org/api/v1/chapter\",\n  {\n    headers: { Authorization: `Bearer ${process.env.AAIN_API_KEY}` },\n  }\n);\nconst { chapter } = await res.json();\n\n// e.g. \"500 members · 142 events run\"\ndocument.querySelector(\"#chapter-stats\").textContent =\n  `${chapter.member_count} members · ${chapter.event_count} events run`;",
+        "curl": "curl -H \"Authorization: Bearer $AAIN_API_KEY\" \\\n  \"https://dashboard.all-ai-network.org/api/v1/chapter\"",
+        "response": "{\n  \"chapter\": {\n    \"name\": \"MSOE AI Club\",\n    \"university\": \"Milwaukee School of Engineering\",\n    \"slug\": \"msoe\",\n    \"member_count\": 500,\n    \"event_count\": 142\n  }\n}",
+        "agentPrompt": "Add live chapter statistics to the hero section of this site.\n\nData source: ALL Applied AI Network dashboard API.\n- Endpoint: GET https://dashboard.all-ai-network.org/api/v1/chapter\n- Auth: `Authorization: Bearer ${process.env.AAIN_API_KEY}` (env var already set)\n- Response:\n    {\n      \"chapter\": {\n        \"name\": \"MSOE AI Club\",\n        \"university\": \"Milwaukee School of Engineering\",\n        \"slug\": \"msoe\",\n        \"member_count\": 500,\n        \"event_count\": 142\n      }\n    }\n\nRequirements:\n1. Fetch at build time so numbers are embedded in the static HTML — no client loading state needed.\n2. Render as a 3-stat strip below the hero headline: member_count, event_count, and one derived stat (e.g., average events per month based on a chapter-age field in hub.config.json).\n3. Format: large number on top, small label below each, horizontally arranged and responsive.\n4. Replace any existing hardcoded \"500+ members\" text in the hero/about sections with these dynamic values.\n5. If the fetch fails at build, fall back to the values in hub.config.json so the site still builds.\n\nKeep animation minimal — a subtle fade-in on scroll is fine; avoid count-up animations that hurt Lighthouse scores."
+      }
+    }
+  ]
+}

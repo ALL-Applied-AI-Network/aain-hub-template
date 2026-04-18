@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "hub-dev",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["-c", "export PATH=/opt/homebrew/bin:$PATH && cd /Users/ben_paulson/Documents/AHEAD-AI/aai-society-template/hub && npx vite --port 5173"],
+      "port": 5173
+    }
+  ]
+}
