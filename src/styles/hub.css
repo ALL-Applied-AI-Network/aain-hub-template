@@ -74,6 +74,17 @@ img { max-width: 100%; display: block; }
   font-size: 1.1rem;
 }
 
+/* Swapped in by main.ts when the dashboard has a custom logo uploaded.
+   Starts hidden via the [hidden] attribute; JS flips that + hides the
+   acronym text to the side so the logo takes its place. */
+.nav__logo-img {
+  height: 32px;
+  width: auto;
+  max-width: 160px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
 .nav__links { display: flex; gap: 1.5rem; }
 
 .nav__link {

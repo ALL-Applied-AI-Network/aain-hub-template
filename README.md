@@ -93,6 +93,36 @@ This file is the single source of truth:
 
 To add a new integration, edit `integrations.json` here. Both surfaces update on the next deploy.
 
+## Dashboard-controlled config (theme, logo, sections)
+
+**Anything your eboard might want to change without opening this repo is controlled from the dashboard's Website → Customize tab, not `hub.config.json`.** The hub-template fetches this config at every page load from a public, no-auth endpoint:
+
+```
+GET https://dashboard.all-ai-network.org/api/public/config/{hub_id}
+```
+
+where `{hub_id}` matches `hub_id` in `hub.config.json` (also your chapter slug on the dashboard). Response:
+
+```json
+{
+  "config": {
+    "theme":    { "primary": "#4f8fea", "accent": "#a855f7" },
+    "logo_url": "https://.../logo.png" | null,
+    "sections": { "hero": true, "events": true, "leaderboard": true, ... },
+    "updated_at": "2026-04-19T19:14:02.000Z"
+  }
+}
+```
+
+[`src/main.ts`](src/main.ts) applies the response on load:
+- **Theme** → sets `--color-primary`, `--color-accent`, `--color-primary-rgb` on `:root` so the whole site recolors without a rebuild.
+- **Logo** → swaps the `#nav-logo-img` element in for the text acronym when `logo_url` is non-null.
+- **Sections** → any section toggled off is **removed from the DOM entirely** (not just hidden) along with its nav link, so layouts don't end up with visual gaps.
+
+**Fallback behavior:** if the fetch fails (dashboard unreachable, CORS hiccup, no chapter row yet), the page falls back to the bundled `hub.config.json` — the site always renders.
+
+**For AI agents maintaining a forked hub site:** don't duplicate these values into `hub.config.json` — they're the dashboard's responsibility. The local config is the offline / first-deploy fallback only. If you need to add a new section that should be togglable from the dashboard, add its key to `KNOWN_SECTIONS` in `aain-api/src/lib/hub-config.ts` and to the `SECTION_MAP` in `src/main.ts::applyRemoteSections`.
+
 ## Customization
 
 Everything is driven by `hub.config.json`. Here's the full config with all options:

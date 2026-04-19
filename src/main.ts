@@ -67,6 +67,99 @@ interface TreeData {
 
 const config = __HUB_CONFIG__;
 
+/**
+ * Remote config fetched from the dashboard's public no-auth endpoint.
+ * Lets the eboard edit theme colors, logo, and section visibility
+ * from dashboard.all-ai-network.org/website → Customize without
+ * touching this repo. Falls back to the bundled hub.config.json on
+ * any failure — the site always renders.
+ */
+type RemoteConfig = {
+  theme: { primary: string; accent: string };
+  logo_url: string | null;
+  sections: Record<string, boolean>;
+  updated_at: string | null;
+};
+
+const DASHBOARD_ORIGIN = 'https://dashboard.all-ai-network.org';
+
+async function loadRemoteConfig(): Promise<RemoteConfig | null> {
+  const slug = config.hub_id?.trim().toLowerCase();
+  if (!slug) return null;
+  try {
+    const res = await fetch(
+      `${DASHBOARD_ORIGIN}/api/public/config/${encodeURIComponent(slug)}`,
+      { cache: 'no-store' }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.config ?? null;
+  } catch {
+    // Dashboard unreachable, CORS oddity, etc. — we fall back to the
+    // locally-bundled config rather than breaking the page.
+    return null;
+  }
+}
+
+/**
+ * Apply remote section toggles before the render functions run. A
+ * "false" toggle removes the section from the DOM entirely (not just
+ * display:none — we drop the element so layouts that rely on stacked
+ * sections don't end up with visual gaps), and hides its matching
+ * nav link if one exists.
+ */
+function applyRemoteSections(sections: Record<string, boolean> | undefined) {
+  if (!sections) return;
+  const SECTION_MAP: Record<string, { sectionId?: string; navHref?: string }> = {
+    hero: { sectionId: 'hero' },
+    about: { sectionId: 'about', navHref: '#about' },
+    events: { sectionId: 'events', navHref: '#events' },
+    officers: { sectionId: 'officers-grid' }, // lives inside #about
+    learning_tree: { sectionId: 'learning', navHref: '#learning' },
+    workshops: { sectionId: 'workshops', navHref: '#workshops' },
+    playbooks: { sectionId: 'playbooks', navHref: '#playbooks' },
+    // leaderboard / badges / merch are forthcoming sections — the
+    // toggles exist on the dashboard already; the hub-template doesn't
+    // render them yet. Future renderers should respect these keys.
+  };
+  for (const [key, on] of Object.entries(sections)) {
+    if (on) continue;
+    const map = SECTION_MAP[key];
+    if (!map) continue;
+    if (map.sectionId) {
+      const el = document.getElementById(map.sectionId);
+      el?.remove();
+    }
+    if (map.navHref) {
+      const link = document.querySelector(`.nav__link[href="${map.navHref}"]`);
+      link?.remove();
+    }
+  }
+}
+
+function applyRemoteTheme(theme: { primary: string; accent: string }) {
+  const root = document.documentElement;
+  root.style.setProperty('--color-primary', theme.primary);
+  root.style.setProperty('--color-accent', theme.accent);
+  root.style.setProperty('--color-primary-rgb', hexToRgb(theme.primary));
+}
+
+function applyRemoteLogo(logoUrl: string | null) {
+  const img = document.getElementById('nav-logo-img') as HTMLImageElement | null;
+  const acronym = document.getElementById('nav-acronym');
+  if (!img || !acronym) return;
+  if (logoUrl) {
+    img.src = logoUrl;
+    img.hidden = false;
+    img.setAttribute('aria-hidden', 'false');
+    acronym.style.display = 'none';
+  } else {
+    img.removeAttribute('src');
+    img.hidden = true;
+    acronym.style.display = '';
+  }
+}
+
 function hexToRgb(hex: string): string {
   const h = hex.replace('#', '');
   const r = parseInt(h.substring(0, 2), 16);
@@ -381,7 +474,25 @@ function hideSection(id: string) {
 }
 
 async function init() {
+  // 1. Apply everything we can from the bundled config (instant; no
+  //    network). The page already looks right by the time the remote
+  //    fetch finishes.
   applyConfig();
+
+  // 2. Fetch the dashboard-managed config in parallel. When it returns,
+  //    layer its theme / logo / section toggles on top of the local
+  //    defaults. Section removal has to happen BEFORE render fns below,
+  //    so we await this step even though it adds ~100ms.
+  const remote = await loadRemoteConfig();
+  if (remote) {
+    applyRemoteSections(remote.sections);
+    applyRemoteTheme(remote.theme);
+    applyRemoteLogo(remote.logo_url);
+  }
+
+  // 3. Render the remote-content-driven sections. These skip themselves
+  //    when their section element was removed in step 2 (document.
+  //    getElementById returns null).
   await Promise.all([
     loadLearningTree(),
     loadManifestSection('workshop', 'workshops-grid', 'workshops'),

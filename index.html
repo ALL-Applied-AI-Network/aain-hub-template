@@ -14,6 +14,15 @@
   <nav class="nav">
     <div class="nav__inner">
       <a href="/" class="nav__brand">
+        <!-- When the dashboard's Customize tab has a logo uploaded,
+             main.ts swaps this hidden <img> in for the acronym text. -->
+        <img
+          id="nav-logo-img"
+          class="nav__logo-img"
+          alt=""
+          hidden
+          aria-hidden="true"
+        />
         <span class="nav__logo" id="nav-acronym">HUB</span>
         <span class="nav__name" id="nav-hub-name">Hub</span>
       </a>
