@@ -1,6 +1,6 @@
 {
   "$schema": "https://all-ai-network.org/schemas/integrations.schema.json",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Canonical list of ALL Applied AI Network dashboard API integrations. This file is the ground truth for the hub website template — it drives both the template's own rendering code and the Website tab inside dashboard.all-ai-network.org. Edit this file to add or change integrations.",
   "apiBase": "https://dashboard.all-ai-network.org",
   "envVar": "AAIN_API_KEY",
@@ -68,6 +68,51 @@
         "curl": "curl -H \"Authorization: Bearer $AAIN_API_KEY\" \\\n  \"https://dashboard.all-ai-network.org/api/v1/chapter\"",
         "response": "{\n  \"chapter\": {\n    \"name\": \"MSOE AI Club\",\n    \"university\": \"Milwaukee School of Engineering\",\n    \"slug\": \"msoe\",\n    \"member_count\": 500,\n    \"event_count\": 142\n  }\n}",
         "agentPrompt": "Add live chapter statistics to the hero section of this site.\n\nData source: ALL Applied AI Network dashboard API.\n- Endpoint: GET https://dashboard.all-ai-network.org/api/v1/chapter\n- Auth: `Authorization: Bearer ${process.env.AAIN_API_KEY}` (env var already set)\n- Response:\n    {\n      \"chapter\": {\n        \"name\": \"MSOE AI Club\",\n        \"university\": \"Milwaukee School of Engineering\",\n        \"slug\": \"msoe\",\n        \"member_count\": 500,\n        \"event_count\": 142\n      }\n    }\n\nRequirements:\n1. Fetch at build time so numbers are embedded in the static HTML — no client loading state needed.\n2. Render as a 3-stat strip below the hero headline: member_count, event_count, and one derived stat (e.g., average events per month based on a chapter-age field in hub.config.json).\n3. Format: large number on top, small label below each, horizontally arranged and responsive.\n4. Replace any existing hardcoded \"500+ members\" text in the hero/about sections with these dynamic values.\n5. If the fetch fails at build, fall back to the values in hub.config.json so the site still builds.\n\nKeep animation minimal — a subtle fade-in on scroll is fine; avoid count-up animations that hurt Lighthouse scores."
+      }
+    },
+    {
+      "id": "badges",
+      "title": "Chapter badges",
+      "description": "Render the full catalog of recognition badges your chapter awards — with their name, description, icon, and how many members have earned each one.",
+      "iconKey": "award",
+      "accent": "#10b981",
+      "endpoint": {
+        "method": "GET",
+        "path": "/api/v1/badges",
+        "example": "/api/v1/badges?limit=100",
+        "queryParams": [
+          { "name": "limit", "type": "integer", "description": "Max badges to return (1-500, default 100)" }
+        ]
+      },
+      "templatePath": "src/components/badges-wall.ts",
+      "snippets": {
+        "javascript": "// Pull every badge your chapter offers, sorted by creation order\nconst res = await fetch(\n  \"https://dashboard.all-ai-network.org/api/v1/badges\",\n  {\n    headers: { Authorization: `Bearer ${process.env.AAIN_API_KEY}` },\n  }\n);\nconst { badges } = await res.json();\n\n// `icon` is either a built-in key (\"trophy\", \"award\", ...) OR a full\n// https URL to a custom image uploaded through the dashboard. Detect\n// the URL case and render <img> for it; otherwise pick a local SVG.\nbadges.forEach((b) => {\n  const isCustom = typeof b.icon === \"string\" && b.icon.startsWith(\"http\");\n  console.log(b.name, isCustom ? \"(custom image)\" : `(built-in: ${b.icon})`, `${b.award_count} earned`);\n});",
+        "curl": "curl -H \"Authorization: Bearer $AAIN_API_KEY\" \\\n  \"https://dashboard.all-ai-network.org/api/v1/badges\"",
+        "response": "{\n  \"badges\": [\n    {\n      \"id\": \"bdg_nvidia_dli\",\n      \"name\": \"NVIDIA DLI\",\n      \"description\": \"Completed an NVIDIA Deep Learning Institute certification.\",\n      \"icon\": \"https://gdxifnnfirnzljtxnhch.supabase.co/storage/v1/object/public/badge-icons/<chapter>/nvidia-dli.png\",\n      \"award_count\": 23\n    },\n    {\n      \"id\": \"bdg_rosie_finalist\",\n      \"name\": \"ROSIE Competition Finalist\",\n      \"description\": \"Top 8 finish in the annual MAIC ROSIE hackathon.\",\n      \"icon\": \"award\",\n      \"award_count\": 16\n    }\n  ]\n}",
+        "agentPrompt": "Build a \"Badges Wall\" section that showcases every recognition badge the chapter awards, with a count of how many members have earned each one.\n\nData source: ALL Applied AI Network dashboard API.\n- Endpoint: GET https://dashboard.all-ai-network.org/api/v1/badges\n- Auth: `Authorization: Bearer ${process.env.AAIN_API_KEY}` (env var already set — never hardcode it)\n- Response shape:\n    {\n      \"badges\": [\n        { \"id\": \"bdg_...\", \"name\": \"NVIDIA DLI\", \"description\": \"...\", \"icon\": \"https://.../nvidia-dli.png\", \"award_count\": 23 },\n        { \"id\": \"bdg_...\", \"name\": \"ROSIE Finalist\", \"description\": \"...\", \"icon\": \"award\",                        \"award_count\": 16 }\n      ]\n    }\n\nCritical: the `icon` field has TWO forms.\n  - Custom image: starts with `https://` — render an <img src={icon} alt=\"\" /> sized to match the built-in icons. The image will already be optimized (we cap uploads at 1 MB).\n  - Built-in key: a short string like \"trophy\", \"award\", \"star\", \"nvidia\". Use your existing local SVG icon set (or a library like lucide-react) to render it. If the key isn't recognized, fall back to a generic award icon.\n\nRequirements:\n1. Fetch server-side (or at build) so the key stays private.\n2. Render as a responsive grid of cards: icon top-left (~40px), badge name, one-line description, and a subtle \"<N> earned\" pill. Cards should read in 3 seconds — don't crowd them.\n3. Sort by award_count descending so the most-earned badges appear first — that's what visitors want to see.\n4. If the chapter has 0 badges, skip rendering the section entirely (no empty state — just hide it).\n5. Match the existing design tokens (typography, spacing, color) used by the rest of this codebase; inspect sibling components before writing styles.\n\nPlace it below the leaderboard or between leaderboard and merch, whichever flow makes sense for this site's existing page structure."
+      }
+    },
+    {
+      "id": "merch",
+      "title": "Merch catalog",
+      "description": "Display the rewards your chapter offers in exchange for earned points — T-shirts, stickers, workshop vouchers — so members know what they're working toward.",
+      "iconKey": "package",
+      "accent": "#ec4899",
+      "endpoint": {
+        "method": "GET",
+        "path": "/api/v1/merch",
+        "example": "/api/v1/merch?limit=50",
+        "queryParams": [
+          { "name": "include", "type": "string", "description": "Pass `all` to include hidden + out-of-stock items. Default returns only active items." },
+          { "name": "limit", "type": "integer", "description": "Max items to return (1-500, default 100)" }
+        ]
+      },
+      "templatePath": "src/components/merch-catalog.ts",
+      "snippets": {
+        "javascript": "// Pull the active merch catalog for this chapter\nconst res = await fetch(\n  \"https://dashboard.all-ai-network.org/api/v1/merch\",\n  {\n    headers: { Authorization: `Bearer ${process.env.AAIN_API_KEY}` },\n  }\n);\nconst { merch } = await res.json();\n\n// stock === null  → unlimited  (stickers, digital rewards, etc.)\n// stock === 0     → out of stock — still list it but mark it clearly\n// stock  >  0     → finite supply remaining\nmerch.forEach((item) => {\n  const stockLabel =\n    item.stock === null ? \"Unlimited\" :\n    item.stock === 0   ? \"Out of stock\" :\n    `${item.stock} left`;\n  console.log(`${item.name} — ${item.cost_points} pts · ${stockLabel}`);\n});",
+        "curl": "curl -H \"Authorization: Bearer $AAIN_API_KEY\" \\\n  \"https://dashboard.all-ai-network.org/api/v1/merch\"",
+        "response": "{\n  \"merch\": [\n    {\n      \"id\": \"mrch_tshirt\",\n      \"name\": \"MAIC T-Shirt\",\n      \"description\": \"Classic black tee with the MAIC logo.\",\n      \"cost_points\": 75,\n      \"image_url\": \"https://gdxifnnfirnzljtxnhch.supabase.co/storage/v1/object/public/merch-images/<chapter>/tshirt.jpg\",\n      \"stock\": 12,\n      \"is_active\": true,\n      \"created_at\": \"2026-04-19T14:02:31.000Z\"\n    },\n    {\n      \"id\": \"mrch_stickers\",\n      \"name\": \"Sticker pack\",\n      \"description\": \"Three vinyl stickers — MAIC logo, ROSIE, NVIDIA-Olympus.\",\n      \"cost_points\": 15,\n      \"image_url\": null,\n      \"stock\": null,\n      \"is_active\": true,\n      \"created_at\": \"2026-04-19T14:03:11.000Z\"\n    }\n  ]\n}",
+        "agentPrompt": "Build a \"Merch Catalog\" section that shows every reward the chapter offers in exchange for earned points. This is a display-only catalog — actual redemption happens in person at an event (no request-to-buy flow yet).\n\nData source: ALL Applied AI Network dashboard API.\n- Endpoint: GET https://dashboard.all-ai-network.org/api/v1/merch\n- Auth: `Authorization: Bearer ${process.env.AAIN_API_KEY}` (env var already set — never hardcode it)\n- Response shape:\n    {\n      \"merch\": [\n        {\n          \"id\": \"mrch_...\",\n          \"name\": \"MAIC T-Shirt\",\n          \"description\": \"Classic black tee with the MAIC logo.\",\n          \"cost_points\": 75,\n          \"image_url\": \"https://.../tshirt.jpg\" | null,\n          \"stock\": 12 | null,\n          \"is_active\": true,\n          \"created_at\": \"2026-04-19T14:02:31.000Z\"\n        }\n      ]\n    }\n\nCritical nuance on `stock`:\n  - `null` → unlimited supply (stickers, digital rewards). Render as \"Unlimited\" or hide the stock line entirely.\n  - `0`    → out of stock. Still list the item, but mark it visibly (grayscale image, \"Out of stock\" badge).\n  - `> 0`  → finite supply remaining. Render as \"<N> left\".\n\nAnd on `image_url`:\n  - A full https URL → render as <img src={image_url} alt={name} />. Images are raw uploads (no automatic CDN resizing), so apply object-fit: cover and a reasonable max size.\n  - `null` → render a tasteful placeholder (a solid-color block with the chapter accent color, or a generic package icon).\n\nRequirements:\n1. Fetch server-side so the key stays private.\n2. Render as a responsive grid of cards. Each card: photo on top (4:3 ratio), name, one-line description, cost pill (e.g., \"75 pts\" with a subtle accent-color background), and stock line.\n3. Out-of-stock items should read as muted — visibly distinct but not hidden. Don't let them feel like broken listings.\n4. Include a short heading + one-sentence subheading explaining how redemption works: \"Earn points by attending events and completing coursework. Redeem in person at any chapter event — see any eboard member to claim.\"\n5. If `merch` is empty, skip the section entirely (no empty state).\n6. Match the existing design system — reuse typography and spacing tokens from sibling components before defining new ones.\n\nPlace it on the homepage near the leaderboard, or as a dedicated /merch route. Link to the chapter's events page from the redemption callout so visitors know where to go."
       }
     }
   ]
