@@ -1,10 +1,30 @@
 {
   "$schema": "https://all-ai-network.org/schemas/integrations.schema.json",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Canonical list of ALL Applied AI Network dashboard API integrations. This file is the ground truth for the hub website template — it drives both the template's own rendering code and the Website tab inside dashboard.all-ai-network.org. Edit this file to add or change integrations.",
   "apiBase": "https://dashboard.all-ai-network.org",
   "envVar": "AAIN_API_KEY",
   "integrations": [
+    {
+      "id": "config",
+      "title": "Hub-site configuration",
+      "description": "Fetch your chapter's theme colors, logo URL, and section toggles from the dashboard. Drives the site's CSS variables, header logo, and which components render.",
+      "iconKey": "settings",
+      "accent": "#4f8fea",
+      "endpoint": {
+        "method": "GET",
+        "path": "/api/v1/config",
+        "example": "/api/v1/config",
+        "queryParams": []
+      },
+      "templatePath": "src/main.ts",
+      "snippets": {
+        "javascript": "// Fetch the remote hub config on page load (or at build).\n// The dashboard's Website → Customize tab edits this.\nconst res = await fetch(\n  \"https://dashboard.all-ai-network.org/api/v1/config\",\n  { headers: { Authorization: `Bearer ${process.env.AAIN_API_KEY}` } }\n);\nconst { config } = await res.json();\n\n// Theme: apply as CSS custom properties\ndocument.documentElement.style.setProperty(\"--primary\", config.theme.primary);\ndocument.documentElement.style.setProperty(\"--accent\",  config.theme.accent);\n\n// Logo: point the header <img> at the uploaded URL (or fall back)\nif (config.logo_url) {\n  document.querySelector(\"#site-logo\")?.setAttribute(\"src\", config.logo_url);\n}\n\n// Sections: hide anything toggled off\nfor (const [name, on] of Object.entries(config.sections)) {\n  if (!on) document.querySelector(`[data-section=\"${name}\"]`)?.remove();\n}",
+        "curl": "curl -H \"Authorization: Bearer $AAIN_API_KEY\" \\\n  \"https://dashboard.all-ai-network.org/api/v1/config\"",
+        "response": "{\n  \"config\": {\n    \"theme\": { \"primary\": \"#4f8fea\", \"accent\": \"#a855f7\" },\n    \"logo_url\": \"https://gdxifnnfirnzljtxnhch.supabase.co/storage/v1/object/public/chapter-logos/<chapter>/logo.png\",\n    \"sections\": {\n      \"hero\": true,\n      \"about\": true,\n      \"events\": true,\n      \"leaderboard\": true,\n      \"badges\": true,\n      \"merch\": true,\n      \"officers\": true,\n      \"learning_tree\": true,\n      \"playbooks\": true,\n      \"workshops\": true\n    },\n    \"updated_at\": \"2026-04-19T19:14:02.000Z\"\n  }\n}",
+        "agentPrompt": "Wire this hub site's theme, logo, and section visibility to the dashboard's config endpoint so the eboard can edit them remotely without touching this repo.\n\nData source: ALL Applied AI Network dashboard API.\n- Endpoint: GET https://dashboard.all-ai-network.org/api/v1/config\n- Auth: `Authorization: Bearer ${process.env.AAIN_API_KEY}` (env var already set)\n- Response shape:\n    {\n      \"config\": {\n        \"theme\":    { \"primary\": \"#4f8fea\", \"accent\": \"#a855f7\" },\n        \"logo_url\": \"https://.../logo.png\" | null,\n        \"sections\": {\n          \"hero\": true, \"about\": true, \"events\": true, \"leaderboard\": true,\n          \"badges\": true, \"merch\": true, \"officers\": true,\n          \"learning_tree\": true, \"playbooks\": true, \"workshops\": true\n        },\n        \"updated_at\": \"2026-04-19T19:14:02.000Z\"\n      }\n    }\n\nImplementation requirements:\n\n1. Fetch server-side or at build time. If you're using Vite, inject the fetched config as a global via `define` in vite.config.ts. If you're using a framework with SSR (Next.js, Astro, SvelteKit), fetch in the layout or root route.\n2. Fall back gracefully when the fetch fails: use the defaults that ship with the template (hub.config.json theme colors, no custom logo, every section on). Don't block the page render on the API.\n3. Apply theme colors as CSS custom properties on `:root`. The template already references `var(--primary)` and `var(--accent)` — you just need to set them from the config on boot. Do NOT duplicate the colors into other class names; use the CSS variables only.\n4. When `config.logo_url` is set, render it in the header and favicon. When null, render the template's default (e.g., the wordmark or text-only logo). Size it consistently — roughly 32px tall in the header.\n5. For each section the template renders (hero, about, events, leaderboard, badges, merch, officers, learning_tree, playbooks, workshops), check `config.sections[key]`. Missing keys default to true. If off, omit the section entirely from the DOM — not just `display: none`, because layouts that stack sections will end up with gaps.\n6. For data-driven sections (events, leaderboard, badges, merch), render a tasteful empty state if the underlying API returns no rows — not the full section with broken-looking zero values. A one-line copy (\"Events will show up here as they're added\") is fine.\n7. Add a short comment at the top of wherever you consume `config` noting the shape and that it's remote-controlled, so future editors of this file understand why the values aren't hardcoded.\n\nDo NOT edit hub.config.json — leave it as the local-dev fallback for offline iteration."
+      }
+    },
     {
       "id": "events",
       "title": "Upcoming events",
