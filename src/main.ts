@@ -337,7 +337,18 @@ function renderHeroActions(remote: RemoteConfig | null) {
 }
 
 function renderStats(chapter: ChapterBundle["chapter"] | null, badges: BadgeRow[]) {
-  if (!chapter) return;
+  const strip = document.getElementById("hero-stats") as HTMLElement | null;
+  if (!strip) return;
+
+  // No chapter data → hide the strip entirely. Em-dashes read as
+  // "data loading" rather than "nothing to show yet," and a ghost
+  // stats strip on a fresh template is worse than no strip at all.
+  if (!chapter) {
+    strip.style.display = "none";
+    return;
+  }
+
+  strip.style.display = "";
   const map: Record<string, string> = {
     members: formatCount(chapter.member_count),
     events: formatCount(chapter.event_count),
@@ -853,16 +864,48 @@ function getLocalContentForSection(
   );
 }
 
+/** Render the shared empty-state card inside a grid. */
+function renderGridEmpty(
+  gridId: string,
+  title: string,
+  desc: string,
+): void {
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  grid.innerHTML = `
+    <div class="empty-state" style="grid-column:1/-1">
+      <div class="empty-state__title">${escapeHtml(title)}</div>
+      <div class="empty-state__desc">${escapeHtml(desc)}</div>
+    </div>
+  `;
+}
+
 async function loadLearningTree() {
   const grid = document.getElementById("learning-grid");
   if (!grid) return;
+
+  // When no content library is configured, bail before firing the
+  // fetch — the grid was stuck on "Loading curriculum…" forever,
+  // which read as broken.
+  if (!config.content_url) {
+    renderGridEmpty(
+      "learning-grid",
+      "Curriculum will appear here",
+      "Once the ALL Applied AI Network content library is wired to this site, the learning tree loads from the CDN automatically.",
+    );
+    return;
+  }
 
   const tree = await fetchJSON<TreeData>(`${config.content_url}/tree.json`);
   const treeLink = document.getElementById("tree-link") as HTMLAnchorElement | null;
   if (treeLink) treeLink.href = `${config.content_url}/tree.html`;
 
   if (!tree) {
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-state__title">Couldn't reach the content library</div><div class="empty-state__desc">Try refreshing, or visit the full curriculum above.</div></div>`;
+    renderGridEmpty(
+      "learning-grid",
+      "Couldn't reach the content library",
+      "Try refreshing, or visit the full curriculum above.",
+    );
     return;
   }
 
@@ -907,9 +950,22 @@ async function loadManifestSection(
   const grid = document.getElementById(gridId);
   if (!grid) return;
 
+  if (!config.content_url) {
+    renderGridEmpty(
+      gridId,
+      `${type === "workshop" ? "Workshops" : "Playbooks"} will appear here`,
+      `Content library isn't connected yet. Once wired, ${type}s load from the CDN automatically.`,
+    );
+    return;
+  }
+
   const manifest = await fetchJSON<Manifest>(`${config.content_url}/manifest.json`);
   if (!manifest) {
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-state__title">Couldn't reach the content library</div></div>`;
+    renderGridEmpty(
+      gridId,
+      "Couldn't reach the content library",
+      "Try refreshing in a moment.",
+    );
     return;
   }
 

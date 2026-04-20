@@ -300,15 +300,18 @@ code {
   text-align: center;
 }
 
+/* Kept subtle on purpose — the hero H1 is the attention sink, this
+   is just a locative. Hot primary color was competing with the H1
+   gradient. */
 .hero__eyebrow {
   display: inline-block;
   font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font-weight: 500;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--color-primary);
-  background: rgba(var(--color-primary-rgb), 0.1);
-  border: 1px solid rgba(var(--color-primary-rgb), 0.25);
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
   border-radius: 999px;
   padding: 0.35rem 0.85rem;
   margin-bottom: 1.5rem;
@@ -341,6 +344,12 @@ code {
   gap: 0.8rem;
   justify-content: center;
   flex-wrap: wrap;
+}
+
+/* Collapse the row entirely when no CTAs are rendered — otherwise the
+   ~2rem margin between subtitle and stats strip reads as broken. */
+.hero__actions:empty {
+  display: none;
 }
 
 .hero__stats {
@@ -385,11 +394,11 @@ code {
   font-variant-numeric: tabular-nums;
 }
 
+/* Title-case + natural letter-spacing — we reserve uppercase for the
+   .section__kicker system so the hierarchy stays single-voiced. */
 .hero__stat-label {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 500;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
   color: var(--text-tertiary);
 }
 
@@ -429,8 +438,18 @@ code {
   position: relative;
 }
 
+/* Mobile section rhythm — 5rem top/bottom on a 375w viewport wastes
+   screen and adds perceived load time. Step down. */
+@media (max-width: 640px) {
+  .section {
+    padding: 3.5rem 1.25rem;
+  }
+}
+
+/* Perceptible tint + an actual color step, not a gradient that
+   averages out to nothing. Borders alone don't give enough rhythm. */
 .section--alt {
-  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.015), transparent);
+  background: rgba(255, 255, 255, 0.022);
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
 }
@@ -460,13 +479,17 @@ code {
   }
 }
 
+/* Tertiary color + the subtle uppercase pattern — reserving
+   --color-primary for interactive elements + data values (points,
+   costs, links) so the page hierarchy is legible. 12 sections all
+   opening with primary blue was flattening the layout. */
 .section__kicker {
   display: inline-block;
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--color-primary);
+  color: var(--text-tertiary);
   margin-bottom: 0.6rem;
 }
 
@@ -679,7 +702,14 @@ code {
 .podium-card--rank-1 {
   border-color: rgba(245, 158, 11, 0.35);
   background: linear-gradient(180deg, rgba(245, 158, 11, 0.08), var(--bg-surface));
-  transform: translateY(-12px);
+}
+
+/* Only lift the #1 card on desktop — stacked-mobile cards need to
+   align or a single translated card reads as a render bug. */
+@media (min-width: 641px) {
+  .podium-card--rank-1 {
+    transform: translateY(-12px);
+  }
 }
 
 .podium-card--rank-2 {
@@ -716,14 +746,15 @@ code {
   white-space: nowrap;
 }
 
+/* Solid primary instead of the primary→accent gradient. The gradient
+   already carries the H1 + hero logo; using it again in the podium
+   AND in the stats strip was visually noisy. Solid here + solid
+   .leaderboard-row__points reads cleaner. */
 .podium-card__points {
   font-size: 1.35rem;
   font-weight: 800;
   letter-spacing: -0.02em;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--color-primary);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1109,7 +1140,9 @@ code {
 
 .card__badge--beginner { color: #10b981; background: rgba(16, 185, 129, 0.1); }
 .card__badge--intermediate { color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
-.card__badge--advanced { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+/* Warm orange, not error red — pure #ef4444 was reading like a
+   validation error since we also use that for out-of-stock merch. */
+.card__badge--advanced { color: #fb923c; background: rgba(251, 146, 60, 0.1); }
 .card__badge--local {
   color: var(--color-primary);
   background: rgba(var(--color-primary-rgb), 0.12);
@@ -1126,25 +1159,44 @@ code {
 .footer {
   border-top: 1px solid var(--border);
   padding: 3rem 1.5rem 2.5rem;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.4);
   margin-top: 4rem;
 }
 
+/* Two-column desktop, three-row mobile. Socials go under the brand
+   so an empty socials slot doesn't leave a mid-row gap between
+   brand + attribution. */
 .footer__inner {
   max-width: 1280px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 1.5fr 2fr 1.5fr;
-  gap: 2rem;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "brand aain"
+    "socials aain";
+  gap: 0.75rem 2rem;
   align-items: start;
 }
+
+.footer__brand { grid-area: brand; }
+.footer__socials { grid-area: socials; justify-content: flex-start; }
+.footer__aain { grid-area: aain; }
+
+/* When socials are empty (no dashboard links + no local config),
+   swallow the row so there's no hanging whitespace. */
+.footer__socials:empty { display: none; }
 
 @media (max-width: 720px) {
   .footer__inner {
     grid-template-columns: 1fr;
-    gap: 1.5rem;
+    grid-template-areas:
+      "brand"
+      "socials"
+      "aain";
+    gap: 1.25rem;
     text-align: center;
   }
+  .footer__socials { justify-content: center; }
 }
 
 .footer__brand {
@@ -1202,10 +1254,11 @@ code {
   font-size: 0.82rem;
   color: var(--text-tertiary);
   line-height: 1.5;
+  align-self: center;
 }
 
 @media (max-width: 720px) {
-  .footer__aain { text-align: center; }
+  .footer__aain { text-align: center; align-self: auto; }
   .footer__brand { justify-content: center; }
 }
 
