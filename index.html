@@ -7,94 +7,220 @@
   <meta name="description" content="A student-run applied AI community powered by the ALL Applied AI Network." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/src/styles/hub.css" />
 </head>
 <body>
-  <nav class="nav">
+
+  <!-- ══ Nav ═══════════════════════════════════════════════════════ -->
+  <nav class="nav" id="nav">
     <div class="nav__inner">
       <a href="/" class="nav__brand">
-        <!-- When the dashboard's Customize tab has a logo uploaded,
-             main.ts swaps this hidden <img> in for the acronym text. -->
-        <img
-          id="nav-logo-img"
-          class="nav__logo-img"
-          alt=""
-          hidden
-          aria-hidden="true"
-        />
+        <img id="nav-logo-img" class="nav__logo-img" alt="" hidden aria-hidden="true" />
         <span class="nav__logo" id="nav-acronym">HUB</span>
         <span class="nav__name" id="nav-hub-name">Hub</span>
       </a>
-      <div class="nav__links">
-        <a href="#learning" class="nav__link">Learn</a>
-        <a href="#workshops" class="nav__link">Workshops</a>
-        <a href="#events" class="nav__link">Events</a>
-        <a href="#about" class="nav__link">About</a>
+      <div class="nav__links" id="nav-links">
+        <a href="#events" class="nav__link" data-nav-for="events">Events</a>
+        <a href="#leaderboard" class="nav__link" data-nav-for="leaderboard">Leaderboard</a>
+        <a href="#badges" class="nav__link" data-nav-for="badges">Badges</a>
+        <a href="#merch" class="nav__link" data-nav-for="merch">Merch</a>
+        <a href="#learning" class="nav__link" data-nav-for="learning_tree">Learn</a>
+        <a href="#workshops" class="nav__link" data-nav-for="workshops">Workshops</a>
+        <a href="#about" class="nav__link" data-nav-for="about">About</a>
       </div>
+      <button class="nav__toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="4" y1="7" x2="20" y2="7" />
+          <line x1="4" y1="12" x2="20" y2="12" />
+          <line x1="4" y1="17" x2="20" y2="17" />
+        </svg>
+      </button>
     </div>
   </nav>
 
-  <header class="hero" id="hero">
-    <h1 class="hero__title" id="hero-title">My AI Club</h1>
-    <p class="hero__subtitle" id="hero-subtitle">A student-run applied AI community.</p>
-    <p class="hero__university" id="hero-university">My University</p>
-    <div class="hero__actions">
-      <a href="#learning" class="btn btn--primary">Start Learning</a>
-      <a href="#events" class="btn btn--ghost">Upcoming Events</a>
+  <!-- ══ Hero ══════════════════════════════════════════════════════ -->
+  <header class="hero" id="hero" data-section="hero">
+    <div class="hero__glow" aria-hidden="true"></div>
+    <div class="hero__inner">
+      <div class="hero__eyebrow" id="hero-university">My University</div>
+      <h1 class="hero__title" id="hero-title">My AI Club</h1>
+      <p class="hero__subtitle" id="hero-subtitle">A student-run applied AI community.</p>
+      <div class="hero__actions" id="hero-actions"></div>
     </div>
-    <a href="https://all-ai-network.org" target="_blank" rel="noopener" class="hero__attribution" id="hero-attribution">
+    <div class="hero__stats" id="hero-stats" aria-hidden="true">
+      <div class="hero__stat"><span class="hero__stat-num" data-stat="members">—</span><span class="hero__stat-label">Members</span></div>
+      <div class="hero__stat"><span class="hero__stat-num" data-stat="events">—</span><span class="hero__stat-label">Events run</span></div>
+      <div class="hero__stat"><span class="hero__stat-num" data-stat="badges">—</span><span class="hero__stat-label">Recognitions</span></div>
+    </div>
+    <a href="https://all-ai-network.org" target="_blank" rel="noopener" class="hero__attribution">
       <span class="hero__attribution-dot"></span>
       Powered by ALL Applied AI Network
     </a>
   </header>
 
-  <section class="section" id="learning">
+  <!-- ══ About ═════════════════════════════════════════════════════ -->
+  <section class="section" id="about" data-section="about">
+    <div class="section__inner section__inner--narrow">
+      <div class="section__kicker">About us</div>
+      <h2 class="section__title" id="about-title">Who we are</h2>
+      <div class="about-content" id="about-content"></div>
+    </div>
+  </section>
+
+  <!-- ══ Events ════════════════════════════════════════════════════ -->
+  <section class="section section--alt" id="events" data-section="events">
     <div class="section__inner">
-      <h2 class="section__title">Learning Tree</h2>
-      <p class="section__desc">An interactive skill tree — from absolute zero to shipping AI products. Pick a node, learn, and unlock the next.</p>
+      <div class="section__head">
+        <div>
+          <div class="section__kicker">What's next</div>
+          <h2 class="section__title">Upcoming events</h2>
+        </div>
+        <p class="section__desc" id="events-desc">
+          Live from the dashboard. As the eboard adds events, they show up here.
+        </p>
+      </div>
+      <div class="events-grid" id="events-grid" role="list"></div>
+    </div>
+  </section>
+
+  <!-- ══ Leaderboard ═══════════════════════════════════════════════ -->
+  <section class="section" id="leaderboard" data-section="leaderboard">
+    <div class="section__inner">
+      <div class="section__head">
+        <div>
+          <div class="section__kicker">Top members</div>
+          <h2 class="section__title">Leaderboard</h2>
+        </div>
+        <p class="section__desc">
+          Points from event check-ins, project contributions, and recognitions.
+        </p>
+      </div>
+      <div class="leaderboard" id="leaderboard-content"></div>
+    </div>
+  </section>
+
+  <!-- ══ Badges ════════════════════════════════════════════════════ -->
+  <section class="section section--alt" id="badges" data-section="badges">
+    <div class="section__inner">
+      <div class="section__head">
+        <div>
+          <div class="section__kicker">Recognitions</div>
+          <h2 class="section__title">Badges we award</h2>
+        </div>
+        <p class="section__desc">
+          Every badge members have earned, how many hold each.
+        </p>
+      </div>
+      <div class="badges-grid" id="badges-grid" role="list"></div>
+    </div>
+  </section>
+
+  <!-- ══ Merch ═════════════════════════════════════════════════════ -->
+  <section class="section" id="merch" data-section="merch">
+    <div class="section__inner">
+      <div class="section__head">
+        <div>
+          <div class="section__kicker">Rewards shop</div>
+          <h2 class="section__title">Merch</h2>
+        </div>
+        <p class="section__desc">
+          Earn points, redeem at an event. See any eboard member to claim.
+        </p>
+      </div>
+      <div class="merch-grid" id="merch-grid" role="list"></div>
+    </div>
+  </section>
+
+  <!-- ══ Officers ══════════════════════════════════════════════════ -->
+  <section class="section section--alt" id="officers" data-section="officers">
+    <div class="section__inner">
+      <div class="section__head">
+        <div>
+          <div class="section__kicker">Leadership</div>
+          <h2 class="section__title">Meet the eboard</h2>
+        </div>
+      </div>
+      <div class="officers-grid" id="officers-grid" role="list"></div>
+    </div>
+  </section>
+
+  <!-- ══ Learning Tree (CDN content) ══════════════════════════════ -->
+  <section class="section" id="learning" data-section="learning_tree">
+    <div class="section__inner">
+      <div class="section__head">
+        <div>
+          <div class="section__kicker">Curriculum</div>
+          <h2 class="section__title">Learning tree</h2>
+        </div>
+        <p class="section__desc">
+          From absolute zero to shipping AI products. Pick a node, learn it, unlock the next.
+        </p>
+      </div>
       <div class="content-grid" id="learning-grid">
-        <div class="loading">Loading learning tree...</div>
+        <div class="loading">Loading curriculum…</div>
       </div>
       <p class="section__footer">
-        <a href="" id="tree-link" class="link" target="_blank" rel="noopener">Explore the full interactive tree &rarr;</a>
+        <a href="#" id="tree-link" class="link link--arrow" target="_blank" rel="noopener">
+          Open the full interactive tree
+        </a>
       </p>
     </div>
   </section>
 
-  <section class="section section--alt" id="workshops">
+  <!-- ══ Workshops (CDN content) ══════════════════════════════════ -->
+  <section class="section section--alt" id="workshops" data-section="workshops">
     <div class="section__inner">
-      <h2 class="section__title">Workshops</h2>
-      <p class="section__desc">Hands-on, session-ready workshops with facilitator guides and student materials.</p>
+      <div class="section__head">
+        <div>
+          <div class="section__kicker">Hands-on</div>
+          <h2 class="section__title">Workshops</h2>
+        </div>
+        <p class="section__desc">
+          Session-ready workshops with facilitator guides and student materials.
+        </p>
+      </div>
       <div class="content-grid" id="workshops-grid">
-        <div class="loading">Loading workshops...</div>
+        <div class="loading">Loading workshops…</div>
       </div>
     </div>
   </section>
 
-  <section class="section" id="events">
+  <!-- ══ Playbooks (CDN content) ══════════════════════════════════ -->
+  <section class="section" id="playbooks" data-section="playbooks">
     <div class="section__inner">
-      <h2 class="section__title">Events</h2>
-      <p class="section__desc">What's happening at our club.</p>
-      <div class="events-grid" id="events-grid">
-        <p class="muted">No upcoming events.</p>
+      <div class="section__head">
+        <div>
+          <div class="section__kicker">How to run it</div>
+          <h2 class="section__title">Playbooks</h2>
+        </div>
+        <p class="section__desc">
+          Operational playbooks for every part of running a chapter — hackathons, speaker series, innovation labs.
+        </p>
+      </div>
+      <div class="content-grid" id="playbooks-grid">
+        <div class="loading">Loading playbooks…</div>
       </div>
     </div>
   </section>
 
-  <section class="section section--alt" id="about">
-    <div class="section__inner">
-      <h2 class="section__title">About</h2>
-      <div class="about" id="about-content"></div>
-      <div class="officers" id="officers-grid"></div>
-      <div class="about__links" id="social-links"></div>
-    </div>
-  </section>
-
+  <!-- ══ Footer ════════════════════════════════════════════════════ -->
   <footer class="footer">
     <div class="footer__inner">
-      <p>Powered by the <a href="https://all-ai-network.org" class="link" target="_blank" rel="noopener">ALL Applied AI Network</a></p>
-      <p class="footer__sub">Open-source curriculum. Free forever.</p>
+      <div class="footer__brand">
+        <img id="footer-logo-img" class="footer__logo-img" alt="" hidden aria-hidden="true" />
+        <div>
+          <div class="footer__name" id="footer-hub-name">Hub</div>
+          <div class="footer__uni" id="footer-university">My University</div>
+        </div>
+      </div>
+      <div class="footer__socials" id="footer-socials"></div>
+      <div class="footer__aain">
+        <a href="https://all-ai-network.org" class="link" target="_blank" rel="noopener">
+          Powered by <strong>ALL Applied AI Network</strong>
+        </a>
+        <p class="footer__sub">Open-source curriculum. Free forever.</p>
+      </div>
     </div>
   </footer>
 

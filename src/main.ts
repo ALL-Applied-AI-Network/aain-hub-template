@@ -1,19 +1,21 @@
+/**
+ * Hub template entry — fetches everything from the dashboard's public
+ * bundle endpoint on load, then renders every section.
+ *
+ * The bundle endpoint (/api/public/chapter/{slug}/bundle) returns:
+ *   { chapter, config, events, leaderboard, badges, merch }
+ *
+ * Nothing in this file requires an API key — the bundle is public
+ * (slug-keyed) so we can fetch safely from the client without
+ * leaking credentials into the Vite bundle. Changes on the dashboard
+ * propagate to every hub site on next page load; no rebuild needed.
+ */
+
 declare const __HUB_CONFIG__: HubConfig;
 
-interface LocalContentEntry {
-  title: string;
-  description: string;
-  path: string;
-  type: 'local';
-  section: 'learning' | 'workshops' | 'playbooks';
-  thumbnail?: string;
-}
+const DASHBOARD_ORIGIN = "https://dashboard.all-ai-network.org";
 
-interface ContentConfig {
-  exclude_paths: string[];
-  custom_order: string[];
-  local_content: LocalContentEntry[];
-}
+/* ── Types (kept compact; full shapes documented in aain-api lib/hub-config.ts) ── */
 
 interface HubConfig {
   hub_name: string;
@@ -22,24 +24,30 @@ interface HubConfig {
   university: string;
   description: string;
   about: string;
-  theme: {
-    primary_color: string;
-    accent_color: string;
-  };
+  theme: { primary_color: string; accent_color: string };
   links: Record<string, string>;
   officers: { name: string; role: string; image: string }[];
   events: { title: string; date: string; time: string; location: string; description: string }[];
-  features: {
-    learning_tree: boolean;
-    playbooks: boolean;
-    workshops: boolean;
+  features: { learning_tree: boolean; playbooks: boolean; workshops: boolean };
+  content?: {
+    exclude_paths: string[];
+    custom_order: string[];
+    local_content: LocalContentEntry[];
   };
-  content?: ContentConfig;
   content_url: string;
 }
 
+interface LocalContentEntry {
+  title: string;
+  description: string;
+  path: string;
+  type: "local";
+  section: "learning" | "workshops" | "playbooks";
+  thumbnail?: string;
+}
+
 interface ManifestEntry {
-  type: 'learning' | 'playbook' | 'workshop' | 'template';
+  type: "learning" | "playbook" | "workshop" | "template";
   title: string;
   description: string;
   path: string;
@@ -65,231 +73,684 @@ interface TreeData {
   nodes: TreeNode[];
 }
 
-const config = __HUB_CONFIG__;
+interface Officer {
+  name: string;
+  role: string;
+  image_url?: string | null;
+  linkedin?: string | null;
+}
 
-/**
- * Remote config fetched from the dashboard's public no-auth endpoint.
- * Lets the eboard edit theme colors, logo, and section visibility
- * from dashboard.all-ai-network.org/website → Customize without
- * touching this repo. Falls back to the bundled hub.config.json on
- * any failure — the site always renders.
- */
-type RemoteConfig = {
+interface RemoteConfig {
   theme: { primary: string; accent: string };
   logo_url: string | null;
   sections: Record<string, boolean>;
+  hub_name: string | null;
+  hub_acronym: string | null;
+  tagline: string | null;
+  about: string | null;
+  cta_primary_label: string | null;
+  cta_primary_href: string | null;
+  cta_secondary_label: string | null;
+  cta_secondary_href: string | null;
+  officers: Officer[];
+  social_links: Record<string, string>;
   updated_at: string | null;
-};
+}
 
-const DASHBOARD_ORIGIN = 'https://dashboard.all-ai-network.org';
+interface EventRow {
+  id: string;
+  title: string;
+  description: string | null;
+  type: string;
+  date: string;
+  points_attend: number;
+  points_win: number | null;
+}
 
-async function loadRemoteConfig(): Promise<RemoteConfig | null> {
-  const slug = config.hub_id?.trim().toLowerCase();
+interface LeaderboardRow {
+  name: string;
+  points: number;
+  events_attended: number;
+  rank: number;
+}
+
+interface BadgeRow {
+  id: string;
+  name: string;
+  description: string | null;
+  icon: string;
+  award_count: number;
+}
+
+interface MerchRow {
+  id: string;
+  name: string;
+  description: string | null;
+  cost_points: number;
+  image_url: string | null;
+  stock: number | null;
+}
+
+interface ChapterBundle {
+  chapter: { slug: string; name: string; university: string; member_count: number; event_count: number };
+  config: RemoteConfig;
+  events: EventRow[];
+  leaderboard: LeaderboardRow[];
+  badges: BadgeRow[];
+  merch: MerchRow[];
+}
+
+const config = __HUB_CONFIG__;
+
+/* ──────────────────────────────────────────────────────────────────
+   Preview mode — dashboard's Customize tab iframes this with
+   ?preview=1 + theme/logo/sections params. See hub/README for the
+   param table.
+   ────────────────────────────────────────────────────────────────── */
+
+function applyPreviewFromParams(params: URLSearchParams) {
+  const primary = params.get("primary");
+  const accent = params.get("accent");
+  if (primary || accent) {
+    applyTheme({
+      primary: primary ?? config.theme.primary_color,
+      accent: accent ?? config.theme.accent_color,
+    });
+  }
+  const logo = params.get("logo");
+  if (logo !== null) applyLogo(logo.length > 0 ? logo : null);
+  const off = params.get("off");
+  if (off !== null) {
+    const sections: Record<string, boolean> = {};
+    for (const key of off
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)) {
+      sections[key] = false;
+    }
+    applySectionToggles(sections);
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Bundle fetch — single round trip for config + data
+   ────────────────────────────────────────────────────────────────── */
+
+async function fetchBundle(slug: string): Promise<ChapterBundle | null> {
   if (!slug) return null;
   try {
     const res = await fetch(
-      `${DASHBOARD_ORIGIN}/api/public/config/${encodeURIComponent(slug)}`,
-      { cache: 'no-store' }
+      `${DASHBOARD_ORIGIN}/api/public/chapter/${encodeURIComponent(
+        slug.toLowerCase(),
+      )}/bundle`,
+      { cache: "no-store" },
     );
     if (!res.ok) return null;
-    const data = await res.json();
-    return data?.config ?? null;
+    return (await res.json()) as ChapterBundle;
   } catch {
-    // Dashboard unreachable, CORS oddity, etc. — we fall back to the
-    // locally-bundled config rather than breaking the page.
+    // Dashboard unreachable / CORS hiccup — we'll fall back to bundled
+    // hub.config.json and skip the data-driven sections.
     return null;
   }
 }
 
-/**
- * Apply remote section toggles before the render functions run. A
- * "false" toggle removes the section from the DOM entirely (not just
- * display:none — we drop the element so layouts that rely on stacked
- * sections don't end up with visual gaps), and hides its matching
- * nav link if one exists.
- */
-function applyRemoteSections(sections: Record<string, boolean> | undefined) {
-  if (!sections) return;
-  const SECTION_MAP: Record<string, { sectionId?: string; navHref?: string }> = {
-    hero: { sectionId: 'hero' },
-    about: { sectionId: 'about', navHref: '#about' },
-    events: { sectionId: 'events', navHref: '#events' },
-    officers: { sectionId: 'officers-grid' }, // lives inside #about
-    learning_tree: { sectionId: 'learning', navHref: '#learning' },
-    workshops: { sectionId: 'workshops', navHref: '#workshops' },
-    playbooks: { sectionId: 'playbooks', navHref: '#playbooks' },
-    // leaderboard / badges / merch are forthcoming sections — the
-    // toggles exist on the dashboard already; the hub-template doesn't
-    // render them yet. Future renderers should respect these keys.
-  };
-  for (const [key, on] of Object.entries(sections)) {
-    if (on) continue;
-    const map = SECTION_MAP[key];
-    if (!map) continue;
-    if (map.sectionId) {
-      const el = document.getElementById(map.sectionId);
-      el?.remove();
-    }
-    if (map.navHref) {
-      const link = document.querySelector(`.nav__link[href="${map.navHref}"]`);
-      link?.remove();
-    }
-  }
-}
-
-function applyRemoteTheme(theme: { primary: string; accent: string }) {
-  const root = document.documentElement;
-  root.style.setProperty('--color-primary', theme.primary);
-  root.style.setProperty('--color-accent', theme.accent);
-  root.style.setProperty('--color-primary-rgb', hexToRgb(theme.primary));
-}
-
-function applyRemoteLogo(logoUrl: string | null) {
-  const img = document.getElementById('nav-logo-img') as HTMLImageElement | null;
-  const acronym = document.getElementById('nav-acronym');
-  if (!img || !acronym) return;
-  if (logoUrl) {
-    img.src = logoUrl;
-    img.hidden = false;
-    img.setAttribute('aria-hidden', 'false');
-    acronym.style.display = 'none';
-  } else {
-    img.removeAttribute('src');
-    img.hidden = true;
-    acronym.style.display = '';
-  }
-}
+/* ──────────────────────────────────────────────────────────────────
+   Theme + layout primitives
+   ────────────────────────────────────────────────────────────────── */
 
 function hexToRgb(hex: string): string {
-  const h = hex.replace('#', '');
+  const h = hex.replace("#", "");
   const r = parseInt(h.substring(0, 2), 16);
   const g = parseInt(h.substring(2, 4), 16);
   const b = parseInt(h.substring(4, 6), 16);
   return `${r}, ${g}, ${b}`;
 }
 
-function applyConfig() {
-  document.title = `${config.hub_name} — ALL Applied AI Network`;
-
-  const meta = document.querySelector('meta[name="description"]');
-  if (meta) meta.setAttribute('content', config.description);
-
+function applyTheme(theme: { primary: string; accent: string }) {
   const root = document.documentElement;
-  root.style.setProperty('--color-primary', config.theme.primary_color);
-  root.style.setProperty('--color-accent', config.theme.accent_color);
-  root.style.setProperty('--color-primary-rgb', hexToRgb(config.theme.primary_color));
+  root.style.setProperty("--color-primary", theme.primary);
+  root.style.setProperty("--color-accent", theme.accent);
+  root.style.setProperty("--color-primary-rgb", hexToRgb(theme.primary));
+  root.style.setProperty("--color-accent-rgb", hexToRgb(theme.accent));
+}
 
-  setText('nav-acronym', config.hub_acronym);
-  setText('nav-hub-name', config.hub_name);
-  setText('hero-title', config.hub_name);
-  setText('hero-subtitle', config.description);
-  setText('hero-university', config.university);
+function applyLogo(logoUrl: string | null) {
+  for (const id of ["nav-logo-img", "footer-logo-img"]) {
+    const img = document.getElementById(id) as HTMLImageElement | null;
+    if (!img) continue;
+    if (logoUrl) {
+      img.src = logoUrl;
+      img.hidden = false;
+      img.setAttribute("aria-hidden", "false");
+    } else {
+      img.removeAttribute("src");
+      img.hidden = true;
+      img.setAttribute("aria-hidden", "true");
+    }
+  }
+  // Hide the acronym when a real logo is shown in the nav, to avoid
+  // a double-brand effect.
+  const acronym = document.getElementById("nav-acronym");
+  if (acronym) acronym.style.display = logoUrl ? "none" : "";
+}
 
-  const treeLink = document.getElementById('tree-link') as HTMLAnchorElement;
-  if (treeLink) {
-    treeLink.href = `${config.content_url}/tree.html`;
+function applySectionToggles(sections: Record<string, boolean>) {
+  // Remove sections (and their nav links) when a key is explicitly
+  // false. Missing keys default to ON. A section-key like "events"
+  // matches elements with `data-section="events"`.
+  for (const [key, on] of Object.entries(sections)) {
+    if (on) continue;
+    document.querySelectorAll(`[data-section="${key}"]`).forEach((el) => el.remove());
+    document
+      .querySelectorAll(`.nav__link[data-nav-for="${key}"]`)
+      .forEach((el) => el.remove());
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Identity (name / acronym / tagline / about) + hero CTAs
+   ────────────────────────────────────────────────────────────────── */
+
+function setText(id: string, text: string | null | undefined) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (text == null || text.length === 0) {
+    el.textContent = "";
+    return;
+  }
+  el.textContent = text;
+}
+
+function renderIdentity(
+  remote: RemoteConfig | null,
+  chapter: ChapterBundle["chapter"] | null,
+) {
+  const hubName = remote?.hub_name ?? chapter?.name ?? config.hub_name;
+  const hubAcronym =
+    remote?.hub_acronym ?? config.hub_acronym ?? hubName.slice(0, 4);
+  const tagline =
+    remote?.tagline ?? config.description ?? "A student-run applied AI community.";
+  const university = chapter?.university ?? config.university;
+
+  document.title = `${hubName} — ALL Applied AI Network`;
+  const meta = document.querySelector('meta[name="description"]');
+  if (meta) meta.setAttribute("content", tagline);
+
+  setText("nav-acronym", hubAcronym);
+  setText("nav-hub-name", hubName);
+  setText("hero-title", hubName);
+  setText("hero-subtitle", tagline);
+  setText("hero-university", university);
+  setText("about-title", `About ${hubName}`);
+  setText("footer-hub-name", hubName);
+  setText("footer-university", university);
+}
+
+function renderHeroActions(remote: RemoteConfig | null) {
+  const container = document.getElementById("hero-actions");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const buttons: Array<{ label: string; href: string; primary: boolean }> = [];
+  if (remote?.cta_primary_label && remote?.cta_primary_href) {
+    buttons.push({
+      label: remote.cta_primary_label,
+      href: remote.cta_primary_href,
+      primary: true,
+    });
+  }
+  if (remote?.cta_secondary_label && remote?.cta_secondary_href) {
+    buttons.push({
+      label: remote.cta_secondary_label,
+      href: remote.cta_secondary_href,
+      primary: false,
+    });
   }
 
-  // Hide nav links for disabled features
-  if (!config.features.learning_tree) hideNavLink('learning');
-  if (!config.features.workshops) hideNavLink('workshops');
+  // Sensible defaults when the dashboard hasn't been configured yet —
+  // anchor links into the page, so the site still feels complete.
+  if (buttons.length === 0) {
+    if (document.getElementById("events")) {
+      buttons.push({ label: "Upcoming events", href: "#events", primary: true });
+    }
+    if (document.getElementById("learning")) {
+      buttons.push({
+        label: "Start learning",
+        href: "#learning",
+        primary: buttons.length === 0,
+      });
+    }
+  }
 
-  renderAbout();
-  renderOfficers();
-  renderEvents();
-  renderSocialLinks();
+  for (const b of buttons) {
+    const a = document.createElement("a");
+    a.className = `btn ${b.primary ? "btn--primary" : "btn--ghost"}`;
+    a.href = b.href;
+    // Only external links open in a new tab.
+    if (/^https?:\/\//.test(b.href)) {
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+    }
+    a.textContent = b.label;
+    container.appendChild(a);
+  }
 }
 
-function setText(id: string, text: string) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = text;
+function renderStats(chapter: ChapterBundle["chapter"] | null, badges: BadgeRow[]) {
+  if (!chapter) return;
+  const map: Record<string, string> = {
+    members: formatCount(chapter.member_count),
+    events: formatCount(chapter.event_count),
+    badges: formatCount(badges.length),
+  };
+  for (const [key, val] of Object.entries(map)) {
+    const el = document.querySelector(`[data-stat="${key}"]`);
+    if (el) el.textContent = val;
+  }
 }
 
-function hideNavLink(sectionId: string) {
-  const link = document.querySelector(`.nav__link[href="#${sectionId}"]`) as HTMLElement;
-  if (link) link.style.display = 'none';
+function formatCount(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k`;
+  return String(n);
 }
 
-function renderAbout() {
-  const container = document.getElementById('about-content');
+function renderAbout(remoteAbout: string | null) {
+  const container = document.getElementById("about-content");
   if (!container) return;
-
-  if (config.about) {
-    container.innerHTML = config.about
-      .split('\n')
-      .filter(p => p.trim())
-      .map(p => `<p>${p}</p>`)
-      .join('');
-  } else {
+  const md = remoteAbout ?? config.about ?? "";
+  if (!md.trim()) {
     container.innerHTML = `
       <p>We're part of the <strong>ALL Applied AI Network</strong> — a nationwide network of university AI chapters focused on applied AI engineering.</p>
       <p>Our curriculum starts at absolute zero and builds a path to shipping real AI products. No prior experience required.</p>
     `;
+    return;
   }
+  container.innerHTML = md
+    .split(/\n{2,}/)
+    .filter((p) => p.trim())
+    .map((p) => `<p>${renderInlineMarkdown(p)}</p>`)
+    .join("");
 }
 
-function renderOfficers() {
-  const container = document.getElementById('officers-grid');
-  if (!container || !config.officers?.length) return;
+/** Very small markdown subset: **bold**, *italic*, [label](url). */
+function renderInlineMarkdown(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+    .replace(
+      /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>',
+    )
+    .replace(/\n/g, "<br />");
+}
 
-  container.innerHTML = `
-    <h3 class="officers__title">Leadership</h3>
-    <div class="officers__grid">
-      ${config.officers.map(o => `
-        <div class="officer">
-          <div class="officer__avatar">${o.image ? `<img src="${o.image}" alt="${o.name}" />` : o.name.split(' ').map(n => n[0]).join('')}</div>
-          <div class="officer__name">${o.name}</div>
-          <div class="officer__role">${o.role}</div>
+/* ──────────────────────────────────────────────────────────────────
+   Events
+   ────────────────────────────────────────────────────────────────── */
+
+function renderEvents(events: EventRow[], tagline: string | null | undefined) {
+  const grid = document.getElementById("events-grid");
+  if (!grid) return;
+  const desc = document.getElementById("events-desc");
+  if (!events.length) {
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column: 1 / -1;">
+        <div class="empty-state__title">No upcoming events yet</div>
+        <div class="empty-state__desc">
+          ${tagline ?? "Events show up here as the eboard schedules them."}
+          Check back soon, or reach out on any of our socials below.
         </div>
-      `).join('')}
-    </div>
-  `;
-}
-
-function renderEvents() {
-  const container = document.getElementById('events-grid');
-  if (!container) return;
-
-  if (!config.events?.length) {
-    hideSection('events');
-    const navLink = document.querySelector('.nav__link[href="#events"]') as HTMLElement;
-    if (navLink) navLink.style.display = 'none';
+      </div>
+    `;
     return;
   }
 
-  container.innerHTML = config.events.map(event => `
-    <div class="event-card">
-      <div class="event-card__date">
-        <div class="event-card__date-text">${event.date}</div>
-        <div class="event-card__time">${event.time}</div>
-      </div>
-      <div class="event-card__body">
-        <h3 class="event-card__title">${event.title}</h3>
-        <p class="event-card__location">${event.location}</p>
-        <p class="event-card__desc">${event.description}</p>
-      </div>
-    </div>
-  `).join('');
+  grid.innerHTML = events
+    .map((e) => {
+      const d = new Date(e.date);
+      const month = d
+        .toLocaleDateString("en-US", { month: "short" })
+        .toUpperCase();
+      const day = d.getDate();
+      const time = d.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+      });
+      const desc = e.description
+        ? escapeHtml(e.description)
+        : "";
+      return `
+        <article class="event-card" role="listitem">
+          <div class="event-card__date" aria-label="${month} ${day}">
+            <div class="event-card__date-month">${month}</div>
+            <div class="event-card__date-day">${day}</div>
+          </div>
+          <div class="event-card__body">
+            <div class="event-card__type">${escapeHtml(e.type ?? "event")}</div>
+            <h3 class="event-card__title">${escapeHtml(e.title)}</h3>
+            ${desc ? `<p class="event-card__desc">${desc}</p>` : ""}
+            <div class="event-card__meta">${time} · ${e.points_attend} pts</div>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
 }
 
-function renderSocialLinks() {
-  const container = document.getElementById('social-links');
+/* ──────────────────────────────────────────────────────────────────
+   Leaderboard — top 3 podium + list up to 20
+   ────────────────────────────────────────────────────────────────── */
+
+function renderLeaderboard(rows: LeaderboardRow[]) {
+  const container = document.getElementById("leaderboard-content");
   if (!container) return;
 
-  const icons: Record<string, string> = {
-    discord: 'Discord', github: 'GitHub', instagram: 'Instagram',
-    linkedin: 'LinkedIn', email: 'Email',
-  };
+  if (!rows.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state__title">Your leaderboard will populate as members check in</div>
+        <div class="empty-state__desc">
+          Points are earned by attending events and completing recognitions. Once people start showing up, this board fills in fast.
+        </div>
+      </div>
+    `;
+    return;
+  }
 
-  const links = Object.entries(config.links)
-    .filter(([, url]) => url)
-    .map(([key, url]) => {
-      const href = key === 'email' ? `mailto:${url}` : url;
-      return `<a href="${href}" class="btn btn--ghost btn--sm" target="_blank" rel="noopener">${icons[key] || key}</a>`;
-    });
+  const top3 = rows.filter((r) => r.rank <= 3);
+  const rest = rows.filter((r) => r.rank > 3);
+  const medals: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
-  if (links.length) container.innerHTML = links.join('');
+  // Re-order 2, 1, 3 visually for the classic podium shape.
+  const ordered = [2, 1, 3]
+    .map((rank) => top3.find((t) => t.rank === rank))
+    .filter((r): r is LeaderboardRow => Boolean(r));
+
+  const podiumHtml = ordered.length
+    ? `
+      <div class="podium">
+        ${ordered
+          .map(
+            (r) => `
+          <div class="podium-card podium-card--rank-${r.rank}">
+            <div class="podium-card__medal">${medals[r.rank]}</div>
+            <div class="podium-card__rank">Rank ${r.rank}</div>
+            <div class="podium-card__name">${escapeHtml(r.name)}</div>
+            <div class="podium-card__points">${r.points.toLocaleString()}</div>
+            <div class="podium-card__events">${r.events_attended} events</div>
+          </div>
+        `,
+          )
+          .join("")}
+      </div>
+    `
+    : "";
+
+  const listHtml = rest.length
+    ? `
+      <div class="leaderboard-list">
+        ${rest
+          .map(
+            (r) => `
+          <div class="leaderboard-row">
+            <div class="leaderboard-row__rank">#${r.rank}</div>
+            <div class="leaderboard-row__name">
+              ${escapeHtml(r.name)}
+              <small>${r.events_attended} events</small>
+            </div>
+            <div class="leaderboard-row__points">${r.points.toLocaleString()}</div>
+          </div>
+        `,
+          )
+          .join("")}
+      </div>
+    `
+    : "";
+
+  container.innerHTML = podiumHtml + listHtml;
 }
+
+/* ──────────────────────────────────────────────────────────────────
+   Badges
+   ────────────────────────────────────────────────────────────────── */
+
+const BUILT_IN_ICONS: Record<string, string> = {
+  trophy:
+    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>',
+  star:
+    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+  award:
+    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>',
+  medal:
+    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><circle cx="12" cy="17" r="5"/></svg>',
+  lightning:
+    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+};
+
+function renderBadgeIcon(icon: string): string {
+  const key = (icon ?? "").trim();
+  if (
+    key.startsWith("http://") ||
+    key.startsWith("https://") ||
+    key.startsWith("data:image/")
+  ) {
+    return `<img src="${escapeAttr(key)}" alt="" />`;
+  }
+  return BUILT_IN_ICONS[key] ?? BUILT_IN_ICONS.trophy;
+}
+
+function renderBadges(badges: BadgeRow[]) {
+  const grid = document.getElementById("badges-grid");
+  if (!grid) return;
+
+  if (!badges.length) {
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column: 1 / -1;">
+        <div class="empty-state__title">No badges yet</div>
+        <div class="empty-state__desc">
+          Badges recognize members for things like completing coursework, winning hackathons, or leading projects. Your eboard can create them from the dashboard.
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  const sorted = [...badges].sort((a, b) => b.award_count - a.award_count);
+
+  grid.innerHTML = sorted
+    .map(
+      (b) => `
+    <div class="badge-card" role="listitem">
+      <div class="badge-card__icon">${renderBadgeIcon(b.icon)}</div>
+      <div class="badge-card__body">
+        <div class="badge-card__name">${escapeHtml(b.name)}</div>
+        ${
+          b.description
+            ? `<p class="badge-card__desc">${escapeHtml(b.description)}</p>`
+            : ""
+        }
+        <div class="badge-card__count">${b.award_count} earned</div>
+      </div>
+    </div>
+  `,
+    )
+    .join("");
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Merch
+   ────────────────────────────────────────────────────────────────── */
+
+function renderMerch(items: MerchRow[]) {
+  const grid = document.getElementById("merch-grid");
+  if (!grid) return;
+
+  if (!items.length) {
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column: 1 / -1;">
+        <div class="empty-state__title">No merch yet</div>
+        <div class="empty-state__desc">
+          When your eboard adds T-shirts, stickers, workshop vouchers, or any reward, they'll show up here with their point cost.
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  const packageIcon = `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M16.5 9.4 7.55 4.24"/>
+    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+    <line x1="12" y1="22.08" x2="12" y2="12"/>
+  </svg>`;
+
+  grid.innerHTML = items
+    .map((m) => {
+      const photo = m.image_url
+        ? `<img src="${escapeAttr(m.image_url)}" alt="" />`
+        : `<div class="merch-card__photo-placeholder">${packageIcon}</div>`;
+      const stockLine =
+        m.stock === null
+          ? "Unlimited stock"
+          : m.stock === 0
+            ? "Out of stock"
+            : `${m.stock} left`;
+      const stockClass = m.stock === 0 ? " merch-card__stock--empty" : "";
+      return `
+      <div class="merch-card" role="listitem">
+        <div class="merch-card__photo">${photo}</div>
+        <div class="merch-card__body">
+          <div class="merch-card__header">
+            <div class="merch-card__name">${escapeHtml(m.name)}</div>
+            <div class="merch-card__cost">${m.cost_points.toLocaleString()} pts</div>
+          </div>
+          ${
+            m.description
+              ? `<p class="merch-card__desc">${escapeHtml(m.description)}</p>`
+              : ""
+          }
+          <div class="merch-card__stock${stockClass}">${stockLine}</div>
+        </div>
+      </div>
+    `;
+    })
+    .join("");
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Officers
+   ────────────────────────────────────────────────────────────────── */
+
+function officerInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}
+
+function renderOfficers(officers: Officer[]) {
+  const grid = document.getElementById("officers-grid");
+  if (!grid) return;
+
+  // Fall back to the template's local officers if none from remote, so
+  // a fresh fork still shows something.
+  const list =
+    officers.length > 0
+      ? officers
+      : (config.officers ?? []).map((o) => ({
+          name: o.name,
+          role: o.role,
+          image_url: o.image || null,
+          linkedin: null,
+        }));
+
+  if (!list.length) {
+    // No officers anywhere — remove the section entirely.
+    const section = document.getElementById("officers");
+    section?.remove();
+    document
+      .querySelector('.nav__link[data-nav-for="officers"]')
+      ?.remove();
+    return;
+  }
+
+  const linkedinIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM8.34 18.34V9.67H5.67v8.67zM7 8.5a1.54 1.54 0 1 0 0-3.08 1.54 1.54 0 0 0 0 3.08zm11.34 9.84v-4.75c0-2.53-1.35-3.7-3.15-3.7-1.45 0-2.1.8-2.47 1.37V9.67h-2.68s.03.76 0 8.67h2.68v-4.84c0-.24.02-.48.09-.65.18-.48.62-.98 1.35-.98.96 0 1.34.73 1.34 1.8v4.67z"/></svg>`;
+
+  grid.innerHTML = list
+    .map((o) => {
+      const avatar = o.image_url
+        ? `<img src="${escapeAttr(o.image_url)}" alt="" />`
+        : officerInitials(o.name);
+      const linkedin = o.linkedin
+        ? `<a class="officer-card__linkedin" href="${escapeAttr(o.linkedin)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttr(o.name)} on LinkedIn">${linkedinIcon}</a>`
+        : "";
+      return `
+      <div class="officer-card" role="listitem">
+        <div class="officer-card__avatar">${avatar}</div>
+        <div class="officer-card__name">${escapeHtml(o.name)}</div>
+        <div class="officer-card__role">${escapeHtml(o.role ?? "")}</div>
+        ${linkedin}
+      </div>
+    `;
+    })
+    .join("");
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Social links footer
+   ────────────────────────────────────────────────────────────────── */
+
+const SOCIAL_ICONS: Record<string, string> = {
+  discord: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.32 4.37a19.79 19.79 0 0 0-4.89-1.52.07.07 0 0 0-.08.04c-.2.38-.43.87-.59 1.26a18.27 18.27 0 0 0-5.52 0c-.17-.39-.4-.88-.6-1.26a.08.08 0 0 0-.08-.04 19.74 19.74 0 0 0-4.89 1.52.07.07 0 0 0-.03.03C.44 9.05-.27 13.58.1 18.06a.1.1 0 0 0 .04.07 19.9 19.9 0 0 0 6 3.03.08.08 0 0 0 .09-.03c.46-.63.87-1.3 1.23-2a.07.07 0 0 0-.04-.11 13.1 13.1 0 0 1-1.88-.9.08.08 0 0 1-.01-.13c.13-.1.25-.2.37-.3a.08.08 0 0 1 .08-.01c3.93 1.8 8.18 1.8 12.07 0a.08.08 0 0 1 .08.01c.12.1.24.2.37.3a.08.08 0 0 1-.01.13 12.3 12.3 0 0 1-1.88.9.08.08 0 0 0-.04.11c.37.7.78 1.37 1.24 2a.08.08 0 0 0 .08.03 19.84 19.84 0 0 0 6-3.03.08.08 0 0 0 .04-.07c.44-5.18-.73-9.67-3.1-13.66a.06.06 0 0 0-.03-.03zM8.02 15.33c-1.18 0-2.16-1.09-2.16-2.42s.95-2.42 2.16-2.42c1.21 0 2.18 1.1 2.16 2.42 0 1.33-.95 2.42-2.16 2.42zm7.97 0c-1.18 0-2.15-1.09-2.15-2.42s.95-2.42 2.15-2.42c1.22 0 2.19 1.1 2.16 2.42 0 1.33-.94 2.42-2.16 2.42z"/></svg>`,
+  github: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.73.5.77 5.46.77 11.73c0 4.96 3.22 9.17 7.68 10.66.56.1.77-.24.77-.54v-2.06c-3.13.68-3.79-1.3-3.79-1.3-.51-1.3-1.25-1.64-1.25-1.64-1.02-.7.08-.68.08-.68 1.13.08 1.72 1.16 1.72 1.16 1 1.72 2.63 1.22 3.27.93.1-.72.39-1.22.72-1.5-2.5-.28-5.12-1.25-5.12-5.55 0-1.23.44-2.23 1.16-3.02-.12-.28-.5-1.43.11-2.97 0 0 .94-.3 3.09 1.15a10.8 10.8 0 0 1 5.62 0c2.15-1.46 3.09-1.15 3.09-1.15.61 1.54.23 2.69.11 2.97.72.79 1.16 1.79 1.16 3.02 0 4.31-2.63 5.26-5.14 5.54.4.35.76 1.03.76 2.07v3.07c0 .3.21.65.78.54 4.45-1.49 7.67-5.7 7.67-10.66C23.23 5.46 18.27.5 12 .5z"/></svg>`,
+  instagram: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37a4 4 0 1 1-7.914 1.172A4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>`,
+  linkedin: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM8.34 18.34V9.67H5.67v8.67zM7 8.5a1.54 1.54 0 1 0 0-3.08 1.54 1.54 0 0 0 0 3.08zm11.34 9.84v-4.75c0-2.53-1.35-3.7-3.15-3.7-1.45 0-2.1.8-2.47 1.37V9.67h-2.68s.03.76 0 8.67h2.68v-4.84c0-.24.02-.48.09-.65.18-.48.62-.98 1.35-.98.96 0 1.34.73 1.34 1.8v4.67z"/></svg>`,
+  twitter: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`,
+  youtube: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.498 6.186a3 3 0 0 0-2.11-2.12C19.505 3.545 12 3.545 12 3.545s-7.504 0-9.389.521A3 3 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3 3 0 0 0 2.11 2.12c1.885.521 9.389.521 9.389.521s7.504 0 9.389-.521a3 3 0 0 0 2.11-2.12C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12z"/></svg>`,
+  email: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></svg>`,
+};
+
+const SOCIAL_LABELS: Record<string, string> = {
+  discord: "Discord",
+  github: "GitHub",
+  instagram: "Instagram",
+  linkedin: "LinkedIn",
+  twitter: "Twitter / X",
+  youtube: "YouTube",
+  email: "Email",
+};
+
+function renderSocials(links: Record<string, string>) {
+  const container = document.getElementById("footer-socials");
+  if (!container) return;
+
+  // Merge remote over bundled so a fresh fork has something.
+  const merged: Record<string, string> = { ...(config.links ?? {}) };
+  for (const [k, v] of Object.entries(links)) {
+    if (v) merged[k] = v;
+  }
+
+  const entries = Object.entries(merged).filter(([, v]) => v);
+  if (!entries.length) {
+    container.innerHTML = "";
+    return;
+  }
+
+  container.innerHTML = entries
+    .map(([key, url]) => {
+      const href = key === "email" ? `mailto:${url}` : url;
+      const icon = SOCIAL_ICONS[key] ?? SOCIAL_ICONS.email;
+      const label = SOCIAL_LABELS[key] ?? key;
+      return `<a class="footer-social" href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttr(label)}" title="${escapeAttr(label)}">${icon}</a>`;
+    })
+    .join("");
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Learning / Workshops / Playbooks — CDN content
+   ────────────────────────────────────────────────────────────────── */
 
 async function fetchJSON<T>(url: string): Promise<T | null> {
   try {
@@ -303,36 +764,59 @@ async function fetchJSON<T>(url: string): Promise<T | null> {
 }
 
 function isLocalPath(path: string): boolean {
-  return path.startsWith('local/');
+  return path.startsWith("local/");
 }
 
-function renderCard(entry: { title: string; description?: string; thumbnail?: string; path?: string; difficulty?: string; estimated_minutes?: number; isLocal?: boolean }): string {
+function renderCard(entry: {
+  title: string;
+  description?: string;
+  thumbnail?: string;
+  path?: string;
+  difficulty?: string;
+  estimated_minutes?: number;
+  isLocal?: boolean;
+}): string {
   const local = entry.isLocal || (entry.path && isLocalPath(entry.path));
   const thumbSrc = entry.thumbnail
-    ? (local ? entry.thumbnail : `${config.content_url}/${entry.thumbnail}`)
-    : '';
+    ? local
+      ? entry.thumbnail
+      : `${config.content_url}/${entry.thumbnail}`
+    : "";
   const thumb = thumbSrc
-    ? `<img class="card__thumb" src="${thumbSrc}" alt="" loading="lazy" />`
-    : '';
+    ? `<img class="card__thumb" src="${escapeAttr(thumbSrc)}" alt="" loading="lazy" />`
+    : "";
 
-  const meta = [
-    entry.difficulty ? `<span class="card__badge card__badge--${entry.difficulty}">${entry.difficulty}</span>` : '',
-    entry.estimated_minutes ? `<span class="card__meta">${entry.estimated_minutes} min</span>` : '',
-    local ? '<span class="card__badge card__badge--local">Chapter</span>' : '',
-  ].filter(Boolean).join('');
+  const badges = [
+    entry.difficulty
+      ? `<span class="card__badge card__badge--${escapeAttr(
+          entry.difficulty,
+        )}">${escapeHtml(entry.difficulty)}</span>`
+      : "",
+    entry.estimated_minutes
+      ? `<span class="card__meta">${entry.estimated_minutes} min</span>`
+      : "",
+    local ? '<span class="card__badge card__badge--local">Chapter</span>' : "",
+  ]
+    .filter(Boolean)
+    .join("");
 
-  // Local content uses a local= param; remote uses path= param
   const href = entry.path
-    ? (local ? `./article.html?local=${entry.path}` : `./article.html?path=${entry.path}`)
-    : '#';
+    ? local
+      ? `./article.html?local=${encodeURIComponent(entry.path)}`
+      : `./article.html?path=${encodeURIComponent(entry.path)}`
+    : "#";
 
   return `
-    <a href="${href}" class="card">
+    <a href="${escapeAttr(href)}" class="card">
       ${thumb}
       <div class="card__body">
-        <h3 class="card__title">${entry.title}</h3>
-        ${meta ? `<div class="card__meta-row">${meta}</div>` : ''}
-        ${entry.description ? `<p class="card__desc">${entry.description}</p>` : ''}
+        <h3 class="card__title">${escapeHtml(entry.title)}</h3>
+        ${badges ? `<div class="card__meta-row">${badges}</div>` : ""}
+        ${
+          entry.description
+            ? `<p class="card__desc">${escapeHtml(entry.description)}</p>`
+            : ""
+        }
       </div>
     </a>
   `;
@@ -340,60 +824,57 @@ function renderCard(entry: { title: string; description?: string; thumbnail?: st
 
 function isPathExcluded(path: string | undefined): boolean {
   if (!path || !config.content?.exclude_paths?.length) return false;
-  return config.content.exclude_paths.some(excluded =>
-    path === excluded || path.startsWith(excluded + '/')
+  return config.content.exclude_paths.some(
+    (excluded) => path === excluded || path.startsWith(excluded + "/"),
   );
 }
 
-function applyCustomOrder<T extends { path?: string; content_path?: string }>(items: T[]): T[] {
+function applyCustomOrder<T extends { path?: string; content_path?: string; title?: string }>(
+  items: T[],
+): T[] {
   const order = config.content?.custom_order;
   if (!order?.length) return items;
-
   const orderMap = new Map(order.map((p, i) => [p, i]));
-
   return items.sort((a, b) => {
-    const pathA = a.path || a.content_path || '';
-    const pathB = b.path || b.content_path || '';
+    const pathA = a.path || a.content_path || "";
+    const pathB = b.path || b.content_path || "";
     const idxA = orderMap.has(pathA) ? orderMap.get(pathA)! : Infinity;
     const idxB = orderMap.has(pathB) ? orderMap.get(pathB)! : Infinity;
     if (idxA !== Infinity || idxB !== Infinity) return idxA - idxB;
-    // Fallback: alphabetical for un-ordered items
-    return (a as any).title?.localeCompare?.((b as any).title) || 0;
+    return (a.title ?? "").localeCompare(b.title ?? "");
   });
 }
 
-function getLocalContentForSection(section: string): LocalContentEntry[] {
-  return config.content?.local_content?.filter(lc => lc.section === section) || [];
+function getLocalContentForSection(
+  section: "learning" | "workshops" | "playbooks",
+): LocalContentEntry[] {
+  return (
+    config.content?.local_content?.filter((lc) => lc.section === section) ?? []
+  );
 }
 
 async function loadLearningTree() {
-  if (!config.features.learning_tree) {
-    hideSection('learning');
-    return;
-  }
+  const grid = document.getElementById("learning-grid");
+  if (!grid) return;
 
   const tree = await fetchJSON<TreeData>(`${config.content_url}/tree.json`);
-  const grid = document.getElementById('learning-grid');
-  if (!grid || !tree) {
-    if (grid) grid.innerHTML = '<p class="muted">Could not load learning content.</p>';
+  const treeLink = document.getElementById("tree-link") as HTMLAnchorElement | null;
+  if (treeLink) treeLink.href = `${config.content_url}/tree.html`;
+
+  if (!tree) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-state__title">Couldn't reach the content library</div><div class="empty-state__desc">Try refreshing, or visit the full curriculum above.</div></div>`;
     return;
   }
 
-  // Filter out excluded paths
   let entryNodes = tree.nodes
-    .filter(n => n.layer === 0)
-    .filter(n => !isPathExcluded(n.content_path));
-
-  // Apply custom ordering
+    .filter((n) => n.layer === 0)
+    .filter((n) => !isPathExcluded(n.content_path));
   entryNodes = applyCustomOrder(entryNodes);
-
-  // If no custom order, default to alphabetical
   if (!config.content?.custom_order?.length) {
     entryNodes.sort((a, b) => a.title.localeCompare(b.title));
   }
 
-  // Build cards from remote content
-  const remoteCards = entryNodes.map(node =>
+  const remoteCards = entryNodes.map((node) =>
     renderCard({
       title: node.title,
       description: node.description,
@@ -401,151 +882,157 @@ async function loadLearningTree() {
       path: node.content_path,
       difficulty: node.difficulty,
       estimated_minutes: node.estimated_minutes,
-    })
+    }),
   );
-
-  // Inject local content for the learning section
-  const localCards = getLocalContentForSection('learning').map(lc =>
+  const localCards = getLocalContentForSection("learning").map((lc) =>
     renderCard({
       title: lc.title,
       description: lc.description,
       thumbnail: lc.thumbnail,
       path: lc.path,
       isLocal: true,
-    })
+    }),
   );
+  const all = [...localCards, ...remoteCards];
 
-  const allCards = [...localCards, ...remoteCards];
-
-  if (!allCards.length) {
-    grid.innerHTML = '<p class="muted">No learning content available yet.</p>';
-    return;
-  }
-
-  grid.innerHTML = allCards.join('');
+  grid.innerHTML = all.length
+    ? all.join("")
+    : `<div class="empty-state" style="grid-column:1/-1"><div class="empty-state__title">No learning content yet</div></div>`;
 }
 
-async function loadManifestSection(type: 'workshop' | 'playbook', gridId: string, sectionId: string) {
-  const featureKey = type === 'workshop' ? 'workshops' : 'playbooks';
-  if (!config.features[featureKey]) {
-    hideSection(sectionId);
-    return;
-  }
+async function loadManifestSection(
+  type: "workshop" | "playbook",
+  gridId: string,
+) {
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
 
   const manifest = await fetchJSON<Manifest>(`${config.content_url}/manifest.json`);
-  const grid = document.getElementById(gridId);
-  if (!grid || !manifest) {
-    if (grid) grid.innerHTML = '<p class="muted">Could not load content.</p>';
+  if (!manifest) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-state__title">Couldn't reach the content library</div></div>`;
     return;
   }
 
-  // Filter out excluded paths from remote content
   const items = manifest.content
-    .filter(c => c.type === type)
-    .filter(c => !isPathExcluded(c.path));
-
-  const remoteCards = items.map(item => renderCard(item));
-
-  // Inject local content for this section
-  const sectionKey = type === 'workshop' ? 'workshops' : 'playbooks';
-  const localCards = getLocalContentForSection(sectionKey).map(lc =>
+    .filter((c) => c.type === type)
+    .filter((c) => !isPathExcluded(c.path));
+  const remoteCards = items.map((it) => renderCard(it));
+  const sectionKey = type === "workshop" ? "workshops" : "playbooks";
+  const localCards = getLocalContentForSection(sectionKey).map((lc) =>
     renderCard({
       title: lc.title,
       description: lc.description,
       thumbnail: lc.thumbnail,
       path: lc.path,
       isLocal: true,
-    })
+    }),
   );
+  const all = [...localCards, ...remoteCards];
 
-  const allCards = [...localCards, ...remoteCards];
-
-  if (!allCards.length) {
-    grid.innerHTML = `<p class="muted">No ${type}s available yet.</p>`;
-    return;
-  }
-
-  grid.innerHTML = allCards.join('');
+  grid.innerHTML = all.length
+    ? all.join("")
+    : `<div class="empty-state" style="grid-column:1/-1"><div class="empty-state__title">No ${type}s yet</div></div>`;
 }
 
-function hideSection(id: string) {
-  const section = document.getElementById(id);
-  if (section) section.style.display = 'none';
+/* ──────────────────────────────────────────────────────────────────
+   Nav toggle (mobile)
+   ────────────────────────────────────────────────────────────────── */
+
+function wireNavToggle() {
+  const toggle = document.getElementById("nav-toggle");
+  const links = document.getElementById("nav-links");
+  if (!toggle || !links) return;
+  toggle.addEventListener("click", () => {
+    const open = links.classList.toggle("nav__links--open");
+    toggle.setAttribute("aria-expanded", String(open));
+  });
+  // Close when clicking a link
+  links.querySelectorAll("a").forEach((a) =>
+    a.addEventListener("click", () => {
+      links.classList.remove("nav__links--open");
+      toggle.setAttribute("aria-expanded", "false");
+    }),
+  );
 }
 
-/**
- * Preview mode: the dashboard's Customize tab iframes this template
- * with ?preview=1 + theme/logo/sections passed as URL params, so the
- * eboard sees changes instantly without deploying. We skip the remote
- * fetch in preview mode (their in-progress settings haven't been
- * saved yet) and apply the URL-param overrides directly.
- *
- * Query params:
- *   preview=1      required to enter preview mode
- *   primary=%234f8fea  hex color, URL-encoded
- *   accent=%23a855f7   hex color, URL-encoded
- *   logo=<url>     optional; "" or missing = default wordmark
- *   off=events,merch   comma-separated list of disabled section keys
- *                      (defaults all on, same as the dashboard model)
- */
-function applyPreviewFromParams(params: URLSearchParams) {
-  const primary = params.get('primary');
-  const accent = params.get('accent');
-  if (primary || accent) {
-    applyRemoteTheme({
-      primary: primary ?? config.theme.primary_color,
-      accent: accent ?? config.theme.accent_color,
-    });
-  }
+/* ──────────────────────────────────────────────────────────────────
+   Utilities
+   ────────────────────────────────────────────────────────────────── */
 
-  // `logo=` with empty value = explicitly clear; absent = leave default
-  const logo = params.get('logo');
-  if (logo !== null) applyRemoteLogo(logo.length > 0 ? logo : null);
-
-  const off = params.get('off');
-  if (off !== null) {
-    const sections: Record<string, boolean> = {};
-    for (const key of off.split(',').map((s) => s.trim()).filter(Boolean)) {
-      sections[key] = false;
-    }
-    applyRemoteSections(sections);
-  }
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
+
+function escapeAttr(s: string): string {
+  return escapeHtml(s);
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Init
+   ────────────────────────────────────────────────────────────────── */
 
 async function init() {
-  // 1. Apply everything we can from the bundled config (instant; no
-  //    network). The page already looks right by the time any remote
-  //    step finishes.
-  applyConfig();
+  wireNavToggle();
 
   const params =
-    typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search)
+      : null;
+  const isPreview = params?.get("preview") === "1";
 
-  if (params?.get('preview') === '1') {
-    // Preview mode: skip the dashboard fetch and apply overrides from
-    // URL params. The iframe lives inside the dashboard's Customize
-    // tab — reloading the iframe src is how the eboard sees their
-    // in-progress edits reflected.
+  if (isPreview) {
+    // Preview mode: skip dashboard fetch, apply overrides from URL.
+    applyTheme({
+      primary: config.theme.primary_color,
+      accent: config.theme.accent_color,
+    });
+    renderIdentity(null, null);
+    renderHeroActions(null);
+    renderAbout(null);
+    renderOfficers([]);
+    renderSocials({});
     applyPreviewFromParams(params);
+    renderEvents([], null);
+    renderLeaderboard([]);
+    renderBadges([]);
+    renderMerch([]);
+    renderStats(null, []);
   } else {
-    // 2. Fetch the dashboard-managed config. Layer its theme / logo /
-    //    section toggles on top of the local defaults. Section removal
-    //    has to happen BEFORE render fns below, so we await.
-    const remote = await loadRemoteConfig();
-    if (remote) {
-      applyRemoteSections(remote.sections);
-      applyRemoteTheme(remote.theme);
-      applyRemoteLogo(remote.logo_url);
-    }
+    // Normal mode: fetch the bundle + render everything.
+    const slug = config.hub_id?.trim().toLowerCase();
+    const bundle = await fetchBundle(slug ?? "");
+
+    const remote = bundle?.config ?? null;
+    const theme = remote
+      ? { primary: remote.theme.primary, accent: remote.theme.accent }
+      : { primary: config.theme.primary_color, accent: config.theme.accent_color };
+
+    applyTheme(theme);
+    applyLogo(remote?.logo_url ?? null);
+    applySectionToggles(remote?.sections ?? {});
+    renderIdentity(remote, bundle?.chapter ?? null);
+    renderHeroActions(remote);
+    renderAbout(remote?.about ?? null);
+    renderStats(bundle?.chapter ?? null, bundle?.badges ?? []);
+    renderEvents(bundle?.events ?? [], remote?.tagline ?? null);
+    renderLeaderboard(bundle?.leaderboard ?? []);
+    renderBadges(bundle?.badges ?? []);
+    renderMerch(bundle?.merch ?? []);
+    renderOfficers(remote?.officers ?? []);
+    renderSocials(remote?.social_links ?? {});
   }
 
-  // 3. Render the remote-content-driven sections. These skip themselves
-  //    when their section element was removed above (document.
-  //    getElementById returns null).
+  // CDN content loads regardless — the section toggles above already
+  // removed any section the dashboard turned off.
   await Promise.all([
     loadLearningTree(),
-    loadManifestSection('workshop', 'workshops-grid', 'workshops'),
-    loadManifestSection('playbook', 'playbooks-grid', 'playbooks'),
+    loadManifestSection("workshop", "workshops-grid"),
+    loadManifestSection("playbook", "playbooks-grid"),
   ]);
 }
 
