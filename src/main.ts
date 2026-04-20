@@ -473,25 +473,74 @@ function hideSection(id: string) {
   if (section) section.style.display = 'none';
 }
 
+/**
+ * Preview mode: the dashboard's Customize tab iframes this template
+ * with ?preview=1 + theme/logo/sections passed as URL params, so the
+ * eboard sees changes instantly without deploying. We skip the remote
+ * fetch in preview mode (their in-progress settings haven't been
+ * saved yet) and apply the URL-param overrides directly.
+ *
+ * Query params:
+ *   preview=1      required to enter preview mode
+ *   primary=%234f8fea  hex color, URL-encoded
+ *   accent=%23a855f7   hex color, URL-encoded
+ *   logo=<url>     optional; "" or missing = default wordmark
+ *   off=events,merch   comma-separated list of disabled section keys
+ *                      (defaults all on, same as the dashboard model)
+ */
+function applyPreviewFromParams(params: URLSearchParams) {
+  const primary = params.get('primary');
+  const accent = params.get('accent');
+  if (primary || accent) {
+    applyRemoteTheme({
+      primary: primary ?? config.theme.primary_color,
+      accent: accent ?? config.theme.accent_color,
+    });
+  }
+
+  // `logo=` with empty value = explicitly clear; absent = leave default
+  const logo = params.get('logo');
+  if (logo !== null) applyRemoteLogo(logo.length > 0 ? logo : null);
+
+  const off = params.get('off');
+  if (off !== null) {
+    const sections: Record<string, boolean> = {};
+    for (const key of off.split(',').map((s) => s.trim()).filter(Boolean)) {
+      sections[key] = false;
+    }
+    applyRemoteSections(sections);
+  }
+}
+
 async function init() {
   // 1. Apply everything we can from the bundled config (instant; no
-  //    network). The page already looks right by the time the remote
-  //    fetch finishes.
+  //    network). The page already looks right by the time any remote
+  //    step finishes.
   applyConfig();
 
-  // 2. Fetch the dashboard-managed config in parallel. When it returns,
-  //    layer its theme / logo / section toggles on top of the local
-  //    defaults. Section removal has to happen BEFORE render fns below,
-  //    so we await this step even though it adds ~100ms.
-  const remote = await loadRemoteConfig();
-  if (remote) {
-    applyRemoteSections(remote.sections);
-    applyRemoteTheme(remote.theme);
-    applyRemoteLogo(remote.logo_url);
+  const params =
+    typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+
+  if (params?.get('preview') === '1') {
+    // Preview mode: skip the dashboard fetch and apply overrides from
+    // URL params. The iframe lives inside the dashboard's Customize
+    // tab — reloading the iframe src is how the eboard sees their
+    // in-progress edits reflected.
+    applyPreviewFromParams(params);
+  } else {
+    // 2. Fetch the dashboard-managed config. Layer its theme / logo /
+    //    section toggles on top of the local defaults. Section removal
+    //    has to happen BEFORE render fns below, so we await.
+    const remote = await loadRemoteConfig();
+    if (remote) {
+      applyRemoteSections(remote.sections);
+      applyRemoteTheme(remote.theme);
+      applyRemoteLogo(remote.logo_url);
+    }
   }
 
   // 3. Render the remote-content-driven sections. These skip themselves
-  //    when their section element was removed in step 2 (document.
+  //    when their section element was removed above (document.
   //    getElementById returns null).
   await Promise.all([
     loadLearningTree(),

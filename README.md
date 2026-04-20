@@ -123,6 +123,26 @@ where `{hub_id}` matches `hub_id` in `hub.config.json` (also your chapter slug o
 
 **For AI agents maintaining a forked hub site:** don't duplicate these values into `hub.config.json` — they're the dashboard's responsibility. The local config is the offline / first-deploy fallback only. If you need to add a new section that should be togglable from the dashboard, add its key to `KNOWN_SECTIONS` in `aain-api/src/lib/hub-config.ts` and to the `SECTION_MAP` in `src/main.ts::applyRemoteSections`.
 
+### Preview mode
+
+The template accepts `?preview=1` query params so the dashboard's Customize tab can iframe it and show the eboard a live preview of their in-progress edits before they save. In preview mode we skip the remote fetch and apply overrides from the URL instead.
+
+| Param | Purpose |
+| --- | --- |
+| `preview=1` | Required. Enables preview mode. |
+| `primary` | Primary color (URL-encoded hex). |
+| `accent` | Accent color (URL-encoded hex). |
+| `logo` | Full URL to a custom logo. Empty string = explicitly clear; missing = use default. |
+| `off` | Comma-separated list of disabled section keys, e.g. `events,merch`. |
+
+Example:
+
+```
+https://all-applied-ai-network.github.io/aain-hub-template/?preview=1&primary=%234f8fea&accent=%23a855f7&off=events,merch
+```
+
+When adding new URL-driven overrides, handle them in [`applyPreviewFromParams`](src/main.ts) and document them here so the dashboard's preview builder stays in sync.
+
 ## Customization
 
 Everything is driven by `hub.config.json`. Here's the full config with all options:
