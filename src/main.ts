@@ -432,20 +432,25 @@ function renderInlineMarkdown(text: string): string {
    Events
    ────────────────────────────────────────────────────────────────── */
 
-function renderEvents(events: EventRow[], tagline: string | null | undefined) {
+/** Remove a whole section + its nav link + any page tabs that
+ *  pointed at it. Used by the data-driven renderers below when the
+ *  API returns no rows — empty "no events yet" cards on a public
+ *  site read as broken, better to hide the section entirely and
+ *  surface the warning on the dashboard. */
+function hideSection(sectionKey: string) {
+  document
+    .querySelectorAll(`[data-section="${sectionKey}"]`)
+    .forEach((el) => el.remove());
+  document
+    .querySelectorAll(`.nav__link[data-nav-for="${sectionKey}"]`)
+    .forEach((el) => el.remove());
+}
+
+function renderEvents(events: EventRow[], _tagline: string | null | undefined) {
   const grid = document.getElementById("events-grid");
   if (!grid) return;
-  const desc = document.getElementById("events-desc");
   if (!events.length) {
-    grid.innerHTML = `
-      <div class="empty-state" style="grid-column: 1 / -1;">
-        <div class="empty-state__title">No upcoming events yet</div>
-        <div class="empty-state__desc">
-          ${tagline ?? "Events show up here as the eboard schedules them."}
-          Check back soon, or reach out on any of our socials below.
-        </div>
-      </div>
-    `;
+    hideSection("events");
     return;
   }
 
@@ -485,46 +490,62 @@ function renderEvents(events: EventRow[], tagline: string | null | undefined) {
    Leaderboard — top 3 podium + list up to 20
    ────────────────────────────────────────────────────────────────── */
 
+/** SVG medal icons — the emoji versions read as "playful" rather than
+ *  "grand". These are flat SVGs styled with CSS per rank. */
+const MEDAL_SVGS: Record<number, string> = {
+  1: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/><path d="m10.5 15 1.5 1.5L14 14"/></svg>`,
+  2: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/></svg>`,
+  3: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/></svg>`,
+};
+
 function renderLeaderboard(rows: LeaderboardRow[]) {
   const container = document.getElementById("leaderboard-content");
   if (!container) return;
 
   if (!rows.length) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-state__title">Your leaderboard will populate as members check in</div>
-        <div class="empty-state__desc">
-          Points are earned by attending events and completing recognitions. Once people start showing up, this board fills in fast.
-        </div>
-      </div>
-    `;
+    hideSection("leaderboard");
     return;
   }
 
+  // Cap the visible count so the podium has something even on small
+  // chapters, and the list doesn't run forever.
   const top3 = rows.filter((r) => r.rank <= 3);
   const rest = rows.filter((r) => r.rank > 3);
-  const medals: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
+  const maxPoints = Math.max(...rows.map((r) => r.points), 1);
 
-  // Re-order 2, 1, 3 visually for the classic podium shape.
+  // Re-order 2, 1, 3 visually for the classic podium shape (center
+  // winner, left runner-up, right third). #1 card is taller to
+  // reinforce the tier visually beyond color alone.
   const ordered = [2, 1, 3]
     .map((rank) => top3.find((t) => t.rank === rank))
     .filter((r): r is LeaderboardRow => Boolean(r));
+
+  const rankLabel: Record<number, string> = { 1: "Gold", 2: "Silver", 3: "Bronze" };
 
   const podiumHtml = ordered.length
     ? `
       <div class="podium">
         ${ordered
-          .map(
-            (r) => `
+          .map((r) => {
+            const pctOfMax = Math.round((r.points / maxPoints) * 100);
+            return `
           <div class="podium-card podium-card--rank-${r.rank}">
-            <div class="podium-card__medal">${medals[r.rank]}</div>
-            <div class="podium-card__rank">Rank ${r.rank}</div>
+            <div class="podium-card__glow" aria-hidden="true"></div>
+            <div class="podium-card__medal">${MEDAL_SVGS[r.rank] ?? ""}</div>
+            <div class="podium-card__tier">${rankLabel[r.rank]}</div>
+            <div class="podium-card__rank">${r.rank}</div>
             <div class="podium-card__name">${escapeHtml(r.name)}</div>
-            <div class="podium-card__points">${r.points.toLocaleString()}</div>
+            <div class="podium-card__xp">
+              <span class="podium-card__xp-num">${r.points.toLocaleString()}</span>
+              <span class="podium-card__xp-unit">XP</span>
+            </div>
             <div class="podium-card__events">${r.events_attended} events</div>
+            <div class="podium-card__bar" aria-hidden="true">
+              <div class="podium-card__bar-fill" style="width:${pctOfMax}%"></div>
+            </div>
           </div>
-        `,
-          )
+        `;
+          })
           .join("")}
       </div>
     `
@@ -534,18 +555,24 @@ function renderLeaderboard(rows: LeaderboardRow[]) {
     ? `
       <div class="leaderboard-list">
         ${rest
-          .map(
-            (r) => `
+          .map((r) => {
+            const pctOfMax = Math.round((r.points / maxPoints) * 100);
+            return `
           <div class="leaderboard-row">
             <div class="leaderboard-row__rank">#${r.rank}</div>
-            <div class="leaderboard-row__name">
-              ${escapeHtml(r.name)}
-              <small>${r.events_attended} events</small>
+            <div class="leaderboard-row__body">
+              <div class="leaderboard-row__name">${escapeHtml(r.name)}</div>
+              <div class="leaderboard-row__bar" aria-hidden="true">
+                <div class="leaderboard-row__bar-fill" style="width:${pctOfMax}%"></div>
+              </div>
+              <div class="leaderboard-row__meta">${r.events_attended} events</div>
             </div>
-            <div class="leaderboard-row__points">${r.points.toLocaleString()}</div>
+            <div class="leaderboard-row__points">
+              ${r.points.toLocaleString()}<span class="leaderboard-row__points-unit">XP</span>
+            </div>
           </div>
-        `,
-          )
+        `;
+          })
           .join("")}
       </div>
     `
@@ -588,14 +615,7 @@ function renderBadges(badges: BadgeRow[]) {
   if (!grid) return;
 
   if (!badges.length) {
-    grid.innerHTML = `
-      <div class="empty-state" style="grid-column: 1 / -1;">
-        <div class="empty-state__title">No badges yet</div>
-        <div class="empty-state__desc">
-          Badges recognize members for things like completing coursework, winning hackathons, or leading projects. Your eboard can create them from the dashboard.
-        </div>
-      </div>
-    `;
+    hideSection("badges");
     return;
   }
 
@@ -630,14 +650,7 @@ function renderMerch(items: MerchRow[]) {
   if (!grid) return;
 
   if (!items.length) {
-    grid.innerHTML = `
-      <div class="empty-state" style="grid-column: 1 / -1;">
-        <div class="empty-state__title">No merch yet</div>
-        <div class="empty-state__desc">
-          When your eboard adds T-shirts, stickers, workshop vouchers, or any reward, they'll show up here with their point cost.
-        </div>
-      </div>
-    `;
+    hideSection("merch");
     return;
   }
 
@@ -939,38 +952,149 @@ async function loadLearningTree() {
     return;
   }
 
-  let entryNodes = tree.nodes
-    .filter((n) => n.layer === 0)
-    .filter((n) => !isPathExcluded(n.content_path));
-  entryNodes = applyCustomOrder(entryNodes);
-  if (!config.content?.custom_order?.length) {
-    entryNodes.sort((a, b) => a.title.localeCompare(b.title));
+  // Render ALL layers, not just layer 0 — the previous grid was
+  // flattening a legitimate tree into a row of top-level links.
+  // Now we tier them: layer 0 = Foundations, 1 = Intermediate,
+  // 2 = Advanced, 3+ = Specialized. Each tier is a horizontal row
+  // with a label on the left so the progression reads visually.
+  const nodes = tree.nodes.filter((n) => !isPathExcluded(n.content_path));
+  if (!nodes.length && getLocalContentForSection("learning").length === 0) {
+    renderGridEmpty(
+      "learning-grid",
+      "No learning content yet",
+      "The network's curriculum loads here as content is published to aain-content.",
+    );
+    return;
   }
 
-  const remoteCards = entryNodes.map((node) =>
-    renderCard({
-      title: node.title,
-      description: node.description,
-      thumbnail: node.thumbnail,
-      path: node.content_path,
-      difficulty: node.difficulty,
-      estimated_minutes: node.estimated_minutes,
-    }),
-  );
-  const localCards = getLocalContentForSection("learning").map((lc) =>
-    renderCard({
-      title: lc.title,
-      description: lc.description,
-      thumbnail: lc.thumbnail,
-      path: lc.path,
-      isLocal: true,
-    }),
-  );
-  const all = [...localCards, ...remoteCards];
+  const byLayer = new Map<number, TreeNode[]>();
+  for (const n of nodes) {
+    const arr = byLayer.get(n.layer) ?? [];
+    arr.push(n);
+    byLayer.set(n.layer, arr);
+  }
+  for (const arr of byLayer.values()) {
+    applyCustomOrder(arr);
+    if (!config.content?.custom_order?.length) {
+      arr.sort((a, b) => a.title.localeCompare(b.title));
+    }
+  }
 
-  grid.innerHTML = all.length
-    ? all.join("")
-    : `<div class="empty-state" style="grid-column:1/-1"><div class="empty-state__title">No learning content yet</div></div>`;
+  const tierLabels: Record<number, string> = {
+    0: "Foundations",
+    1: "Intermediate",
+    2: "Advanced",
+    3: "Specialized",
+    4: "Specialized",
+  };
+
+  // Build the tiered tree. Local-content entries live in a small
+  // "From your chapter" strip above the network tiers so they're
+  // clearly yours, not the network's.
+  const sortedLayers = Array.from(byLayer.keys()).sort((a, b) => a - b);
+  const localNodes = getLocalContentForSection("learning");
+
+  let html = '<div class="learning-tree">';
+
+  if (localNodes.length) {
+    html += `
+      <div class="learning-tier learning-tier--local">
+        <div class="learning-tier__label">
+          <span class="learning-tier__layer">Chapter</span>
+          <span class="learning-tier__name">From your club</span>
+        </div>
+        <div class="learning-tier__nodes">
+          ${localNodes
+            .map((lc) =>
+              renderLearningNode({
+                title: lc.title,
+                description: lc.description,
+                path: lc.path,
+                isLocal: true,
+                thumbnail: lc.thumbnail,
+              }),
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  for (const layer of sortedLayers) {
+    const tierNodes = byLayer.get(layer) ?? [];
+    if (!tierNodes.length) continue;
+    const label = tierLabels[layer] ?? `Layer ${layer}`;
+    html += `
+      <div class="learning-tier">
+        <div class="learning-tier__label">
+          <span class="learning-tier__layer">Layer ${layer}</span>
+          <span class="learning-tier__name">${escapeHtml(label)}</span>
+        </div>
+        <div class="learning-tier__nodes">
+          ${tierNodes
+            .map((n) =>
+              renderLearningNode({
+                title: n.title,
+                description: n.description,
+                path: n.content_path,
+                difficulty: n.difficulty,
+                estimated_minutes: n.estimated_minutes,
+                thumbnail: n.thumbnail,
+              }),
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  html += "</div>";
+  grid.innerHTML = html;
+  // The outer wrapper is a grid — the tree needs to span its full
+  // column so layer rows can use their own horizontal layout.
+  grid.classList.add("content-grid--tree");
+}
+
+/** Compact card for a single learning-tree node — visually smaller
+ *  than the big workshop/playbook cards so a long row of nodes
+ *  reads as a tier. */
+function renderLearningNode(entry: {
+  title: string;
+  description?: string;
+  path?: string;
+  difficulty?: string;
+  estimated_minutes?: number;
+  isLocal?: boolean;
+  thumbnail?: string;
+}): string {
+  const local = entry.isLocal || (entry.path && isLocalPath(entry.path));
+  const href = entry.path
+    ? local
+      ? `./article.html?local=${encodeURIComponent(entry.path)}`
+      : `./article.html?path=${encodeURIComponent(entry.path)}`
+    : "#";
+
+  const difficultyDot = entry.difficulty
+    ? `<span class="learning-node__dot learning-node__dot--${escapeAttr(entry.difficulty)}" aria-label="${escapeAttr(entry.difficulty)}"></span>`
+    : "";
+  const time = entry.estimated_minutes
+    ? `<span class="learning-node__time">${entry.estimated_minutes} min</span>`
+    : "";
+
+  return `
+    <a href="${escapeAttr(href)}" class="learning-node${local ? " learning-node--local" : ""}">
+      <div class="learning-node__head">
+        ${difficultyDot}
+        <h3 class="learning-node__title">${escapeHtml(entry.title)}</h3>
+      </div>
+      ${
+        entry.description
+          ? `<p class="learning-node__desc">${escapeHtml(entry.description)}</p>`
+          : ""
+      }
+      ${time ? `<div class="learning-node__meta">${time}</div>` : ""}
+    </a>
+  `;
 }
 
 async function loadManifestSection(
@@ -1055,6 +1179,35 @@ function renderPageNav(pages: Page[], activeKey: string) {
     .join("");
 }
 
+/** Short copy shown in the compact page-header band at the top of
+ *  non-home pages. Gives each page a sense of "arrival" without
+ *  repeating the full hero. */
+const PAGE_HEADER_COPY: Record<
+  string,
+  { kicker: string; title: string; desc: string }
+> = {
+  learn: {
+    kicker: "Curriculum",
+    title: "Learn",
+    desc: "From absolute zero to shipping AI products. Pick a tier below and start anywhere.",
+  },
+  projects: {
+    kicker: "How to run it",
+    title: "Projects",
+    desc: "Playbooks for hackathons, innovation labs, research groups, and everything in between.",
+  },
+  team: {
+    kicker: "People + recognition",
+    title: "Team",
+    desc: "Meet the eboard and see every badge members have earned.",
+  },
+  merch: {
+    kicker: "Rewards shop",
+    title: "Merch",
+    desc: "Earn points at events and recognitions, redeem in person at any meeting.",
+  },
+};
+
 function showPage(pageKey: string, pages: Page[]) {
   const page = pages.find((p) => p.key === pageKey) ?? pages[0];
   if (!page) return;
@@ -1072,6 +1225,26 @@ function showPage(pageKey: string, pages: Page[]) {
     const assigned = el.getAttribute("data-page") ?? "home";
     el.style.display = assigned === page.key ? "" : "none";
   });
+
+  // Page-header band: populate + show on non-home pages (home has
+  // the full hero already). On mobile, visitors get a compact
+  // title bar that tells them where they are.
+  const header = document.getElementById("page-header");
+  if (header) {
+    if (page.key === "home") {
+      header.hidden = true;
+    } else {
+      const copy = PAGE_HEADER_COPY[page.key] ?? {
+        kicker: "",
+        title: page.label,
+        desc: "",
+      };
+      setText("page-header-kicker", copy.kicker);
+      setText("page-header-title", copy.title);
+      setText("page-header-desc", copy.desc);
+      header.hidden = false;
+    }
+  }
 
   // Don't scroll on initial load (hashchange on boot); scroll only when
   // the user explicitly clicks a tab.
