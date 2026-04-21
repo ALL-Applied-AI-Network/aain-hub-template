@@ -20,15 +20,11 @@
         <span class="nav__logo" id="nav-acronym">HUB</span>
         <span class="nav__name" id="nav-hub-name">Hub</span>
       </a>
-      <div class="nav__links" id="nav-links">
-        <a href="#events" class="nav__link" data-nav-for="events">Events</a>
-        <a href="#leaderboard" class="nav__link" data-nav-for="leaderboard">Leaderboard</a>
-        <a href="#badges" class="nav__link" data-nav-for="badges">Badges</a>
-        <a href="#merch" class="nav__link" data-nav-for="merch">Merch</a>
-        <a href="#learning" class="nav__link" data-nav-for="learning_tree">Learn</a>
-        <a href="#workshops" class="nav__link" data-nav-for="workshops">Workshops</a>
-        <a href="#about" class="nav__link" data-nav-for="about">About</a>
-      </div>
+      <!-- Page tabs are rendered by main.ts::renderPageNav from the
+           PAGES constant, so a page toggled off in Customize or a
+           page whose sections are all disabled vanishes from the nav
+           automatically. -->
+      <div class="nav__links" id="nav-links" role="tablist"></div>
       <button class="nav__toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
           <line x1="4" y1="7" x2="20" y2="7" />
@@ -40,7 +36,7 @@
   </nav>
 
   <!-- ══ Hero ══════════════════════════════════════════════════════ -->
-  <header class="hero" id="hero" data-section="hero">
+  <header class="hero" id="hero" data-section="hero" data-page="home">
     <div class="hero__glow" aria-hidden="true"></div>
     <div class="hero__inner">
       <div class="hero__eyebrow" id="hero-university">My University</div>
@@ -60,7 +56,7 @@
   </header>
 
   <!-- ══ About ═════════════════════════════════════════════════════ -->
-  <section class="section" id="about" data-section="about">
+  <section class="section" id="about" data-section="about" data-page="home">
     <div class="section__inner section__inner--narrow">
       <div class="section__kicker">About us</div>
       <h2 class="section__title" id="about-title">Who we are</h2>
@@ -69,7 +65,7 @@
   </section>
 
   <!-- ══ Events ════════════════════════════════════════════════════ -->
-  <section class="section section--alt" id="events" data-section="events">
+  <section class="section section--alt" id="events" data-section="events" data-page="home">
     <div class="section__inner">
       <div class="section__head">
         <div>
@@ -85,7 +81,7 @@
   </section>
 
   <!-- ══ Leaderboard ═══════════════════════════════════════════════ -->
-  <section class="section" id="leaderboard" data-section="leaderboard">
+  <section class="section" id="leaderboard" data-section="leaderboard" data-page="home">
     <div class="section__inner">
       <div class="section__head">
         <div>
@@ -101,7 +97,7 @@
   </section>
 
   <!-- ══ Badges ════════════════════════════════════════════════════ -->
-  <section class="section section--alt" id="badges" data-section="badges">
+  <section class="section section--alt" id="badges" data-section="badges" data-page="team">
     <div class="section__inner">
       <div class="section__head">
         <div>
@@ -117,7 +113,7 @@
   </section>
 
   <!-- ══ Merch ═════════════════════════════════════════════════════ -->
-  <section class="section" id="merch" data-section="merch">
+  <section class="section" id="merch" data-section="merch" data-page="merch">
     <div class="section__inner">
       <div class="section__head">
         <div>
@@ -133,7 +129,7 @@
   </section>
 
   <!-- ══ Officers ══════════════════════════════════════════════════ -->
-  <section class="section section--alt" id="officers" data-section="officers">
+  <section class="section section--alt" id="officers" data-section="officers" data-page="team">
     <div class="section__inner">
       <div class="section__head">
         <div>
@@ -146,7 +142,7 @@
   </section>
 
   <!-- ══ Learning Tree (CDN content) ══════════════════════════════ -->
-  <section class="section" id="learning" data-section="learning_tree">
+  <section class="section" id="learning" data-section="learning_tree" data-page="learn">
     <div class="section__inner">
       <div class="section__head">
         <div>
@@ -169,7 +165,7 @@
   </section>
 
   <!-- ══ Workshops (CDN content) ══════════════════════════════════ -->
-  <section class="section section--alt" id="workshops" data-section="workshops">
+  <section class="section section--alt" id="workshops" data-section="workshops" data-page="learn">
     <div class="section__inner">
       <div class="section__head">
         <div>
@@ -187,7 +183,7 @@
   </section>
 
   <!-- ══ Playbooks (CDN content) ══════════════════════════════════ -->
-  <section class="section" id="playbooks" data-section="playbooks">
+  <section class="section" id="playbooks" data-section="playbooks" data-page="projects">
     <div class="section__inner">
       <div class="section__head">
         <div>

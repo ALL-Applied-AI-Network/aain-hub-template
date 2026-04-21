@@ -15,6 +15,58 @@ declare const __HUB_CONFIG__: HubConfig;
 
 const DASHBOARD_ORIGIN = "https://dashboard.all-ai-network.org";
 
+/* ──────────────────────────────────────────────────────────────────
+   Page structure — fixed for v1. Each section's data-page attribute
+   in index.html maps it to one of these; sections not listed here
+   are treated as part of the first page (defensive default).
+   Later we can make the page structure dashboard-editable, but for
+   now this gives us a grouped tabbed site without a schema change.
+   ────────────────────────────────────────────────────────────────── */
+
+interface Page {
+  key: string;
+  label: string;
+  sections: string[]; // for deciding when a page is "empty"
+}
+
+const PAGES: Page[] = [
+  { key: "home", label: "Home", sections: ["hero", "about", "events", "leaderboard"] },
+  { key: "learn", label: "Learn", sections: ["learning_tree", "workshops"] },
+  { key: "projects", label: "Projects", sections: ["playbooks"] },
+  { key: "team", label: "Team", sections: ["officers", "badges"] },
+  { key: "merch", label: "Merch", sections: ["merch"] },
+];
+
+/** Dashboard route each section can be edited from — used by the
+ *  preview-mode click-to-edit overlay. Empty = non-editable. */
+const SECTION_EDIT_INFO: Record<
+  string,
+  { path: string; label: string; kind: "internal" | "external" }
+> = {
+  hero: { path: "/website", label: "Customize → Identity", kind: "internal" },
+  about: { path: "/website", label: "Customize → About", kind: "internal" },
+  events: { path: "/events", label: "Events page", kind: "internal" },
+  leaderboard: { path: "/people", label: "Members page", kind: "internal" },
+  badges: { path: "/awards", label: "Badges & Awards", kind: "internal" },
+  merch: { path: "/merch", label: "Merch page", kind: "internal" },
+  officers: { path: "/website", label: "Customize → Officers", kind: "internal" },
+  learning_tree: {
+    path: "https://github.com/ALL-Applied-AI-Network/aain-content",
+    label: "aain-content repo",
+    kind: "external",
+  },
+  workshops: {
+    path: "https://github.com/ALL-Applied-AI-Network/aain-content",
+    label: "aain-content repo",
+    kind: "external",
+  },
+  playbooks: {
+    path: "https://github.com/ALL-Applied-AI-Network/aain-content",
+    label: "aain-content repo",
+    kind: "external",
+  },
+};
+
 /* ── Types (kept compact; full shapes documented in aain-api lib/hub-config.ts) ── */
 
 interface HubConfig {
@@ -144,33 +196,11 @@ const config = __HUB_CONFIG__;
 
 /* ──────────────────────────────────────────────────────────────────
    Preview mode — dashboard's Customize tab iframes this with
-   ?preview=1 + theme/logo/sections params. See hub/README for the
-   param table.
+   ?preview=1 + theme/logo/sections + slug params. In preview mode
+   we still fetch the bundle so the iframe shows the chapter's
+   actual data; URL params layer in-progress edits on top. See
+   hub/README for the param table.
    ────────────────────────────────────────────────────────────────── */
-
-function applyPreviewFromParams(params: URLSearchParams) {
-  const primary = params.get("primary");
-  const accent = params.get("accent");
-  if (primary || accent) {
-    applyTheme({
-      primary: primary ?? config.theme.primary_color,
-      accent: accent ?? config.theme.accent_color,
-    });
-  }
-  const logo = params.get("logo");
-  if (logo !== null) applyLogo(logo.length > 0 ? logo : null);
-  const off = params.get("off");
-  if (off !== null) {
-    const sections: Record<string, boolean> = {};
-    for (const key of off
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)) {
-      sections[key] = false;
-    }
-    applySectionToggles(sections);
-  }
-}
 
 /* ──────────────────────────────────────────────────────────────────
    Bundle fetch — single round trip for config + data
@@ -991,6 +1021,125 @@ async function loadManifestSection(
 }
 
 /* ──────────────────────────────────────────────────────────────────
+   Page navigation (tabs + hash routing + visibility)
+   ────────────────────────────────────────────────────────────────── */
+
+/** A page is "empty" if every section it contains is either missing
+ *  from the DOM (toggled off by the dashboard) or has zero data. */
+function pagesWithContent(sectionsEnabled: Record<string, boolean>): Page[] {
+  return PAGES.filter((p) => {
+    return p.sections.some((sectionKey) => {
+      // Section was toggled off entirely by the dashboard — gone from DOM.
+      if (sectionsEnabled[sectionKey] === false) return false;
+      const el = document.querySelector(`[data-section="${sectionKey}"]`);
+      return el !== null;
+    });
+  });
+}
+
+function renderPageNav(pages: Page[], activeKey: string) {
+  const container = document.getElementById("nav-links");
+  if (!container) return;
+  container.innerHTML = pages
+    .map(
+      (p) => `
+      <a
+        href="#${p.key}"
+        class="nav__link nav__tab${p.key === activeKey ? " nav__tab--active" : ""}"
+        data-page-tab="${p.key}"
+        role="tab"
+        aria-selected="${p.key === activeKey ? "true" : "false"}"
+      >${escapeHtml(p.label)}</a>
+    `,
+    )
+    .join("");
+}
+
+function showPage(pageKey: string, pages: Page[]) {
+  const page = pages.find((p) => p.key === pageKey) ?? pages[0];
+  if (!page) return;
+
+  // Flip nav tab active state.
+  document.querySelectorAll("[data-page-tab]").forEach((el) => {
+    const match = el.getAttribute("data-page-tab") === page.key;
+    el.classList.toggle("nav__tab--active", match);
+    el.setAttribute("aria-selected", String(match));
+  });
+
+  // Show/hide sections by data-page attribute. A section without
+  // data-page defaults to "home" so nothing is orphaned.
+  document.querySelectorAll<HTMLElement>("[data-section]").forEach((el) => {
+    const assigned = el.getAttribute("data-page") ?? "home";
+    el.style.display = assigned === page.key ? "" : "none";
+  });
+
+  // Don't scroll on initial load (hashchange on boot); scroll only when
+  // the user explicitly clicks a tab.
+  if (document.body.dataset.pageInited === "1") {
+    window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+  }
+}
+
+function getValidPageFromHash(pages: Page[]): string {
+  const hash = window.location.hash.replace(/^#/, "").trim();
+  if (pages.some((p) => p.key === hash)) return hash;
+  return pages[0]?.key ?? "home";
+}
+
+function wirePageRouting(pages: Page[]) {
+  renderPageNav(pages, getValidPageFromHash(pages));
+  showPage(getValidPageFromHash(pages), pages);
+  document.body.dataset.pageInited = "1";
+
+  window.addEventListener("hashchange", () => {
+    showPage(getValidPageFromHash(pages), pages);
+  });
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Click-to-edit overlays (preview mode only)
+   ────────────────────────────────────────────────────────────────── */
+
+function enableEditOverlays() {
+  document.body.classList.add("preview-edit-mode");
+  document.querySelectorAll<HTMLElement>("[data-section]").forEach((section) => {
+    const key = section.getAttribute("data-section");
+    if (!key) return;
+    const info = SECTION_EDIT_INFO[key];
+    if (!info) return;
+
+    // Position the pill relative to the section.
+    if (getComputedStyle(section).position === "static") {
+      section.style.position = "relative";
+    }
+
+    const pill = document.createElement("button");
+    pill.type = "button";
+    pill.className = "edit-pill";
+    pill.innerHTML = `
+      <svg class="edit-pill__icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+      </svg>
+      <span>${escapeHtml(info.label)}</span>
+    `;
+    pill.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      // postMessage the parent (dashboard). The dashboard's Customize
+      // panel listens for this and navigates the main window. Using
+      // postMessage (not direct navigation) means this still works
+      // when the iframe is cross-origin, which it is in production.
+      window.parent?.postMessage(
+        { type: "aain-edit-section", section: key, target: info.path, kind: info.kind },
+        "*",
+      );
+    });
+    section.appendChild(pill);
+  });
+}
+
+/* ──────────────────────────────────────────────────────────────────
    Nav toggle (mobile)
    ────────────────────────────────────────────────────────────────── */
 
@@ -1040,48 +1189,69 @@ async function init() {
       ? new URLSearchParams(window.location.search)
       : null;
   const isPreview = params?.get("preview") === "1";
+  const editMode = isPreview && params?.get("edit") === "1";
 
-  if (isPreview) {
-    // Preview mode: skip dashboard fetch, apply overrides from URL.
-    applyTheme({
-      primary: config.theme.primary_color,
-      accent: config.theme.accent_color,
-    });
-    renderIdentity(null, null);
-    renderHeroActions(null);
-    renderAbout(null);
-    renderOfficers([]);
-    renderSocials({});
-    applyPreviewFromParams(params);
-    renderEvents([], null);
-    renderLeaderboard([]);
-    renderBadges([]);
-    renderMerch([]);
-    renderStats(null, []);
+  // Resolve which slug to fetch: preview mode passes slug explicitly
+  // from the dashboard; normal mode reads it from the bundled config
+  // (set by the chapter's hub.config.json).
+  const slug =
+    (isPreview ? params?.get("slug") : null) ??
+    config.hub_id?.trim().toLowerCase() ??
+    "";
+
+  // Always try to fetch the bundle — in preview we want live data on
+  // top of in-progress URL overrides; in normal mode it's the whole
+  // source of truth.
+  const bundle = slug ? await fetchBundle(slug) : null;
+  const remote = bundle?.config ?? null;
+  const savedSections: Record<string, boolean> = remote?.sections ?? {};
+
+  // Theme: URL overrides beat saved config beat bundled defaults.
+  const primary =
+    (isPreview ? params?.get("primary") : null) ??
+    remote?.theme.primary ??
+    config.theme.primary_color;
+  const accent =
+    (isPreview ? params?.get("accent") : null) ??
+    remote?.theme.accent ??
+    config.theme.accent_color;
+  applyTheme({ primary, accent });
+
+  // Logo: in preview, a URL `logo=` param wins (including empty-string
+  // = explicitly clear). Otherwise saved config wins.
+  if (isPreview && params && params.get("logo") !== null) {
+    const logoParam = params.get("logo");
+    applyLogo(logoParam && logoParam.length > 0 ? logoParam : null);
   } else {
-    // Normal mode: fetch the bundle + render everything.
-    const slug = config.hub_id?.trim().toLowerCase();
-    const bundle = await fetchBundle(slug ?? "");
-
-    const remote = bundle?.config ?? null;
-    const theme = remote
-      ? { primary: remote.theme.primary, accent: remote.theme.accent }
-      : { primary: config.theme.primary_color, accent: config.theme.accent_color };
-
-    applyTheme(theme);
     applyLogo(remote?.logo_url ?? null);
-    applySectionToggles(remote?.sections ?? {});
-    renderIdentity(remote, bundle?.chapter ?? null);
-    renderHeroActions(remote);
-    renderAbout(remote?.about ?? null);
-    renderStats(bundle?.chapter ?? null, bundle?.badges ?? []);
-    renderEvents(bundle?.events ?? [], remote?.tagline ?? null);
-    renderLeaderboard(bundle?.leaderboard ?? []);
-    renderBadges(bundle?.badges ?? []);
-    renderMerch(bundle?.merch ?? []);
-    renderOfficers(remote?.officers ?? []);
-    renderSocials(remote?.social_links ?? {});
   }
+
+  // Section visibility: start from saved + fold in preview `off=` list.
+  const sectionsToApply: Record<string, boolean> = { ...savedSections };
+  if (isPreview && params?.get("off")) {
+    for (const key of params
+      .get("off")!
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)) {
+      sectionsToApply[key] = false;
+    }
+  }
+  applySectionToggles(sectionsToApply);
+
+  // Render everything from the bundle + config (or bundled fallbacks
+  // when unresolved). Same pipeline for both preview and normal mode
+  // now — the difference is only in which overrides were layered above.
+  renderIdentity(remote, bundle?.chapter ?? null);
+  renderHeroActions(remote);
+  renderAbout(remote?.about ?? null);
+  renderStats(bundle?.chapter ?? null, bundle?.badges ?? []);
+  renderEvents(bundle?.events ?? [], remote?.tagline ?? null);
+  renderLeaderboard(bundle?.leaderboard ?? []);
+  renderBadges(bundle?.badges ?? []);
+  renderMerch(bundle?.merch ?? []);
+  renderOfficers(remote?.officers ?? []);
+  renderSocials(remote?.social_links ?? {});
 
   // CDN content loads regardless — the section toggles above already
   // removed any section the dashboard turned off.
@@ -1090,6 +1260,16 @@ async function init() {
     loadManifestSection("workshop", "workshops-grid"),
     loadManifestSection("playbook", "playbooks-grid"),
   ]);
+
+  // Wire the multi-page tabs AFTER all sections have rendered — so
+  // pagesWithContent() sees the final DOM + data state and can hide
+  // tabs whose sections are all empty/toggled-off.
+  wirePageRouting(pagesWithContent(sectionsToApply));
+
+  // Preview + edit mode → attach clickable "Edit here" pills to every
+  // section that maps to a dashboard route. Dashboard parent listens
+  // for postMessage and navigates.
+  if (editMode) enableEditOverlays();
 }
 
 init();
