@@ -2382,3 +2382,268 @@ a.project-card:hover {
     flex: 1 1 140px;
   }
 }
+
+/* ══ Sponsor inquiry modal ═══════════════════════════════════════
+   Opened via the `#sponsor` hash route which the hero's "Become a
+   partner" CTA defaults to. Submits to the dashboard's public
+   sponsor endpoint so inquiries land in the chapter's Inbox tab.
+   The whole thing is injected by main.ts::setupSponsorModal — so
+   this CSS is hydrate-only, nothing lives in index.html. */
+
+.sponsor-modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.sponsor-modal-root[hidden] {
+  display: none;
+}
+
+.sponsor-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 6, 9, 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: sponsor-modal-fade-in 0.18s ease;
+}
+
+.sponsor-modal__panel {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl, 20px);
+  padding: 2.25rem 2rem 2rem;
+  box-shadow:
+    0 30px 60px -20px rgba(0, 0, 0, 0.6),
+    0 12px 30px -10px rgba(var(--color-primary-rgb), 0.25);
+  animation: sponsor-modal-pop 0.22s cubic-bezier(0.3, 1, 0.4, 1);
+}
+
+@keyframes sponsor-modal-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes sponsor-modal-pop {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+body.sponsor-modal-open {
+  overflow: hidden;
+}
+
+.sponsor-modal__close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.sponsor-modal__close:hover {
+  background: var(--bg-subtle);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+.sponsor-modal__head {
+  margin-bottom: 1.5rem;
+  padding-right: 2rem; /* keep the title clear of the close button */
+}
+
+.sponsor-modal__kicker {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 0.5rem;
+}
+
+.sponsor-modal__title {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.25rem, 2vw, 1.55rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.sponsor-modal__desc {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.sponsor-modal__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sponsor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.sponsor-field--row {
+  flex-direction: row;
+  gap: 0.75rem;
+}
+
+.sponsor-field__col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+@media (max-width: 560px) {
+  .sponsor-field--row {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
+
+.sponsor-field__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text-secondary);
+}
+
+.sponsor-field__input {
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.sponsor-field__input:focus {
+  outline: none;
+  border-color: rgba(var(--color-primary-rgb), 0.6);
+  background: rgba(var(--color-primary-rgb), 0.04);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.18);
+}
+
+.sponsor-field__textarea {
+  resize: vertical;
+  min-height: 120px;
+  font-family: inherit;
+}
+
+/* Honeypot — absolutely positioned off-screen so it's invisible to
+   real users but still present for headless form-fillers. We rely
+   on server-side enforcement; CSS here is strictly anti-collision. */
+.sponsor-field__honeypot {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.sponsor-modal__status {
+  min-height: 1.1rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.sponsor-modal__status--error {
+  color: #f87171;
+}
+
+.sponsor-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.sponsor-modal__actions .btn {
+  min-width: 120px;
+  justify-content: center;
+}
+
+.sponsor-modal__submit[disabled] {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+/* ── Success view ──────────────────────────────── */
+
+.sponsor-modal__success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  text-align: center;
+  padding: 1.5rem 1rem 0.5rem;
+}
+
+.sponsor-modal__success[hidden] {
+  display: none;
+}
+
+.sponsor-modal__success-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.sponsor-modal__success-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.015em;
+}
+
+.sponsor-modal__success-desc {
+  margin: 0 0 0.5rem;
+  max-width: 380px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+@media (max-width: 560px) {
+  .sponsor-modal__panel {
+    padding: 2rem 1.25rem 1.5rem;
+  }
+}

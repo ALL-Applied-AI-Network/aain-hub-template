@@ -396,13 +396,11 @@ function renderHeroActions(remote: RemoteConfig | null) {
   };
 
   const eventsAnchor = document.getElementById("events") ? "#events" : "#home";
-  // Partner CTA defaults to mailto when a social email is configured,
-  // otherwise to the team tab so curious sponsors can see who to reach.
-  const partnerEmail = remote?.social_links?.email;
-  const partnerFallbackHref = partnerEmail
-    ? `mailto:${partnerEmail}?subject=Partnership inquiry`
-    : "#team";
-
+  // Partner CTA defaults to #sponsor (in-site modal posted to the
+  // dashboard inbox), since every network-connected chapter gets
+  // persistent inquiry storage "for free" — surviving eboard
+  // turnover, unlike a per-officer mailto. Eboards who prefer a
+  // raw mailto can override via Customize → Hero CTAs.
   const buttons: HeroCta[] = [
     // 1 — prospective members
     pick(
@@ -417,7 +415,7 @@ function renderHeroActions(remote: RemoteConfig | null) {
       remote?.cta_secondary_label,
       remote?.cta_secondary_href,
       "Become a partner",
-      partnerFallbackHref,
+      "#sponsor",
       "ghost",
     ),
     // 3 — curious learners
@@ -538,7 +536,7 @@ const PAGE_CTA_BANDS: Record<string, PageCtaBandCopy> = {
     kicker: "Get in touch",
     title: "Running something? Reach out.",
     desc: "Sponsoring events, guest-speaking, recruiting our members, or joining the eboard — we reply fast. The whole eboard is a student team, and we love outside-of-class opportunities to build together.",
-    primary: { label: "Contact the eboard", href: "#team" },
+    primary: { label: "Become a partner", href: "#sponsor" },
     secondary: { label: "See our projects", href: "#projects" },
   },
   learn: {
@@ -580,6 +578,276 @@ function renderPageCtaBands() {
       </div>
     `;
   }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Sponsor inquiry modal — triggered by the `#sponsor` hash route,
+   which is the default href for the hero's partner CTA. Posts to
+   the dashboard's public sponsor endpoint so inquiries land in the
+   chapter's Inbox tab instead of a disappearing mailto thread.
+
+   Why network-hosted instead of mailto: eboard leadership turns over
+   every year or two, and any email history tied to a graduating
+   officer's inbox leaves with them. A network-hosted inbox persists
+   across that turnover so the next eboard inherits the full history.
+
+   Falls back to an alert if no slug is resolvable (e.g., a fork of
+   the template deployed without linking to the dashboard). No silent
+   swallow — better for a visitor to see "couldn't send, email us at
+   …" than to click and get nothing.
+   ────────────────────────────────────────────────────────────────── */
+
+let sponsorModalState: {
+  slug: string;
+  chapterName: string;
+  fallbackEmail: string | null;
+} | null = null;
+
+function setupSponsorModal(
+  slug: string | null,
+  chapterName: string,
+  remote: RemoteConfig | null,
+) {
+  // Remove any previous modal DOM so preview-mode hot swaps don't
+  // leave stacked modals in the tree.
+  document.getElementById("sponsor-modal-root")?.remove();
+
+  if (!slug) {
+    sponsorModalState = null;
+    return;
+  }
+  sponsorModalState = {
+    slug,
+    chapterName,
+    fallbackEmail: remote?.social_links?.email ?? null,
+  };
+
+  const root = document.createElement("div");
+  root.id = "sponsor-modal-root";
+  root.className = "sponsor-modal-root";
+  root.hidden = true;
+  root.setAttribute("role", "dialog");
+  root.setAttribute("aria-modal", "true");
+  root.setAttribute("aria-labelledby", "sponsor-modal-title");
+  root.innerHTML = `
+    <div class="sponsor-modal__backdrop" data-close="true" aria-hidden="true"></div>
+    <div class="sponsor-modal__panel" role="document">
+      <button
+        type="button"
+        class="sponsor-modal__close"
+        aria-label="Close"
+        data-close="true"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+      <div class="sponsor-modal__head">
+        <div class="sponsor-modal__kicker">Partnership inquiry</div>
+        <h2 class="sponsor-modal__title" id="sponsor-modal-title">
+          Work with ${escapeHtml(chapterName)}
+        </h2>
+        <p class="sponsor-modal__desc">
+          Sponsor an event, bring a speaker, recruit our members, or propose
+          something else. Your note lands directly in the eboard's inbox —
+          they'll get back within a few days.
+        </p>
+      </div>
+      <form class="sponsor-modal__form" novalidate>
+        <div class="sponsor-field">
+          <label class="sponsor-field__label" for="sponsor-name">Your name *</label>
+          <input class="sponsor-field__input" id="sponsor-name" name="name" type="text" required maxlength="200" autocomplete="name" />
+        </div>
+        <div class="sponsor-field sponsor-field--row">
+          <div class="sponsor-field__col">
+            <label class="sponsor-field__label" for="sponsor-email">Email *</label>
+            <input class="sponsor-field__input" id="sponsor-email" name="email" type="email" required maxlength="320" autocomplete="email" />
+          </div>
+          <div class="sponsor-field__col">
+            <label class="sponsor-field__label" for="sponsor-company">Company / organization</label>
+            <input class="sponsor-field__input" id="sponsor-company" name="company" type="text" maxlength="200" autocomplete="organization" />
+          </div>
+        </div>
+        <div class="sponsor-field">
+          <label class="sponsor-field__label" for="sponsor-message">Message *</label>
+          <textarea class="sponsor-field__input sponsor-field__textarea" id="sponsor-message" name="message" required minlength="10" maxlength="5000" rows="5" placeholder="What would you like to partner on? The more detail, the faster we can reply."></textarea>
+        </div>
+        <!-- Honeypot — display:none on the CSS side, real users never touch
+             this, bots that auto-fill every field will. Server drops any
+             submission with content here. -->
+        <div class="sponsor-field__honeypot" aria-hidden="true">
+          <label>Website <input name="website" type="text" tabindex="-1" autocomplete="off" /></label>
+        </div>
+        <div class="sponsor-modal__status" role="status" aria-live="polite"></div>
+        <div class="sponsor-modal__actions">
+          <button type="button" class="btn btn--ghost" data-close="true">Cancel</button>
+          <button type="submit" class="btn btn--primary sponsor-modal__submit">
+            <span class="sponsor-modal__submit-label">Send inquiry</span>
+          </button>
+        </div>
+      </form>
+      <div class="sponsor-modal__success" hidden>
+        <div class="sponsor-modal__success-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+        <h3 class="sponsor-modal__success-title">Got it — thanks for reaching out.</h3>
+        <p class="sponsor-modal__success-desc">
+          The eboard has your note and typically replies within a few days.
+          If anything's urgent, feel free to email us directly.
+        </p>
+        <button type="button" class="btn btn--primary" data-close="true">Close</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(root);
+
+  const form = root.querySelector("form") as HTMLFormElement;
+  const statusEl = root.querySelector(".sponsor-modal__status") as HTMLElement;
+  const successEl = root.querySelector(".sponsor-modal__success") as HTMLElement;
+  const submitBtn = root.querySelector(".sponsor-modal__submit") as HTMLButtonElement;
+  const submitLabel = root.querySelector(".sponsor-modal__submit-label") as HTMLElement;
+
+  // Close handlers — delegate through the root so each [data-close]
+  // element (backdrop + X button + Cancel + success Close) wires up
+  // with one listener.
+  root.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement | null;
+    if (target?.closest("[data-close]")) closeSponsorModal();
+  });
+
+  // Esc to close, focus-trap-lite within the modal while open.
+  root.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeSponsorModal();
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    statusEl.textContent = "";
+    statusEl.classList.remove("sponsor-modal__status--error");
+
+    const fd = new FormData(form);
+    const body = {
+      name: String(fd.get("name") ?? "").trim(),
+      email: String(fd.get("email") ?? "").trim(),
+      company: String(fd.get("company") ?? "").trim() || null,
+      message: String(fd.get("message") ?? "").trim(),
+      website: String(fd.get("website") ?? ""),
+    };
+
+    if (!body.name || !body.email || !body.message) {
+      statusEl.textContent = "Please fill in the required fields.";
+      statusEl.classList.add("sponsor-modal__status--error");
+      return;
+    }
+    if (body.message.length < 10) {
+      statusEl.textContent = "Add a bit more detail — 10 characters minimum.";
+      statusEl.classList.add("sponsor-modal__status--error");
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitLabel.textContent = "Sending…";
+    try {
+      const res = await fetch(
+        `${DASHBOARD_ORIGIN}/api/public/sponsor/${encodeURIComponent(slug)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        statusEl.textContent =
+          (data && typeof data.error === "string" && data.error) ||
+          "Couldn't send — please try again.";
+        statusEl.classList.add("sponsor-modal__status--error");
+        submitBtn.disabled = false;
+        submitLabel.textContent = "Send inquiry";
+        return;
+      }
+      // Swap to success state. Keep the modal open so the visitor
+      // reads the confirmation rather than a flash that vanishes.
+      form.hidden = true;
+      successEl.hidden = false;
+    } catch {
+      statusEl.textContent =
+        "Network error — please try again, or email the eboard directly.";
+      statusEl.classList.add("sponsor-modal__status--error");
+      submitBtn.disabled = false;
+      submitLabel.textContent = "Send inquiry";
+    }
+  });
+}
+
+function openSponsorModal() {
+  const root = document.getElementById("sponsor-modal-root");
+  if (!root || !sponsorModalState) {
+    // No modal available — fall back to mailto if the chapter has one
+    // configured, else quietly surface the #team page where the
+    // eboard emails live.
+    const email = sponsorModalState?.fallbackEmail;
+    if (email) {
+      window.location.href = `mailto:${email}?subject=Partnership inquiry`;
+    } else {
+      window.location.hash = "#team";
+    }
+    return;
+  }
+  root.hidden = false;
+  document.body.classList.add("sponsor-modal-open");
+  const nameInput = root.querySelector("#sponsor-name") as HTMLInputElement | null;
+  // Defer focus so it fires after the browser paints the modal.
+  setTimeout(() => nameInput?.focus(), 30);
+}
+
+function closeSponsorModal() {
+  const root = document.getElementById("sponsor-modal-root");
+  if (!root) return;
+  root.hidden = true;
+  document.body.classList.remove("sponsor-modal-open");
+  // Reset form state so a second open starts fresh. Preserves the
+  // content the user typed only if the submit failed — but once
+  // they've closed the modal, assume they're starting over.
+  const form = root.querySelector("form") as HTMLFormElement | null;
+  const success = root.querySelector(".sponsor-modal__success") as HTMLElement | null;
+  const status = root.querySelector(".sponsor-modal__status") as HTMLElement | null;
+  const submitBtn = root.querySelector(".sponsor-modal__submit") as HTMLButtonElement | null;
+  const submitLabel = root.querySelector(".sponsor-modal__submit-label") as HTMLElement | null;
+  if (form && success && success.hidden === false) {
+    form.reset();
+    form.hidden = false;
+    success.hidden = true;
+  }
+  if (status) {
+    status.textContent = "";
+    status.classList.remove("sponsor-modal__status--error");
+  }
+  if (submitBtn && submitLabel) {
+    submitBtn.disabled = false;
+    submitLabel.textContent = "Send inquiry";
+  }
+
+  // Clear the hash so re-triggering the CTA re-opens, not no-ops.
+  if (window.location.hash === "#sponsor") {
+    history.replaceState(
+      null,
+      "",
+      window.location.pathname + window.location.search,
+    );
+  }
+}
+
+function wireSponsorHashRoute() {
+  function maybeOpen() {
+    if (window.location.hash === "#sponsor") openSponsorModal();
+  }
+  window.addEventListener("hashchange", maybeOpen);
+  // Also fire on initial load so a deep link to #sponsor opens the modal.
+  maybeOpen();
 }
 
 function renderStats(
@@ -1719,6 +1987,14 @@ async function init() {
   renderHeroActions(remote);
   renderPillars();
   renderPageCtaBands();
+  // Sponsor inquiry modal — mounted once; triggered via the
+  // `#sponsor` hash route which the hero's partner CTA points to.
+  setupSponsorModal(
+    slug || null,
+    bundle?.chapter?.name ?? remote?.hub_name ?? config.hub_name,
+    remote,
+  );
+  wireSponsorHashRoute();
   renderAbout(remote?.about ?? null);
   renderStats(bundle?.chapter ?? null, bundle?.projects ?? []);
   renderEvents(bundle?.events ?? [], remote?.tagline ?? null);
