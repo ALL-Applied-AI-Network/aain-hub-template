@@ -30,11 +30,20 @@ interface Page {
 }
 
 const PAGES: Page[] = [
-  { key: "home", label: "Home", sections: ["hero", "about", "events", "leaderboard"] },
-  { key: "learn", label: "Learn", sections: ["learning_tree", "workshops"] },
-  { key: "projects", label: "Projects", sections: ["playbooks"] },
-  { key: "team", label: "Team", sections: ["officers", "badges"] },
+  // Home now hosts the explainer-flavored badges section (moved off
+  // Team per eboard feedback — badges + the points/merch system make
+  // more sense adjacent to the leaderboard).
+  { key: "home", label: "Home", sections: ["hero", "events", "leaderboard", "badges"] },
+  // Learn is just the tree. Workshops/playbooks are on the content
+  // CDN; the hub template used to mirror them but that duplicated
+  // effort and a fresh chapter site doesn't need them by default.
+  { key: "learn", label: "Learn", sections: ["learning_tree"] },
+  // Team = about-the-chapter + who runs it. Badges moved out.
+  { key: "team", label: "Team", sections: ["about", "officers"] },
+  // Merch stays as its own tab.
   { key: "merch", label: "Merch", sections: ["merch"] },
+  // Projects tab gets its sections added in the next push (new DB
+  // table, dashboard editor, etc.). Until then, it's absent.
 ];
 
 /** Dashboard route each section can be edited from — used by the
@@ -159,11 +168,18 @@ interface EventRow {
   points_win: number | null;
 }
 
+interface LeaderboardBadge {
+  id: string;
+  name: string;
+  icon: string; // built-in key like "trophy", or full URL for custom uploads
+}
+
 interface LeaderboardRow {
   name: string;
   points: number;
   events_attended: number;
   rank: number;
+  badges?: LeaderboardBadge[];
 }
 
 interface BadgeRow {
@@ -522,6 +538,30 @@ function renderLeaderboard(rows: LeaderboardRow[]) {
 
   const rankLabel: Record<number, string> = { 1: "Gold", 2: "Silver", 3: "Bronze" };
 
+  // Compact badge strip next to each member's name — cap at 4 visible
+  // icons so a prolific winner doesn't blow out the row, with a "+N"
+  // overflow chip. Gives the leaderboard visual variety across members.
+  const renderMemberBadges = (badges?: LeaderboardBadge[]): string => {
+    if (!badges?.length) return "";
+    const MAX = 4;
+    const shown = badges.slice(0, MAX);
+    const overflow = badges.length - shown.length;
+    const chips = shown
+      .map(
+        (b) => `
+        <span class="member-badge" title="${escapeAttr(b.name)}" aria-label="${escapeAttr(b.name)}">
+          ${renderBadgeIcon(b.icon)}
+        </span>
+      `,
+      )
+      .join("");
+    const more =
+      overflow > 0
+        ? `<span class="member-badge member-badge--more" title="${overflow} more" aria-label="${overflow} more">+${overflow}</span>`
+        : "";
+    return `<div class="member-badges" aria-label="earned badges">${chips}${more}</div>`;
+  };
+
   const podiumHtml = ordered.length
     ? `
       <div class="podium">
@@ -535,9 +575,10 @@ function renderLeaderboard(rows: LeaderboardRow[]) {
             <div class="podium-card__tier">${rankLabel[r.rank]}</div>
             <div class="podium-card__rank">${r.rank}</div>
             <div class="podium-card__name">${escapeHtml(r.name)}</div>
+            ${renderMemberBadges(r.badges)}
             <div class="podium-card__xp">
               <span class="podium-card__xp-num">${r.points.toLocaleString()}</span>
-              <span class="podium-card__xp-unit">XP</span>
+              <span class="podium-card__xp-unit">Pts</span>
             </div>
             <div class="podium-card__events">${r.events_attended} events</div>
             <div class="podium-card__bar" aria-hidden="true">
@@ -561,14 +602,17 @@ function renderLeaderboard(rows: LeaderboardRow[]) {
           <div class="leaderboard-row">
             <div class="leaderboard-row__rank">#${r.rank}</div>
             <div class="leaderboard-row__body">
-              <div class="leaderboard-row__name">${escapeHtml(r.name)}</div>
+              <div class="leaderboard-row__name-row">
+                <span class="leaderboard-row__name">${escapeHtml(r.name)}</span>
+                ${renderMemberBadges(r.badges)}
+              </div>
               <div class="leaderboard-row__bar" aria-hidden="true">
                 <div class="leaderboard-row__bar-fill" style="width:${pctOfMax}%"></div>
               </div>
               <div class="leaderboard-row__meta">${r.events_attended} events</div>
             </div>
             <div class="leaderboard-row__points">
-              ${r.points.toLocaleString()}<span class="leaderboard-row__points-unit">XP</span>
+              ${r.points.toLocaleString()}<span class="leaderboard-row__points-unit">Pts</span>
             </div>
           </div>
         `;
@@ -923,226 +967,210 @@ function renderGridEmpty(
   `;
 }
 
+/**
+ * Load the learning tree by embedding the content repo's /tree.html
+ * directly in the Learn page. The content repo already ships a full
+ * interactive tree visualization (D3-based, with expandable node
+ * detail drawers); reimplementing that inside every hub template
+ * would duplicate a lot of carefully-tuned code and diverge over
+ * time. Iframe lets every chapter site inherit upstream improvements
+ * for free.
+ *
+ * If the iframe never loads (content_url missing, CORS hiccup,
+ * content repo down), we flip to a simple fallback message with a
+ * link out to the tree page.
+ */
 async function loadLearningTree() {
-  const grid = document.getElementById("learning-grid");
-  if (!grid) return;
+  const frame = document.getElementById(
+    "learn-tree-frame",
+  ) as HTMLIFrameElement | null;
+  const fallback = document.getElementById("learn-tree-fallback");
+  if (!frame) return;
 
-  // When no content library is configured, bail before firing the
-  // fetch — the grid was stuck on "Loading curriculum…" forever,
-  // which read as broken.
   if (!config.content_url) {
-    renderGridEmpty(
-      "learning-grid",
-      "Curriculum will appear here",
-      "Once the ALL Applied AI Network content library is wired to this site, the learning tree loads from the CDN automatically.",
-    );
+    frame.hidden = true;
+    if (fallback) {
+      fallback.hidden = false;
+      renderGridEmpty(
+        "learning-grid",
+        "Curriculum will appear here",
+        "Once the ALL Applied AI Network content library is wired to this site, the tree loads automatically.",
+      );
+    }
     return;
   }
 
-  const tree = await fetchJSON<TreeData>(`${config.content_url}/tree.json`);
-  const treeLink = document.getElementById("tree-link") as HTMLAnchorElement | null;
+  // Point the iframe at the upstream tree page. Using ?embed=1 as a
+  // hint for any future tweaks on the content side (e.g., hiding the
+  // outer nav when embedded) — it's harmless if ignored.
+  frame.src = `${config.content_url}/tree.html?embed=1`;
+
+  // Also wire the fallback's "Open the full interactive tree" link
+  // in case the iframe itself is ever unreachable.
+  const treeLink = document.getElementById(
+    "tree-link",
+  ) as HTMLAnchorElement | null;
   if (treeLink) treeLink.href = `${config.content_url}/tree.html`;
 
-  if (!tree) {
-    renderGridEmpty(
-      "learning-grid",
-      "Couldn't reach the content library",
-      "Try refreshing, or visit the full curriculum above.",
-    );
-    return;
-  }
-
-  // Render ALL layers, not just layer 0 — the previous grid was
-  // flattening a legitimate tree into a row of top-level links.
-  // Now we tier them: layer 0 = Foundations, 1 = Intermediate,
-  // 2 = Advanced, 3+ = Specialized. Each tier is a horizontal row
-  // with a label on the left so the progression reads visually.
-  const nodes = tree.nodes.filter((n) => !isPathExcluded(n.content_path));
-  if (!nodes.length && getLocalContentForSection("learning").length === 0) {
-    renderGridEmpty(
-      "learning-grid",
-      "No learning content yet",
-      "The network's curriculum loads here as content is published to aain-content.",
-    );
-    return;
-  }
-
-  const byLayer = new Map<number, TreeNode[]>();
-  for (const n of nodes) {
-    const arr = byLayer.get(n.layer) ?? [];
-    arr.push(n);
-    byLayer.set(n.layer, arr);
-  }
-  for (const arr of byLayer.values()) {
-    applyCustomOrder(arr);
-    if (!config.content?.custom_order?.length) {
-      arr.sort((a, b) => a.title.localeCompare(b.title));
+  // If the iframe takes more than 8 s to signal load, show the
+  // fallback. The content repo is usually sub-second, so this only
+  // trips when something's actually wrong.
+  const loadTimeout = window.setTimeout(() => {
+    frame.hidden = true;
+    if (fallback) {
+      fallback.hidden = false;
+      renderGridEmpty(
+        "learning-grid",
+        "Couldn't reach the content library",
+        "The learning tree lives at all-ai-network.org/tree.html — try the link above.",
+      );
     }
-  }
-
-  const tierLabels: Record<number, string> = {
-    0: "Foundations",
-    1: "Intermediate",
-    2: "Advanced",
-    3: "Specialized",
-    4: "Specialized",
-  };
-
-  // Build the tiered tree. Local-content entries live in a small
-  // "From your chapter" strip above the network tiers so they're
-  // clearly yours, not the network's.
-  const sortedLayers = Array.from(byLayer.keys()).sort((a, b) => a - b);
-  const localNodes = getLocalContentForSection("learning");
-
-  let html = '<div class="learning-tree">';
-
-  if (localNodes.length) {
-    html += `
-      <div class="learning-tier learning-tier--local">
-        <div class="learning-tier__label">
-          <span class="learning-tier__layer">Chapter</span>
-          <span class="learning-tier__name">From your club</span>
-        </div>
-        <div class="learning-tier__nodes">
-          ${localNodes
-            .map((lc) =>
-              renderLearningNode({
-                title: lc.title,
-                description: lc.description,
-                path: lc.path,
-                isLocal: true,
-                thumbnail: lc.thumbnail,
-              }),
-            )
-            .join("")}
-        </div>
-      </div>
-    `;
-  }
-
-  for (const layer of sortedLayers) {
-    const tierNodes = byLayer.get(layer) ?? [];
-    if (!tierNodes.length) continue;
-    const label = tierLabels[layer] ?? `Layer ${layer}`;
-    html += `
-      <div class="learning-tier">
-        <div class="learning-tier__label">
-          <span class="learning-tier__layer">Layer ${layer}</span>
-          <span class="learning-tier__name">${escapeHtml(label)}</span>
-        </div>
-        <div class="learning-tier__nodes">
-          ${tierNodes
-            .map((n) =>
-              renderLearningNode({
-                title: n.title,
-                description: n.description,
-                path: n.content_path,
-                difficulty: n.difficulty,
-                estimated_minutes: n.estimated_minutes,
-                thumbnail: n.thumbnail,
-              }),
-            )
-            .join("")}
-        </div>
-      </div>
-    `;
-  }
-
-  html += "</div>";
-  grid.innerHTML = html;
-  // The outer wrapper is a grid — the tree needs to span its full
-  // column so layer rows can use their own horizontal layout.
-  grid.classList.add("content-grid--tree");
+  }, 8000);
+  frame.addEventListener(
+    "load",
+    () => window.clearTimeout(loadTimeout),
+    { once: true },
+  );
 }
 
 /** Compact card for a single learning-tree node — visually smaller
  *  than the big workshop/playbook cards so a long row of nodes
  *  reads as a tier. */
-function renderLearningNode(entry: {
-  title: string;
-  description?: string;
-  path?: string;
-  difficulty?: string;
-  estimated_minutes?: number;
-  isLocal?: boolean;
-  thumbnail?: string;
-}): string {
-  const local = entry.isLocal || (entry.path && isLocalPath(entry.path));
-  const href = entry.path
-    ? local
-      ? `./article.html?local=${encodeURIComponent(entry.path)}`
-      : `./article.html?path=${encodeURIComponent(entry.path)}`
-    : "#";
+/* ──────────────────────────────────────────────────────────────────
+   Hero neural-network background
 
-  const difficultyDot = entry.difficulty
-    ? `<span class="learning-node__dot learning-node__dot--${escapeAttr(entry.difficulty)}" aria-label="${escapeAttr(entry.difficulty)}"></span>`
-    : "";
-  const time = entry.estimated_minutes
-    ? `<span class="learning-node__time">${entry.estimated_minutes} min</span>`
-    : "";
+   Generates an SVG mesh of nodes + connecting edges into #hero-network.
+   Nodes inherit currentColor (which main.ts sets from --color-primary
+   and --color-accent), so the whole pattern recolors live when the
+   eboard changes their theme.
 
-  return `
-    <a href="${escapeAttr(href)}" class="learning-node${local ? " learning-node--local" : ""}">
-      <div class="learning-node__head">
-        ${difficultyDot}
-        <h3 class="learning-node__title">${escapeHtml(entry.title)}</h3>
-      </div>
-      ${
-        entry.description
-          ? `<p class="learning-node__desc">${escapeHtml(entry.description)}</p>`
-          : ""
-      }
-      ${time ? `<div class="learning-node__meta">${time}</div>` : ""}
-    </a>
+   Why procedural instead of hardcoded markup: we want different
+   layouts on different reloads so no two sessions look identical,
+   and fixed coordinates in HTML would bake a specific pattern into
+   every chapter's site. Seeded so the generation is stable for the
+   duration of a page load (looks the same after re-renders).
+   ────────────────────────────────────────────────────────────────── */
+
+interface NetworkNode {
+  x: number;
+  y: number;
+  r: number;
+  /** "primary" or "accent" — which theme color this node uses. */
+  tone: "primary" | "accent";
+  /** Stagger animation phase so the whole mesh doesn't pulse in sync. */
+  delay: number;
+}
+
+function renderHeroNetwork() {
+  const svg = document.getElementById("hero-network");
+  if (!svg) return;
+
+  const VB_W = 1200;
+  const VB_H = 500;
+
+  // A rough hex-ish grid of node slots. We jitter each slot a bit
+  // and then drop ~25% randomly so the mesh doesn't look machine-
+  // regular. The center column is thinned further to keep the hero
+  // text (H1 + subtitle) readable.
+  const COLS = 8;
+  const ROWS = 4;
+  const cellW = VB_W / (COLS - 1);
+  const cellH = VB_H / (ROWS - 1);
+
+  const nodes: NetworkNode[] = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const jitterX = (Math.random() - 0.5) * cellW * 0.4;
+      const jitterY = (Math.random() - 0.5) * cellH * 0.35;
+      const x = c * cellW + jitterX;
+      const y = r * cellH + jitterY;
+
+      // Thin out the center zone where the hero title lives so the
+      // mesh frames the text rather than running through it.
+      const cx = VB_W / 2;
+      const cy = VB_H / 2;
+      const dx = (x - cx) / (VB_W / 2);
+      const dy = (y - cy) / (VB_H / 2);
+      const centerDist = Math.sqrt(dx * dx + dy * dy); // 0 at center, ~1 at edges
+
+      // Probability of keeping the node increases toward the edges.
+      const keepChance = 0.4 + centerDist * 0.6;
+      if (Math.random() > keepChance) continue;
+
+      nodes.push({
+        x,
+        y,
+        r: 2.5 + Math.random() * 2.5,
+        tone: Math.random() < 0.55 ? "primary" : "accent",
+        delay: Math.random() * 4,
+      });
+    }
+  }
+
+  // Edges: connect each node to its closest 2 neighbors, capped at
+  // ~1.5 cells away. Dedupe so (a→b) and (b→a) aren't both drawn.
+  const maxEdgeDist = Math.sqrt(cellW * cellW + cellH * cellH) * 1.5;
+  const edgeSet = new Set<string>();
+  const edges: Array<{ a: NetworkNode; b: NetworkNode; delay: number }> = [];
+  for (let i = 0; i < nodes.length; i++) {
+    const distances = nodes
+      .map((n, j) => ({
+        j,
+        d: Math.hypot(n.x - nodes[i].x, n.y - nodes[i].y),
+      }))
+      .filter((x) => x.j !== i && x.d <= maxEdgeDist)
+      .sort((a, b) => a.d - b.d)
+      .slice(0, 2);
+    for (const { j } of distances) {
+      const key = i < j ? `${i}-${j}` : `${j}-${i}`;
+      if (edgeSet.has(key)) continue;
+      edgeSet.add(key);
+      edges.push({
+        a: nodes[i],
+        b: nodes[j],
+        delay: Math.random() * 5,
+      });
+    }
+  }
+
+  // Build the SVG markup. The `svg` element is the existing one in
+  // index.html — we only replace its inner content.
+  const edgesSvg = edges
+    .map(
+      (e) => `
+      <line
+        x1="${e.a.x.toFixed(1)}" y1="${e.a.y.toFixed(1)}"
+        x2="${e.b.x.toFixed(1)}" y2="${e.b.y.toFixed(1)}"
+        class="hero-net-line"
+        style="animation-delay:${e.delay.toFixed(2)}s"
+      />`,
+    )
+    .join("");
+
+  const nodesSvg = nodes
+    .map(
+      (n) => `
+      <circle
+        cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" r="${n.r.toFixed(1)}"
+        class="hero-net-node hero-net-node--${n.tone}"
+        style="animation-delay:${n.delay.toFixed(2)}s"
+      />`,
+    )
+    .join("");
+
+  svg.innerHTML = `
+    <g class="hero-net-edges">${edgesSvg}</g>
+    <g class="hero-net-nodes">${nodesSvg}</g>
   `;
 }
 
-async function loadManifestSection(
-  type: "workshop" | "playbook",
-  gridId: string,
-) {
-  const grid = document.getElementById(gridId);
-  if (!grid) return;
-
-  if (!config.content_url) {
-    renderGridEmpty(
-      gridId,
-      `${type === "workshop" ? "Workshops" : "Playbooks"} will appear here`,
-      `Content library isn't connected yet. Once wired, ${type}s load from the CDN automatically.`,
-    );
-    return;
-  }
-
-  const manifest = await fetchJSON<Manifest>(`${config.content_url}/manifest.json`);
-  if (!manifest) {
-    renderGridEmpty(
-      gridId,
-      "Couldn't reach the content library",
-      "Try refreshing in a moment.",
-    );
-    return;
-  }
-
-  const items = manifest.content
-    .filter((c) => c.type === type)
-    .filter((c) => !isPathExcluded(c.path));
-  const remoteCards = items.map((it) => renderCard(it));
-  const sectionKey = type === "workshop" ? "workshops" : "playbooks";
-  const localCards = getLocalContentForSection(sectionKey).map((lc) =>
-    renderCard({
-      title: lc.title,
-      description: lc.description,
-      thumbnail: lc.thumbnail,
-      path: lc.path,
-      isLocal: true,
-    }),
-  );
-  const all = [...localCards, ...remoteCards];
-
-  grid.innerHTML = all.length
-    ? all.join("")
-    : `<div class="empty-state" style="grid-column:1/-1"><div class="empty-state__title">No ${type}s yet</div></div>`;
-}
+/* Workshops + playbooks sections used to live on the hub template
+ * and mirror content from the aain-content CDN. They've been
+ * removed now — the Learn page iframes the content repo's full
+ * tree visualization instead of splitting curriculum across three
+ * separate in-page grids. Chapters who want their members to see
+ * workshop / playbook content link out to all-ai-network.org from
+ * wherever makes sense. */
 
 /* ──────────────────────────────────────────────────────────────────
    Page navigation (tabs + hash routing + visibility)
@@ -1188,8 +1216,8 @@ const PAGE_HEADER_COPY: Record<
 > = {
   learn: {
     kicker: "Curriculum",
-    title: "Learn",
-    desc: "From absolute zero to shipping AI products. Pick a tier below and start anywhere.",
+    title: "Learning tree",
+    desc: "Our full applied-AI skill map. Click any node to expand it; follow the edges to see what comes next.",
   },
   projects: {
     kicker: "How to run it",
@@ -1425,14 +1453,11 @@ async function init() {
   renderMerch(bundle?.merch ?? []);
   renderOfficers(remote?.officers ?? []);
   renderSocials(remote?.social_links ?? {});
+  renderHeroNetwork();
 
-  // CDN content loads regardless — the section toggles above already
-  // removed any section the dashboard turned off.
-  await Promise.all([
-    loadLearningTree(),
-    loadManifestSection("workshop", "workshops-grid"),
-    loadManifestSection("playbook", "playbooks-grid"),
-  ]);
+  // Learning tree iframes the content repo's tree page — fire-and-
+  // forget since the iframe handles its own load / timeout states.
+  loadLearningTree();
 
   // Wire the multi-page tabs AFTER all sections have rendered — so
   // pagesWithContent() sees the final DOM + data state and can hide

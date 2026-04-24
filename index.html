@@ -48,6 +48,17 @@
   <!-- ══ Hero ══════════════════════════════════════════════════════ -->
   <header class="hero" id="hero" data-section="hero" data-page="home">
     <div class="hero__glow" aria-hidden="true"></div>
+    <!-- Neural-network decoration: main.ts::renderHeroNetwork generates
+         nodes + connecting edges, inheriting --color-primary +
+         --color-accent via currentColor so the whole pattern recolors
+         when the eboard changes their theme. -->
+    <svg
+      class="hero__network"
+      id="hero-network"
+      viewBox="0 0 1200 500"
+      preserveAspectRatio="xMidYMid slice"
+      aria-hidden="true"
+    ></svg>
     <div class="hero__inner">
       <div class="hero__eyebrow" id="hero-university">My University</div>
       <h1 class="hero__title" id="hero-title">My AI Club</h1>
@@ -66,7 +77,7 @@
   </header>
 
   <!-- ══ About ═════════════════════════════════════════════════════ -->
-  <section class="section" id="about" data-section="about" data-page="home">
+  <section class="section" id="about" data-section="about" data-page="team">
     <div class="section__inner section__inner--narrow">
       <div class="section__kicker">About us</div>
       <h2 class="section__title" id="about-title">Who we are</h2>
@@ -107,17 +118,54 @@
   </section>
 
   <!-- ══ Badges ════════════════════════════════════════════════════ -->
-  <section class="section section--alt" id="badges" data-section="badges" data-page="team">
+  <section class="section section--alt" id="badges" data-section="badges" data-page="home">
     <div class="section__inner">
       <div class="section__head">
         <div>
-          <div class="section__kicker">Recognitions</div>
-          <h2 class="section__title">Badges we award</h2>
+          <div class="section__kicker">Points &amp; recognition</div>
+          <h2 class="section__title">How it all works</h2>
         </div>
         <p class="section__desc">
-          Every badge members have earned, how many hold each.
+          Show up, build things, get recognized. Here's the system.
         </p>
       </div>
+
+      <!-- Three-column explainer above the badges grid, replacing the
+           "Badges" section that used to live on Team. Gives chapters
+           a lightweight way to teach newcomers what the numbers on
+           the leaderboard mean without sending them to a separate
+           page. -->
+      <div class="points-explainer">
+        <div class="points-explainer__card">
+          <div class="points-explainer__icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </div>
+          <div class="points-explainer__title">Attend events</div>
+          <p class="points-explainer__desc">
+            Every workshop, speaker night, and hackathon awards points when you check in with the QR code. Show up, earn pts.
+          </p>
+        </div>
+        <div class="points-explainer__card">
+          <div class="points-explainer__icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
+          </div>
+          <div class="points-explainer__title">Earn badges</div>
+          <p class="points-explainer__desc">
+            Finish coursework, ship a project, win a competition — each unlocks a badge that lives next to your name on the leaderboard forever.
+          </p>
+        </div>
+        <div class="points-explainer__card">
+          <div class="points-explainer__icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          </div>
+          <div class="points-explainer__title">Redeem rewards</div>
+          <p class="points-explainer__desc">
+            Spend points on merch from the Rewards shop — T-shirts, stickers, workshop vouchers. Redeem in person at any meeting.
+          </p>
+        </div>
+      </div>
+
+      <h3 class="section__subhead">Every badge we award</h3>
       <div class="badges-grid" id="badges-grid" role="list"></div>
     </div>
   </section>
@@ -152,60 +200,27 @@
   </section>
 
   <!-- ══ Learning Tree (CDN content) ══════════════════════════════ -->
-  <section class="section" id="learning" data-section="learning_tree" data-page="learn">
+  <!-- ══ Learn page — full-height tree visualization ══════════════ -->
+  <section class="section section--learn" id="learning" data-section="learning_tree" data-page="learn">
     <div class="section__inner">
-      <div class="section__head">
-        <div>
-          <div class="section__kicker">Curriculum</div>
-          <h2 class="section__title">Learning tree</h2>
+      <div class="learn-tree-wrap">
+        <iframe
+          id="learn-tree-frame"
+          class="learn-tree-frame"
+          title="Interactive learning tree"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+        ></iframe>
+        <div class="learn-tree-fallback" id="learn-tree-fallback" hidden>
+          <div class="content-grid" id="learning-grid">
+            <div class="loading">Loading curriculum…</div>
+          </div>
+          <p class="section__footer">
+            <a href="#" id="tree-link" class="link link--arrow" target="_blank" rel="noopener">
+              Open the full interactive tree
+            </a>
+          </p>
         </div>
-        <p class="section__desc">
-          From absolute zero to shipping AI products. Pick a node, learn it, unlock the next.
-        </p>
-      </div>
-      <div class="content-grid" id="learning-grid">
-        <div class="loading">Loading curriculum…</div>
-      </div>
-      <p class="section__footer">
-        <a href="#" id="tree-link" class="link link--arrow" target="_blank" rel="noopener">
-          Open the full interactive tree
-        </a>
-      </p>
-    </div>
-  </section>
-
-  <!-- ══ Workshops (CDN content) ══════════════════════════════════ -->
-  <section class="section section--alt" id="workshops" data-section="workshops" data-page="learn">
-    <div class="section__inner">
-      <div class="section__head">
-        <div>
-          <div class="section__kicker">Hands-on</div>
-          <h2 class="section__title">Workshops</h2>
-        </div>
-        <p class="section__desc">
-          Session-ready workshops with facilitator guides and student materials.
-        </p>
-      </div>
-      <div class="content-grid" id="workshops-grid">
-        <div class="loading">Loading workshops…</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ══ Playbooks (CDN content) ══════════════════════════════════ -->
-  <section class="section" id="playbooks" data-section="playbooks" data-page="projects">
-    <div class="section__inner">
-      <div class="section__head">
-        <div>
-          <div class="section__kicker">How to run it</div>
-          <h2 class="section__title">Playbooks</h2>
-        </div>
-        <p class="section__desc">
-          Operational playbooks for every part of running a chapter — hackathons, speaker series, innovation labs.
-        </p>
-      </div>
-      <div class="content-grid" id="playbooks-grid">
-        <div class="loading">Loading playbooks…</div>
       </div>
     </div>
   </section>

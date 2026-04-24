@@ -331,14 +331,83 @@ code {
   inset: 0;
   background-image: radial-gradient(
     circle at 1px 1px,
-    rgba(255, 255, 255, 0.06) 1px,
+    rgba(255, 255, 255, 0.04) 1px,
     transparent 1px
   );
   background-size: 32px 32px;
-  mask-image: radial-gradient(ellipse at center, black, transparent 75%);
-  -webkit-mask-image: radial-gradient(ellipse at center, black, transparent 75%);
+  mask-image: radial-gradient(ellipse at center, black, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black, transparent 80%);
   pointer-events: none;
   z-index: 0;
+}
+
+/* ── Hero neural-network mesh ─────────────────────────────────────
+   Populated by main.ts::renderHeroNetwork. Nodes pulse between full
+   and low opacity at staggered intervals; edges slowly fade in/out.
+   Both inherit currentColor, which means the whole pattern recolors
+   the moment the eboard changes their theme in Customize. */
+
+.hero__network {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  /* Fade the whole mesh out toward the center so it frames the H1
+     rather than running through it. */
+  mask-image: radial-gradient(ellipse 60% 70% at center, transparent 10%, black 85%);
+  -webkit-mask-image: radial-gradient(ellipse 60% 70% at center, transparent 10%, black 85%);
+}
+
+.hero-net-edges {
+  stroke-width: 0.9;
+  fill: none;
+}
+
+.hero-net-line {
+  stroke: var(--color-primary);
+  opacity: 0.18;
+  animation: hero-net-line 6s ease-in-out infinite alternate;
+  transform-origin: center;
+}
+
+@keyframes hero-net-line {
+  0%   { opacity: 0.10; }
+  50%  { opacity: 0.26; }
+  100% { opacity: 0.14; }
+}
+
+.hero-net-node {
+  animation: hero-net-node 5s ease-in-out infinite alternate;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+.hero-net-node--primary {
+  fill: var(--color-primary);
+  filter: drop-shadow(0 0 6px rgba(var(--color-primary-rgb), 0.45));
+}
+
+.hero-net-node--accent {
+  fill: var(--color-accent);
+  filter: drop-shadow(0 0 6px rgba(var(--color-accent-rgb), 0.5));
+}
+
+@keyframes hero-net-node {
+  0%   { opacity: 0.35; transform: scale(0.8); }
+  50%  { opacity: 0.85; transform: scale(1.1); }
+  100% { opacity: 0.55; transform: scale(0.95); }
+}
+
+/* Honor reduced-motion — the mesh still renders, just stops
+   animating. */
+@media (prefers-reduced-motion: reduce) {
+  .hero__glow,
+  .hero-net-line,
+  .hero-net-node {
+    animation: none;
+  }
 }
 
 .hero__inner {
@@ -1006,6 +1075,135 @@ code {
   text-transform: uppercase;
 }
 
+/* ── Member badges (inline chips next to leaderboard names) ─────
+   Small, colored badge tiles shown inline with each member's name
+   on both the podium and the list. Makes the leaderboard visually
+   varied between members instead of being a pure numeric column. */
+
+.leaderboard-row__name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.leaderboard-row__name-row .leaderboard-row__name {
+  flex: 0 1 auto;
+}
+
+.member-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.podium-card .member-badges {
+  margin-top: 0.15rem;
+  justify-content: center;
+}
+
+.member-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.25);
+  color: var(--color-primary);
+  flex-shrink: 0;
+  transition: transform 0.15s, background 0.15s;
+  cursor: default;
+}
+
+.member-badge:hover {
+  transform: translateY(-1px);
+  background: rgba(var(--color-primary-rgb), 0.18);
+}
+
+.member-badge svg {
+  width: 13px;
+  height: 13px;
+}
+
+.member-badge img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  border-radius: 3px;
+}
+
+.member-badge--more {
+  width: auto;
+  min-width: 22px;
+  padding: 0 0.3rem;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--border);
+}
+
+/* ── Points & Recognition explainer (home page, above badges) ─── */
+
+.points-explainer {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 2.25rem;
+}
+
+.points-explainer__card {
+  padding: 1.25rem 1.35rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.points-explainer__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.25);
+  color: var(--color-primary);
+}
+
+.points-explainer__title {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.points-explainer__desc {
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* A smaller heading used inside a section ("Every badge we award"
+   under the explainer cards). Reads like a mid-section break. */
+.section__subhead {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  margin: 0 0 1.2rem;
+}
+
 /* ══ Badges grid ═══════════════════════════════════════════════ */
 
 .badges-grid {
@@ -1477,6 +1675,47 @@ code {
   white-space: nowrap;
   border: 0;
 }
+
+/* ══ Learn page — full-height embedded tree visualization ══════════
+   The Learn page iframes the content repo's /tree.html so every hub
+   site inherits the canonical tree viz without reimplementing it.
+   Wrapper sizes the iframe to fill the remaining viewport below the
+   sticky nav + page header. */
+
+.section--learn {
+  padding: 0;
+}
+
+.learn-tree-wrap {
+  position: relative;
+  /* Nav (~64px) + page header (~140px) ≈ 210px, plus the footer
+     needs breathing room — min-height keeps the tree usable on any
+     viewport without a second scrollbar. */
+  min-height: min(900px, calc(100vh - 200px));
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.learn-tree-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--bg-base);
+  display: block;
+}
+
+.learn-tree-fallback {
+  position: absolute;
+  inset: 0;
+  padding: 3rem 1.5rem;
+  overflow-y: auto;
+}
+
+.learn-tree-fallback[hidden] { display: none; }
 
 /* ══ Page header band — non-home pages ═════════════════════════════
    Compact intro band shown at the top of Learn / Projects / Team /
