@@ -277,6 +277,21 @@ code {
   border-color: rgba(255, 255, 255, 0.2);
 }
 
+/* Accented ghost variant for the third hero CTA — a soft tint of
+   --color-accent so the three audience buttons (member / partner /
+   learner) read as distinct without any one of them shouting.
+   Matches the visual weight of .btn--ghost but with an accent tie. */
+.btn--ghost-accent {
+  background: rgba(var(--color-accent-rgb), 0.08);
+  color: var(--text-primary);
+  border-color: rgba(var(--color-accent-rgb), 0.35);
+}
+.btn--ghost-accent:hover {
+  background: rgba(var(--color-accent-rgb), 0.14);
+  color: var(--text-primary);
+  border-color: rgba(var(--color-accent-rgb), 0.55);
+}
+
 .btn--sm {
   padding: 0.45rem 0.85rem;
   font-size: 0.8125rem;
@@ -2157,4 +2172,213 @@ a.project-card:hover {
 .hero .edit-pill {
   z-index: 50;
   top: 1.5rem;
+}
+
+/* ══ "What we do" pillars — 4-up home page explainer ══════════════
+   Sits directly under the hero. Four tap-through tiles that each
+   point at a section on the home page (events, projects, learn,
+   badges) so a visitor landing cold can jump to whichever pillar
+   matches their interest. Reuses the same visual language as the
+   points-explainer cards below for consistency. */
+
+.section--pillars {
+  /* Slightly tighter vertical padding than default sections — the
+     pillars are intentionally light-touch, so they don't warrant
+     the full 5rem breathing room. */
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+}
+
+.pillars-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.85rem;
+}
+
+.pillar-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 1.4rem 1.4rem 1.5rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.15s ease, border-color 0.15s ease,
+    background 0.15s ease, box-shadow 0.15s ease;
+  overflow: hidden;
+}
+
+/* Hairline top edge that picks up the theme gradient — a tiny visual
+   tie back to the --color-primary/--color-accent pair without tinting
+   the whole card. Keeps the grid feeling cohesive across tiles. */
+.pillar-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(var(--color-primary-rgb), 0.55),
+    rgba(var(--color-accent-rgb), 0.55),
+    transparent
+  );
+  opacity: 0.45;
+  transition: opacity 0.15s ease;
+}
+
+.pillar-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(var(--color-primary-rgb), 0.35);
+  background: rgba(var(--color-primary-rgb), 0.04);
+  box-shadow: 0 10px 32px -12px rgba(var(--color-primary-rgb), 0.25);
+}
+
+.pillar-card:hover::before {
+  opacity: 0.95;
+}
+
+.pillar-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.25);
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.pillar-card__icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.pillar-card__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.pillar-card__desc {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* ══ Per-page CTA bands ═══════════════════════════════════════════
+   Rendered at the bottom of the Projects / Team / Learn / Merch
+   pages by main.ts::renderPageCtaBands. Each band frames the next
+   step for that page's audience ("how to participate", "how to
+   contact us", etc.) so nobody scrolls to the end of a tab and
+   hits a dead-end footer. */
+
+.page-cta-band {
+  padding: 4rem 1.5rem 5rem;
+  position: relative;
+}
+
+.page-cta-band::before {
+  /* Soft ambient wash tying the band to the theme without making it
+     look like a separate callout card. Sits behind the content so it
+     never fights readability. */
+  content: "";
+  position: absolute;
+  inset: 2rem 1.5rem;
+  border-radius: var(--radius-xl, 24px);
+  background:
+    radial-gradient(
+      60% 100% at 15% 0%,
+      rgba(var(--color-primary-rgb), 0.08),
+      transparent 70%
+    ),
+    radial-gradient(
+      60% 100% at 85% 100%,
+      rgba(var(--color-accent-rgb), 0.08),
+      transparent 70%
+    ),
+    var(--bg-surface);
+  border: 1px solid var(--border);
+  pointer-events: none;
+}
+
+.page-cta-band__inner {
+  position: relative;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2.5rem 2rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 2.5rem;
+}
+
+.page-cta-band__kicker {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 0.6rem;
+}
+
+.page-cta-band__title {
+  font-size: clamp(1.5rem, 2.4vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin: 0 0 0.75rem;
+  line-height: 1.2;
+}
+
+.page-cta-band__desc {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  max-width: 620px;
+  margin: 0;
+}
+
+.page-cta-band__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  align-items: stretch;
+  min-width: 180px;
+}
+
+.page-cta-band__actions .btn {
+  justify-content: center;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .page-cta-band {
+    padding: 2.5rem 1rem 3.5rem;
+  }
+  .page-cta-band::before {
+    inset: 1rem 0.75rem;
+  }
+  .page-cta-band__inner {
+    grid-template-columns: 1fr;
+    padding: 1.75rem 1.25rem;
+    gap: 1.5rem;
+    align-items: start;
+  }
+  .page-cta-band__actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .page-cta-band__actions .btn {
+    flex: 1 1 140px;
+  }
 }

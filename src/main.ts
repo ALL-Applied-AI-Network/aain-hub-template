@@ -33,7 +33,7 @@ const PAGES: Page[] = [
   // Home now hosts the explainer-flavored badges section (moved off
   // Team per eboard feedback — badges + the points/merch system make
   // more sense adjacent to the leaderboard).
-  { key: "home", label: "Home", sections: ["hero", "events", "leaderboard", "badges"] },
+  { key: "home", label: "Home", sections: ["hero", "pillars", "events", "leaderboard", "badges"] },
   // Learn is just the tree. Workshops/playbooks are on the content
   // CDN; the hub template used to mirror them but that duplicated
   // effort and a fresh chapter site doesn't need them by default.
@@ -55,6 +55,11 @@ const SECTION_EDIT_INFO: Record<
   { path: string; label: string; kind: "internal" | "external" }
 > = {
   hero: { path: "/website", label: "Customize → Identity", kind: "internal" },
+  // "What we do" pillars are hardcoded on the template today — clicking
+  // the edit pill takes the eboard to the Customize page where they
+  // can at least tune tone via About + tagline. When we make pillars
+  // dashboard-editable, swap this path for a dedicated section.
+  pillars: { path: "/website", label: "Customize → Identity", kind: "internal" },
   about: { path: "/website", label: "Customize → About", kind: "internal" },
   events: { path: "/events", label: "Events page", kind: "internal" },
   leaderboard: { path: "/people", label: "Members page", kind: "internal" },
@@ -156,6 +161,8 @@ interface RemoteConfig {
   cta_primary_href: string | null;
   cta_secondary_label: string | null;
   cta_secondary_href: string | null;
+  cta_tertiary_label: string | null;
+  cta_tertiary_href: string | null;
   officers: Officer[];
   social_links: Record<string, string>;
   updated_at: string | null;
@@ -345,47 +352,96 @@ function renderIdentity(
   setText("footer-university", university);
 }
 
+/**
+ * Hero CTAs — three persona-targeted buttons so the landing page
+ * speaks to every audience at once without burying them in nav clicks:
+ *   1. Primary   → prospective members ("Join our next event")
+ *   2. Secondary → partners/sponsors ("Become a partner")
+ *   3. Tertiary  → curious learners ("Start learning")
+ *
+ * Each slot accepts a chapter-authored label+href from the dashboard;
+ * when blank, falls back to a sensible default that anchors into the
+ * relevant section so a freshly deployed site still feels complete.
+ */
 function renderHeroActions(remote: RemoteConfig | null) {
   const container = document.getElementById("hero-actions");
   if (!container) return;
   container.innerHTML = "";
 
-  const buttons: Array<{ label: string; href: string; primary: boolean }> = [];
-  if (remote?.cta_primary_label && remote?.cta_primary_href) {
-    buttons.push({
-      label: remote.cta_primary_label,
-      href: remote.cta_primary_href,
-      primary: true,
-    });
-  }
-  if (remote?.cta_secondary_label && remote?.cta_secondary_href) {
-    buttons.push({
-      label: remote.cta_secondary_label,
-      href: remote.cta_secondary_href,
-      primary: false,
-    });
-  }
+  type HeroCta = {
+    label: string;
+    href: string;
+    style: "primary" | "ghost" | "ghost-accent";
+  };
 
-  // Sensible defaults when the dashboard hasn't been configured yet —
-  // anchor links into the page, so the site still feels complete.
-  if (buttons.length === 0) {
-    if (document.getElementById("events")) {
-      buttons.push({ label: "Upcoming events", href: "#events", primary: true });
-    }
-    if (document.getElementById("learning")) {
-      buttons.push({
-        label: "Start learning",
-        href: "#learning",
-        primary: buttons.length === 0,
-      });
-    }
-  }
+  // Each slot falls back to its persona default when the eboard
+  // hasn't filled it in, so every fresh chapter site ships with
+  // three distinct audience CTAs from day one. Label overrides keep
+  // the eboard's voice; href overrides route to their Discord / merch
+  // / Typeform / whatever.
+  const pick = (
+    label: string | null | undefined,
+    href: string | null | undefined,
+    fallbackLabel: string,
+    fallbackHref: string,
+    style: HeroCta["style"],
+  ): HeroCta => {
+    const l = label?.trim();
+    const h = href?.trim();
+    return {
+      label: l && l.length > 0 ? l : fallbackLabel,
+      href: h && h.length > 0 ? h : fallbackHref,
+      style,
+    };
+  };
+
+  const eventsAnchor = document.getElementById("events") ? "#events" : "#home";
+  // Partner CTA defaults to mailto when a social email is configured,
+  // otherwise to the team tab so curious sponsors can see who to reach.
+  const partnerEmail = remote?.social_links?.email;
+  const partnerFallbackHref = partnerEmail
+    ? `mailto:${partnerEmail}?subject=Partnership inquiry`
+    : "#team";
+
+  const buttons: HeroCta[] = [
+    // 1 — prospective members
+    pick(
+      remote?.cta_primary_label,
+      remote?.cta_primary_href,
+      "Join our next event",
+      eventsAnchor,
+      "primary",
+    ),
+    // 2 — partners / sponsors
+    pick(
+      remote?.cta_secondary_label,
+      remote?.cta_secondary_href,
+      "Become a partner",
+      partnerFallbackHref,
+      "ghost",
+    ),
+    // 3 — curious learners
+    pick(
+      remote?.cta_tertiary_label,
+      remote?.cta_tertiary_href,
+      "Start learning",
+      "#learn",
+      "ghost-accent",
+    ),
+  ];
 
   for (const b of buttons) {
     const a = document.createElement("a");
-    a.className = `btn ${b.primary ? "btn--primary" : "btn--ghost"}`;
+    const styleClass =
+      b.style === "primary"
+        ? "btn--primary"
+        : b.style === "ghost-accent"
+          ? "btn--ghost btn--ghost-accent"
+          : "btn--ghost";
+    a.className = `btn ${styleClass}`;
     a.href = b.href;
-    // Only external links open in a new tab.
+    // Only true externals open in a new tab — anchor + mailto + tel
+    // stay in the current window.
     if (/^https?:\/\//.test(b.href)) {
       a.target = "_blank";
       a.rel = "noopener noreferrer";
@@ -395,7 +451,141 @@ function renderHeroActions(remote: RemoteConfig | null) {
   }
 }
 
-function renderStats(chapter: ChapterBundle["chapter"] | null, badges: BadgeRow[]) {
+/* ──────────────────────────────────────────────────────────────────
+   "What we do" pillars — four-up explainer that answers "what is
+   this organization, actually?" for anyone landing on the home page
+   cold. Lives between the hero stat strip and the events grid so
+   visitors always have the gist before they start scanning events or
+   the leaderboard. Content is hardcoded on the template today — the
+   next iteration makes this dashboard-editable alongside the About
+   markdown, but every chapter says the same four things so the
+   defaults carry real weight.
+   ────────────────────────────────────────────────────────────────── */
+
+interface Pillar {
+  title: string;
+  desc: string;
+  href: string;
+  icon: string;
+}
+
+const PILLARS: Pillar[] = [
+  {
+    title: "Weekly events",
+    desc: "Workshops, speaker nights, and build sessions — hands-on applied-AI every week, open to any student.",
+    href: "#events",
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+  },
+  {
+    title: "Ship real projects",
+    desc: "Innovation Labs cohorts, hackathon teams, and research collabs. Members graduate with a portfolio of shipped work.",
+    href: "#projects",
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`,
+  },
+  {
+    title: "Open curriculum",
+    desc: "A full applied-AI skill map, free forever. Follow the learning tree from zero to shipping production AI.",
+    href: "#learn",
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`,
+  },
+  {
+    title: "Recognition built in",
+    desc: "Every event check-in, project, and award earns points — redeem for merch, unlock badges, climb the leaderboard.",
+    href: "#badges",
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>`,
+  },
+];
+
+function renderPillars() {
+  const grid = document.getElementById("pillars-grid");
+  if (!grid) return;
+  grid.innerHTML = PILLARS.map(
+    (p) => `
+      <a class="pillar-card" href="${escapeAttr(p.href)}">
+        <div class="pillar-card__icon" aria-hidden="true">${p.icon}</div>
+        <div class="pillar-card__title">${escapeHtml(p.title)}</div>
+        <p class="pillar-card__desc">${escapeHtml(p.desc)}</p>
+      </a>
+    `,
+  ).join("");
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Per-page CTA bands — at the bottom of each non-home tab, give
+   visitors a clear next step. Projects visitors hear "how to
+   participate"; Team visitors hear "how to reach us / join the
+   eboard"; Learn visitors hear "attend an event to go deeper";
+   Merch visitors hear "earn points to redeem."
+   ────────────────────────────────────────────────────────────────── */
+
+interface PageCtaBandCopy {
+  kicker: string;
+  title: string;
+  desc: string;
+  primary: { label: string; href: string };
+  secondary?: { label: string; href: string };
+}
+
+const PAGE_CTA_BANDS: Record<string, PageCtaBandCopy> = {
+  projects: {
+    kicker: "Build with us",
+    title: "Want to ship a project with the chapter?",
+    desc: "Members pitch ideas every semester and team up into Innovation Labs cohorts. Show up to a meeting, propose a project, recruit collaborators — eboard helps you scope it end-to-end.",
+    primary: { label: "See upcoming events", href: "#events" },
+    secondary: { label: "Meet the eboard", href: "#team" },
+  },
+  team: {
+    kicker: "Get in touch",
+    title: "Running something? Reach out.",
+    desc: "Sponsoring events, guest-speaking, recruiting our members, or joining the eboard — we reply fast. The whole eboard is a student team, and we love outside-of-class opportunities to build together.",
+    primary: { label: "Contact the eboard", href: "#team" },
+    secondary: { label: "See our projects", href: "#projects" },
+  },
+  learn: {
+    kicker: "Go deeper",
+    title: "Pair the curriculum with a weekly build session.",
+    desc: "The tree covers the theory; our workshops and speaker nights cover the applied side. Come to one, no prior experience needed — every track starts from zero.",
+    primary: { label: "See upcoming events", href: "#events" },
+    secondary: { label: "Check the leaderboard", href: "#home" },
+  },
+  merch: {
+    kicker: "Earn & redeem",
+    title: "Merch is earned, not bought.",
+    desc: "Every event check-in, shipped project, and recognition earns points you can spend here. See any eboard member at a meeting to redeem — no online checkout, no shipping, all in-person.",
+    primary: { label: "See upcoming events", href: "#events" },
+    secondary: { label: "Leaderboard", href: "#home" },
+  },
+};
+
+function renderPageCtaBands() {
+  for (const [pageKey, copy] of Object.entries(PAGE_CTA_BANDS)) {
+    const band = document.querySelector<HTMLElement>(
+      `.page-cta-band[data-page="${pageKey}"]`,
+    );
+    if (!band) continue;
+    const secondaryHtml = copy.secondary
+      ? `<a class="btn btn--ghost" href="${escapeAttr(copy.secondary.href)}">${escapeHtml(copy.secondary.label)}</a>`
+      : "";
+    band.innerHTML = `
+      <div class="page-cta-band__inner">
+        <div class="page-cta-band__copy">
+          <div class="page-cta-band__kicker">${escapeHtml(copy.kicker)}</div>
+          <h2 class="page-cta-band__title">${escapeHtml(copy.title)}</h2>
+          <p class="page-cta-band__desc">${escapeHtml(copy.desc)}</p>
+        </div>
+        <div class="page-cta-band__actions">
+          <a class="btn btn--primary" href="${escapeAttr(copy.primary.href)}">${escapeHtml(copy.primary.label)}</a>
+          ${secondaryHtml}
+        </div>
+      </div>
+    `;
+  }
+}
+
+function renderStats(
+  chapter: ChapterBundle["chapter"] | null,
+  projects: ProjectRow[],
+) {
   const strip = document.getElementById("hero-stats") as HTMLElement | null;
   if (!strip) return;
 
@@ -408,10 +598,15 @@ function renderStats(chapter: ChapterBundle["chapter"] | null, badges: BadgeRow[
   }
 
   strip.style.display = "";
+  // Members / events / projects is the "how big is this chapter"
+  // trio a prospective member or partner cares about — swapped in
+  // from badges (which told visitors about the recognition system,
+  // but not the scale of the chapter). Badges are still their own
+  // full section below the leaderboard.
   const map: Record<string, string> = {
     members: formatCount(chapter.member_count),
     events: formatCount(chapter.event_count),
-    badges: formatCount(badges.length),
+    projects: formatCount(projects.length),
   };
   for (const [key, val] of Object.entries(map)) {
     const el = document.querySelector(`[data-stat="${key}"]`);
@@ -1522,8 +1717,10 @@ async function init() {
   // now — the difference is only in which overrides were layered above.
   renderIdentity(remote, bundle?.chapter ?? null);
   renderHeroActions(remote);
+  renderPillars();
+  renderPageCtaBands();
   renderAbout(remote?.about ?? null);
-  renderStats(bundle?.chapter ?? null, bundle?.badges ?? []);
+  renderStats(bundle?.chapter ?? null, bundle?.projects ?? []);
   renderEvents(bundle?.events ?? [], remote?.tagline ?? null);
   renderLeaderboard(bundle?.leaderboard ?? []);
   renderBadges(bundle?.badges ?? []);

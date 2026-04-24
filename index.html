@@ -68,13 +68,36 @@
     <div class="hero__stats" id="hero-stats" aria-hidden="true">
       <div class="hero__stat"><span class="hero__stat-num" data-stat="members">—</span><span class="hero__stat-label">Members</span></div>
       <div class="hero__stat"><span class="hero__stat-num" data-stat="events">—</span><span class="hero__stat-label">Events run</span></div>
-      <div class="hero__stat"><span class="hero__stat-num" data-stat="badges">—</span><span class="hero__stat-label">Recognitions</span></div>
+      <div class="hero__stat"><span class="hero__stat-num" data-stat="projects">—</span><span class="hero__stat-label">Projects shipped</span></div>
     </div>
     <a href="https://all-ai-network.org" target="_blank" rel="noopener" class="hero__attribution">
       <span class="hero__attribution-dot"></span>
       Powered by ALL Applied AI Network
     </a>
   </header>
+
+  <!-- ══ "What we do" pillars — 4-up explainer on home ═════════════ -->
+  <!-- Sits directly under the hero so anyone landing cold gets the
+       whole value prop in one screen: what this organization does,
+       who it's for, and how the recognition system works. Content is
+       hardcoded on the template today; main.ts::renderPillars
+       populates the grid. -->
+  <section class="section section--pillars" id="pillars" data-section="pillars" data-page="home">
+    <div class="section__inner">
+      <div class="section__head">
+        <div>
+          <div class="section__kicker">What we do</div>
+          <h2 class="section__title">A chapter built around four things</h2>
+        </div>
+        <p class="section__desc">
+          Weekly events to show up, real projects to build, a full curriculum
+          to learn from, and a recognition system that remembers every time
+          you contributed.
+        </p>
+      </div>
+      <div class="pillars-grid" id="pillars-grid" role="list"></div>
+    </div>
+  </section>
 
   <!-- ══ About ═════════════════════════════════════════════════════ -->
   <section class="section" id="about" data-section="about" data-page="team">
@@ -186,6 +209,13 @@
     </div>
   </section>
 
+  <!-- ══ Merch page CTA band ══════════════════════════════════════ -->
+  <section
+    class="page-cta-band"
+    data-section="merch_cta"
+    data-page="merch"
+  ></section>
+
   <!-- ══ Officers ══════════════════════════════════════════════════ -->
   <section class="section section--alt" id="officers" data-section="officers" data-page="team">
     <div class="section__inner">
@@ -198,6 +228,18 @@
       <div class="officers-grid" id="officers-grid" role="list"></div>
     </div>
   </section>
+
+  <!-- ══ Team page CTA band ═══════════════════════════════════════
+       Always paired with the team page so a sponsor or speaker
+       scrolling to the bottom has a clear "get in touch" next step.
+       main.ts::renderPageCtaBands populates the inner content based
+       on the `data-page` attribute; we keep the markup lightweight
+       so the slot's a no-op if the copy map doesn't list the page. -->
+  <section
+    class="page-cta-band"
+    data-section="team_cta"
+    data-page="team"
+  ></section>
 
   <!-- ══ Learning Tree (CDN content) ══════════════════════════════ -->
   <!-- ══ Projects — chapter-editable showcase ════════════════════ -->
@@ -215,6 +257,13 @@
       <div class="projects-grid" id="projects-grid" role="list"></div>
     </div>
   </section>
+
+  <!-- ══ Projects page CTA band ═══════════════════════════════════ -->
+  <section
+    class="page-cta-band"
+    data-section="projects_cta"
+    data-page="projects"
+  ></section>
 
   <!-- ══ Learn page — full-height tree visualization ══════════════ -->
   <section class="section section--learn" id="learning" data-section="learning_tree" data-page="learn">
@@ -240,6 +289,13 @@
       </div>
     </div>
   </section>
+
+  <!-- ══ Learn page CTA band ══════════════════════════════════════ -->
+  <section
+    class="page-cta-band"
+    data-section="learn_cta"
+    data-page="learn"
+  ></section>
 
   <!-- ══ Footer ════════════════════════════════════════════════════ -->
   <footer class="footer">
