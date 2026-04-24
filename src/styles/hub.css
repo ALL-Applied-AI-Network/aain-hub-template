@@ -1376,6 +1376,133 @@ code {
   font-weight: 600;
 }
 
+/* ══ Projects grid — chapter showcase ═════════════════════════
+   Taller than merch cards (these are showcase items, not shop
+   listings). Hover lifts the whole card; if a link_url is set,
+   the card IS the link and gets a subtle primary-color border
+   animation on hover. */
+
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.1rem;
+}
+
+.project-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  color: var(--text-primary);
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.2s;
+}
+
+a.project-card {
+  /* Link variant — clickable entire card */
+  cursor: pointer;
+}
+
+.project-card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  color: var(--text-primary);
+}
+
+a.project-card:hover {
+  border-color: rgba(var(--color-primary-rgb), 0.55);
+}
+
+.project-card__photo {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  background:
+    linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.12), rgba(var(--color-accent-rgb), 0.12)),
+    var(--bg-elevated);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.project-card__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.project-card:hover .project-card__photo img {
+  transform: scale(1.04);
+}
+
+.project-card__photo-placeholder {
+  color: var(--color-primary);
+  opacity: 0.45;
+}
+
+.project-card__year {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(10, 10, 11, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.project-card__body {
+  padding: 1.1rem 1.2rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  flex: 1;
+}
+
+.project-card__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.project-card__desc {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin: 0;
+  flex: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.project-card__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  padding-top: 0.35rem;
+  border-top: 1px dashed var(--border);
+}
+
 /* ══ Officers grid ═════════════════════════════════════════════ */
 
 .officers-grid {

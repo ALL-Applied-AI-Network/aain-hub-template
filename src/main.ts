@@ -42,8 +42,10 @@ const PAGES: Page[] = [
   { key: "team", label: "Team", sections: ["about", "officers"] },
   // Merch stays as its own tab.
   { key: "merch", label: "Merch", sections: ["merch"] },
-  // Projects tab gets its sections added in the next push (new DB
-  // table, dashboard editor, etc.). Until then, it's absent.
+  // Projects tab — eboard-editable showcase via the dashboard's
+  // /projects page. Section toggles off entirely via Customize →
+  // Section visibility, or auto-hides when no active projects exist.
+  { key: "projects", label: "Projects", sections: ["projects"] },
 ];
 
 /** Dashboard route each section can be edited from — used by the
@@ -58,6 +60,7 @@ const SECTION_EDIT_INFO: Record<
   leaderboard: { path: "/people", label: "Members page", kind: "internal" },
   badges: { path: "/awards", label: "Badges & Awards", kind: "internal" },
   merch: { path: "/merch", label: "Merch page", kind: "internal" },
+  projects: { path: "/projects", label: "Projects page", kind: "internal" },
   officers: { path: "/website", label: "Customize → Officers", kind: "internal" },
   learning_tree: {
     path: "https://github.com/ALL-Applied-AI-Network/aain-content",
@@ -199,6 +202,15 @@ interface MerchRow {
   stock: number | null;
 }
 
+interface ProjectRow {
+  id: string;
+  title: string;
+  description: string | null;
+  image_url: string | null;
+  link_url: string | null;
+  year: string | null;
+}
+
 interface ChapterBundle {
   chapter: { slug: string; name: string; university: string; member_count: number; event_count: number };
   config: RemoteConfig;
@@ -206,6 +218,7 @@ interface ChapterBundle {
   leaderboard: LeaderboardRow[];
   badges: BadgeRow[];
   merch: MerchRow[];
+  projects: ProjectRow[];
 }
 
 const config = __HUB_CONFIG__;
@@ -742,6 +755,70 @@ function renderMerch(items: MerchRow[]) {
    Officers
    ────────────────────────────────────────────────────────────────── */
 
+/* ──────────────────────────────────────────────────────────────────
+   Projects — chapter-editable showcase
+   ────────────────────────────────────────────────────────────────── */
+
+function renderProjects(projects: ProjectRow[]) {
+  const grid = document.getElementById("projects-grid");
+  if (!grid) return;
+
+  if (!projects.length) {
+    // Same auto-hide pattern as the other data-driven sections — no
+    // data → the whole Projects tab disappears from the nav.
+    hideSection("projects");
+    return;
+  }
+
+  const packageIcon = `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09Z"/>
+    <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2Z"/>
+    <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/>
+    <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
+  </svg>`;
+
+  const externalIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+    <polyline points="15 3 21 3 21 9"/>
+    <line x1="10" y1="14" x2="21" y2="3"/>
+  </svg>`;
+
+  grid.innerHTML = projects
+    .map((p) => {
+      const photo = p.image_url
+        ? `<img src="${escapeAttr(p.image_url)}" alt="" loading="lazy" />`
+        : `<div class="project-card__photo-placeholder">${packageIcon}</div>`;
+      const year = p.year
+        ? `<span class="project-card__year">${escapeHtml(p.year)}</span>`
+        : "";
+      const linkWrap = p.link_url
+        ? `<a class="project-card" href="${escapeAttr(p.link_url)}" target="_blank" rel="noopener noreferrer" role="listitem">`
+        : `<div class="project-card" role="listitem">`;
+      const linkClose = p.link_url ? `</a>` : `</div>`;
+      const linkTag = p.link_url
+        ? `<span class="project-card__link">${externalIcon} View</span>`
+        : "";
+      return `
+        ${linkWrap}
+          <div class="project-card__photo">
+            ${photo}
+            ${year}
+          </div>
+          <div class="project-card__body">
+            <h3 class="project-card__title">${escapeHtml(p.title)}</h3>
+            ${
+              p.description
+                ? `<p class="project-card__desc">${escapeHtml(p.description)}</p>`
+                : ""
+            }
+            ${linkTag}
+          </div>
+        ${linkClose}
+      `;
+    })
+    .join("");
+}
+
 function officerInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
@@ -1220,9 +1297,9 @@ const PAGE_HEADER_COPY: Record<
     desc: "Our full applied-AI skill map. Click any node to expand it; follow the edges to see what comes next.",
   },
   projects: {
-    kicker: "How to run it",
+    kicker: "Our work",
     title: "Projects",
-    desc: "Playbooks for hackathons, innovation labs, research groups, and everything in between.",
+    desc: "What members have built — Innovation Labs cohorts, hackathon winners, research collaborations.",
   },
   team: {
     kicker: "People + recognition",
@@ -1451,6 +1528,7 @@ async function init() {
   renderLeaderboard(bundle?.leaderboard ?? []);
   renderBadges(bundle?.badges ?? []);
   renderMerch(bundle?.merch ?? []);
+  renderProjects(bundle?.projects ?? []);
   renderOfficers(remote?.officers ?? []);
   renderSocials(remote?.social_links ?? {});
   renderHeroNetwork();
