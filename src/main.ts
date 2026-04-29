@@ -33,7 +33,11 @@ const PAGES: Page[] = [
   // Home now hosts the explainer-flavored badges section (moved off
   // Team per eboard feedback — badges + the points/merch system make
   // more sense adjacent to the leaderboard).
-  { key: "home", label: "Home", sections: ["hero", "pillars", "events", "leaderboard", "badges"] },
+  // sections[] only lists *data-driven* sections — the ones that can
+  // be toggled off or hidden when their data array is empty. Pillars
+  // and per-page CTA bands aren't here because they're hardcoded
+  // decorations and don't influence whether a page is "empty."
+  { key: "home", label: "Home", sections: ["hero", "events", "leaderboard", "badges"] },
   // Learn is just the tree. Workshops/playbooks are on the content
   // CDN; the hub template used to mirror them but that duplicated
   // effort and a fresh chapter site doesn't need them by default.
@@ -55,11 +59,10 @@ const SECTION_EDIT_INFO: Record<
   { path: string; label: string; kind: "internal" | "external" }
 > = {
   hero: { path: "/website", label: "Customize → Identity", kind: "internal" },
-  // "What we do" pillars are hardcoded on the template today — clicking
-  // the edit pill takes the eboard to the Customize page where they
-  // can at least tune tone via About + tagline. When we make pillars
-  // dashboard-editable, swap this path for a dedicated section.
-  pillars: { path: "/website", label: "Customize → Identity", kind: "internal" },
+  // Pillars + per-page CTA bands intentionally aren't here — they're
+  // hardcoded decorations without data-section, so the click-to-edit
+  // overlay never finds them and there's nothing for the eboard to
+  // tweak per-section in the dashboard.
   about: { path: "/website", label: "Customize → About", kind: "internal" },
   events: { path: "/events", label: "Events page", kind: "internal" },
   leaderboard: { path: "/people", label: "Members page", kind: "internal" },
@@ -670,6 +673,10 @@ function setupSponsorModal(
           </div>
         </div>
         <div class="sponsor-field">
+          <label class="sponsor-field__label" for="sponsor-phone">Phone (optional)</label>
+          <input class="sponsor-field__input" id="sponsor-phone" name="phone" type="tel" maxlength="50" autocomplete="tel" placeholder="Optional — easier than email if it's time-sensitive" />
+        </div>
+        <div class="sponsor-field">
           <label class="sponsor-field__label" for="sponsor-message">Message *</label>
           <textarea class="sponsor-field__input sponsor-field__textarea" id="sponsor-message" name="message" required minlength="10" maxlength="5000" rows="5" placeholder="What would you like to partner on? The more detail, the faster we can reply."></textarea>
         </div>
@@ -733,6 +740,7 @@ function setupSponsorModal(
       name: String(fd.get("name") ?? "").trim(),
       email: String(fd.get("email") ?? "").trim(),
       company: String(fd.get("company") ?? "").trim() || null,
+      phone: String(fd.get("phone") ?? "").trim() || null,
       message: String(fd.get("message") ?? "").trim(),
       website: String(fd.get("website") ?? ""),
     };
@@ -1787,9 +1795,14 @@ function showPage(pageKey: string, pages: Page[]) {
     el.setAttribute("aria-selected", String(match));
   });
 
-  // Show/hide sections by data-page attribute. A section without
-  // data-page defaults to "home" so nothing is orphaned.
-  document.querySelectorAll<HTMLElement>("[data-section]").forEach((el) => {
+  // Show/hide sections by data-page attribute. We query [data-page]
+  // (not [data-section]) so decoration blocks like the "what we do"
+  // pillars and per-page CTA bands — which carry data-page but
+  // intentionally NOT data-section, so they sit outside the eboard's
+  // section-toggle and empty-data-warning systems — still flip
+  // visibility on page change. Anything without data-page defaults
+  // to "home" so nothing is orphaned.
+  document.querySelectorAll<HTMLElement>("[data-page]").forEach((el) => {
     const assigned = el.getAttribute("data-page") ?? "home";
     el.style.display = assigned === page.key ? "" : "none";
   });
