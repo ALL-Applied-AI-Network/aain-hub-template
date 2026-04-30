@@ -1696,6 +1696,140 @@ a.project-card:hover {
   border-top: 1px dashed var(--border);
 }
 
+/* Rich cards (with files or linked event) get a slightly looser
+   body so the chip + file list have breathing room. The base card
+   stays compact for plain projects. */
+.project-card--rich .project-card__body {
+  gap: 0.65rem;
+}
+
+/* "From {event}" chip — same shape as the dashboard's chip so the
+   editor preview and the rendered card visually match. */
+.project-card__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: rgba(127, 127, 127, 0.08);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  align-self: flex-start;
+  max-width: 100%;
+}
+
+.project-card__chip-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+
+/* Per-project file list — slides, papers, videos, external links. */
+.project-card__files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.project-card__file {
+  display: block;
+}
+
+.project-card__file-link {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s, transform 0.15s, background 0.15s;
+}
+
+.project-card__file-link:hover {
+  border-color: var(--border-strong, var(--border));
+  background: var(--bg-hover, rgba(127, 127, 127, 0.04));
+  transform: translateX(1px);
+}
+
+.project-card__file-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(127, 127, 127, 0.08);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.project-card__file-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.project-card__file-title {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-card__file-kind {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.project-card__file-go {
+  color: var(--text-tertiary);
+  display: inline-flex;
+}
+
+.project-card__file-link:hover .project-card__file-go {
+  color: var(--color-primary);
+}
+
+/* Standalone "View project" CTA for rich cards (the anchor-wrap
+   pattern is dropped when files/event chips are present). */
+.project-card__view {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  text-decoration: none;
+  align-self: flex-start;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.project-card__view:hover {
+  border-color: var(--color-primary);
+  background: rgba(0, 0, 0, 0.02);
+}
+
 /* ══ Officers grid ═════════════════════════════════════════════ */
 
 .officers-grid {

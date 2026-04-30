@@ -242,6 +242,22 @@ interface MerchRow {
   stock: number | null;
 }
 
+interface ProjectFileRow {
+  id: string;
+  kind: "paper" | "slides" | "video" | "image" | "link" | "other";
+  title: string;
+  url: string;
+  file_size: number | null;
+  mime_type: string | null;
+}
+
+interface ProjectLinkedEvent {
+  id: string;
+  title: string;
+  date: string | null;
+  end_date: string | null;
+}
+
 interface ProjectRow {
   id: string;
   title: string;
@@ -249,6 +265,9 @@ interface ProjectRow {
   image_url: string | null;
   link_url: string | null;
   year: string | null;
+  event_id?: string | null;
+  event?: ProjectLinkedEvent | null;
+  files?: ProjectFileRow[];
 }
 
 interface ChapterBundle {
@@ -1462,6 +1481,49 @@ function renderProjects(projects: ProjectRow[]) {
     <line x1="10" y1="14" x2="21" y2="3"/>
   </svg>`;
 
+  const calendarIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+    <line x1="16" y1="2" x2="16" y2="6"/>
+    <line x1="8" y1="2" x2="8" y2="6"/>
+    <line x1="3" y1="10" x2="21" y2="10"/>
+  </svg>`;
+
+  // Inline kind icons — small enough to read in a list, distinct
+  // enough that "paper" and "slides" don't blur together at a glance.
+  function fileKindIcon(kind: ProjectFileRow["kind"]): string {
+    switch (kind) {
+      case "paper":
+        return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>`;
+      case "slides":
+        return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2" ry="2"/><line x1="8" y1="22" x2="16" y2="22"/><line x1="12" y1="18" x2="12" y2="22"/></svg>`;
+      case "video":
+        return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>`;
+      case "image":
+        return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
+      case "link":
+        return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
+      default:
+        return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+    }
+  }
+
+  function fileKindLabel(kind: ProjectFileRow["kind"]): string {
+    switch (kind) {
+      case "paper":
+        return "Paper";
+      case "slides":
+        return "Slides";
+      case "video":
+        return "Video";
+      case "image":
+        return "Image";
+      case "link":
+        return "Link";
+      default:
+        return "File";
+    }
+  }
+
   grid.innerHTML = projects
     .map((p) => {
       const photo = p.image_url
@@ -1470,13 +1532,53 @@ function renderProjects(projects: ProjectRow[]) {
       const year = p.year
         ? `<span class="project-card__year">${escapeHtml(p.year)}</span>`
         : "";
-      const linkWrap = p.link_url
-        ? `<a class="project-card" href="${escapeAttr(p.link_url)}" target="_blank" rel="noopener noreferrer" role="listitem">`
-        : `<div class="project-card" role="listitem">`;
-      const linkClose = p.link_url ? `</a>` : `</div>`;
-      const linkTag = p.link_url
-        ? `<span class="project-card__link">${externalIcon} View</span>`
+
+      const files = p.files ?? [];
+      const hasFiles = files.length > 0;
+      const hasEvent = !!p.event;
+
+      // When the card carries files or an event chip we drop the
+      // anchor-wrap pattern (which would swallow the file links) and
+      // turn link_url into a discrete button at the bottom. Plain
+      // single-link cards keep the click-anywhere UX.
+      const useFullCardLink = !hasFiles && !hasEvent && !!p.link_url;
+      const linkWrap = useFullCardLink
+        ? `<a class="project-card" href="${escapeAttr(p.link_url!)}" target="_blank" rel="noopener noreferrer" role="listitem">`
+        : `<div class="project-card${hasFiles || hasEvent ? " project-card--rich" : ""}" role="listitem">`;
+      const linkClose = useFullCardLink ? `</a>` : `</div>`;
+
+      const eventChip = hasEvent
+        ? `<span class="project-card__chip project-card__chip--event" title="${escapeAttr(p.event!.title)}">${calendarIcon}<span class="project-card__chip-text">From ${escapeHtml(p.event!.title)}</span></span>`
         : "";
+
+      const filesList = hasFiles
+        ? `<ul class="project-card__files" aria-label="Project attachments">
+            ${files
+              .map(
+                (f) => `
+                  <li class="project-card__file">
+                    <a class="project-card__file-link" href="${escapeAttr(f.url)}" target="_blank" rel="noopener noreferrer">
+                      <span class="project-card__file-icon" aria-hidden="true">${fileKindIcon(f.kind)}</span>
+                      <span class="project-card__file-meta">
+                        <span class="project-card__file-title">${escapeHtml(f.title)}</span>
+                        <span class="project-card__file-kind">${escapeHtml(fileKindLabel(f.kind))}</span>
+                      </span>
+                      <span class="project-card__file-go" aria-hidden="true">${externalIcon}</span>
+                    </a>
+                  </li>`,
+              )
+              .join("")}
+          </ul>`
+        : "";
+
+      // Standalone "view" button for rich cards. Plain cards rely on
+      // the surrounding anchor-wrap (useFullCardLink branch above).
+      const linkButton = useFullCardLink
+        ? `<span class="project-card__link">${externalIcon} View</span>`
+        : p.link_url
+          ? `<a class="project-card__view" href="${escapeAttr(p.link_url)}" target="_blank" rel="noopener noreferrer">${externalIcon}<span>View project</span></a>`
+          : "";
+
       return `
         ${linkWrap}
           <div class="project-card__photo">
@@ -1490,7 +1592,9 @@ function renderProjects(projects: ProjectRow[]) {
                 ? `<p class="project-card__desc">${escapeHtml(p.description)}</p>`
                 : ""
             }
-            ${linkTag}
+            ${eventChip}
+            ${filesList}
+            ${linkButton}
           </div>
         ${linkClose}
       `;
