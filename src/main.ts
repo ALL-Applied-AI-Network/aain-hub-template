@@ -174,11 +174,41 @@ interface RemoteConfig {
 interface EventRow {
   id: string;
   title: string;
+  /** Markdown — small subset (bold/italic/links/bullets) rendered
+   *  via renderInlineMarkdown. Hub site mirrors what the dashboard
+   *  preview shows. */
   description: string | null;
   type: string;
+  /** Start. Required. */
   date: string;
+  /** Optional end timestamp for multi-day events. NULL = single-
+   *  point event (the legacy case). */
+  end_date: string | null;
+  /** Free-text address. Hub site auto-links to a Google Maps search
+   *  so visitors can pull it up on their phone. */
+  location: string | null;
+  /** Optional join URL for virtual / hybrid events (Zoom, Meet, …). */
+  virtual_url: string | null;
+  /** Format toggle: in_person | virtual | hybrid. Drives which
+   *  pills render (map link vs. "Join virtually"). NULL falls
+   *  through to in_person semantics. */
+  format: "in_person" | "virtual" | "hybrid" | null;
+  /** Cover photo URL. NULL = no header image. */
+  image_url: string | null;
   points_attend: number;
   points_win: number | null;
+  /** Wave 3b — points at an umbrella event. NULL = standalone. */
+  parent_event_id: string | null;
+  /** Wave 3c — viewer chapter's role on this event:
+   *  "host"    = chapter created the event
+   *  "co_host" = chapter accepted a co-host invitation; render with
+   *              host attribution so visitors know who's running it.
+   *  Older bundles may not include this — treat absent as host. */
+  my_role?: "host" | "co_host";
+  /** Wave 3c — the chapter that created the event. Renders next to
+   *  the title on co-hosted events ("hosted by MSOE AI Club") so
+   *  attribution is clear when more than one chapter is involved. */
+  host_chapter?: { id: string; name: string; slug: string } | null;
 }
 
 interface LeaderboardBadge {
@@ -921,11 +951,59 @@ function renderInlineMarkdown(text: string): string {
     .replace(/>/g, "&gt;")
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+    .replace(/_([^_]+)_/g, "<em>$1</em>")
     .replace(
       /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
       '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>',
     )
     .replace(/\n/g, "<br />");
+}
+
+/**
+ * Richer markdown for places that get fuller content (event
+ * descriptions). Mirrors the renderer used in the dashboard's
+ * Create Event preview pane so eboards see exactly what the hub
+ * site will show. Supported: paragraphs (blank-line splits),
+ * `**bold**`, `_italic_` / `*italic*`, `[link](https://…)`, and
+ * `- ` / `* ` bullet lists. Escapes HTML before processing.
+ */
+function renderRichMarkdown(src: string): string {
+  const escaped = src
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+  const inline = (s: string): string =>
+    s
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/_([^_]+)_/g, "<em>$1</em>")
+      .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+      .replace(
+        /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+        '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>',
+      );
+  const lines = escaped.split(/\n/);
+  const out: string[] = [];
+  let inList = false;
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (line.startsWith("- ") || line.startsWith("* ")) {
+      if (!inList) {
+        out.push("<ul>");
+        inList = true;
+      }
+      out.push(`<li>${inline(line.slice(2))}</li>`);
+      continue;
+    }
+    if (inList) {
+      out.push("</ul>");
+      inList = false;
+    }
+    if (line.length === 0) continue;
+    out.push(`<p>${inline(line)}</p>`);
+  }
+  if (inList) out.push("</ul>");
+  return out.join("");
 }
 
 /* ──────────────────────────────────────────────────────────────────
@@ -946,6 +1024,18 @@ function hideSection(sectionKey: string) {
     .forEach((el) => el.remove());
 }
 
+/**
+ * Render the events grid. Each card now reflects every field the
+ * dashboard captures — cover image, date range for multi-day,
+ * location with auto-Maps link, format chip + virtual join button
+ * for hybrid / virtual, co-host attribution when this site is
+ * surfacing another chapter's event, and a "Part of <Umbrella>"
+ * badge for child events whose parent shipped in the same bundle.
+ *
+ * Description renders through the same markdown subset the About
+ * section uses — bold / italic / links / bullets — so what the
+ * eboard sees in the create-form preview matches what visitors see.
+ */
 function renderEvents(events: EventRow[], _tagline: string | null | undefined) {
   const grid = document.getElementById("events-grid");
   if (!grid) return;
@@ -954,36 +1044,154 @@ function renderEvents(events: EventRow[], _tagline: string | null | undefined) {
     return;
   }
 
-  grid.innerHTML = events
-    .map((e) => {
-      const d = new Date(e.date);
-      const month = d
-        .toLocaleDateString("en-US", { month: "short" })
-        .toUpperCase();
-      const day = d.getDate();
-      const time = d.toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-      });
-      const desc = e.description
-        ? escapeHtml(e.description)
-        : "";
-      return `
-        <article class="event-card" role="listitem">
-          <div class="event-card__date" aria-label="${month} ${day}">
-            <div class="event-card__date-month">${month}</div>
-            <div class="event-card__date-day">${day}</div>
+  // Build a parent lookup so child events can label "Part of X."
+  // Falls back to nothing if the parent isn't in the same window
+  // (e.g. last week's umbrella, this week's child).
+  const byId = new Map<string, EventRow>();
+  for (const ev of events) byId.set(ev.id, ev);
+
+  grid.innerHTML = events.map((e) => renderEventCard(e, byId)).join("");
+}
+
+function renderEventCard(
+  e: EventRow,
+  byId: Map<string, EventRow>,
+): string {
+  const start = new Date(e.date);
+  const end = e.end_date ? new Date(e.end_date) : null;
+  const isMultiDay =
+    end !== null &&
+    Number.isFinite(end.getTime()) &&
+    (end.getFullYear() !== start.getFullYear() ||
+      end.getMonth() !== start.getMonth() ||
+      end.getDate() !== start.getDate());
+
+  const month = start
+    .toLocaleDateString("en-US", { month: "short" })
+    .toUpperCase();
+  const day = start.getDate();
+  const startTime = start.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  const endTime = end
+    ? end.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+    : null;
+  const endLabel = end
+    ? end.toLocaleDateString("en-US", {
+        month:
+          end.getMonth() === start.getMonth() ? undefined : "short",
+        day: "numeric",
+      })
+    : null;
+
+  // Date chip on the left — adds a "→ N" range stripe for multi-day.
+  const dateChip = `
+    <div class="event-card__date${isMultiDay ? " event-card__date--range" : ""}" aria-label="${month} ${day}${endLabel ? ` to ${endLabel}` : ""}">
+      <div class="event-card__date-month">${month}</div>
+      <div class="event-card__date-day">${day}</div>
+      ${
+        isMultiDay && endLabel
+          ? `<div class="event-card__date-range">→ ${escapeHtml(endLabel)}</div>`
+          : ""
+      }
+    </div>
+  `;
+
+  // Description renders through the richer paragraphs+bullets
+  // markdown pass so what the dashboard preview shows matches what
+  // visitors see (the create form's toolbar inserts `- ` lists and
+  // blank-line paragraph splits).
+  const desc = e.description
+    ? `<div class="event-card__desc">${renderRichMarkdown(e.description)}</div>`
+    : "";
+
+  // Format → which pills render. in_person + (default) → just map.
+  // virtual → just join. hybrid → both stacked.
+  const fmt = e.format ?? "in_person";
+  const showLocation =
+    (fmt === "in_person" || fmt === "hybrid") &&
+    e.location &&
+    e.location.trim().length > 0;
+  const showVirtual =
+    (fmt === "virtual" || fmt === "hybrid") &&
+    e.virtual_url &&
+    e.virtual_url.trim().length > 0;
+
+  const formatChip =
+    fmt === "virtual" || fmt === "hybrid"
+      ? `<span class="event-card__format-chip event-card__format-chip--${fmt}">${
+          fmt === "virtual" ? "Virtual" : "Hybrid"
+        }</span>`
+      : "";
+
+  const locationPill = showLocation
+    ? `<a class="event-card__pill event-card__pill--map" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.location ?? "")}" target="_blank" rel="noopener noreferrer">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+          <circle cx="12" cy="10" r="3"/>
+        </svg>
+        <span>${escapeHtml(e.location ?? "")}</span>
+      </a>`
+    : "";
+
+  const virtualPill = showVirtual
+    ? `<a class="event-card__pill event-card__pill--virtual" href="${escapeAttr(e.virtual_url ?? "")}" target="_blank" rel="noopener noreferrer">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polygon points="23 7 16 12 23 17 23 7"/>
+          <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+        </svg>
+        <span>Join virtually</span>
+      </a>`
+    : "";
+
+  // Co-host attribution: when this hub is surfacing another chapter's
+  // event, credit the host so visitors know who organized it.
+  const cohostBadge =
+    e.my_role === "co_host" && e.host_chapter
+      ? `<div class="event-card__cohost">Hosted by <strong>${escapeHtml(e.host_chapter.name)}</strong></div>`
+      : "";
+
+  // Parent badge: "Part of <Umbrella>" — only if the parent is in
+  // the same bundle (same window). Otherwise quietly omit.
+  const parent = e.parent_event_id ? byId.get(e.parent_event_id) : null;
+  const parentBadge = parent
+    ? `<div class="event-card__parent">Part of <strong>${escapeHtml(parent.title)}</strong></div>`
+    : "";
+
+  // Cover image up top when set. 16:9 aspect ratio matches the
+  // dashboard preview and most marketing photos.
+  const cover = e.image_url
+    ? `<div class="event-card__cover"><img src="${escapeAttr(e.image_url)}" alt="" loading="lazy" /></div>`
+    : "";
+
+  // Meta line: time + points (or "no points" when QR was off, which
+  // we infer client-side from points_attend === 0; the bundle never
+  // surfaces QR-disabled events with points anyway).
+  const timeLabel =
+    isMultiDay && endTime ? `${startTime} → ${endTime}` : startTime;
+  const meta = `${timeLabel} · ${e.points_attend} ${e.points_attend === 1 ? "pt" : "pts"}`;
+
+  return `
+    <article class="event-card${cover ? " event-card--with-cover" : ""}" role="listitem">
+      ${cover}
+      <div class="event-card__inner">
+        ${dateChip}
+        <div class="event-card__body">
+          <div class="event-card__type-row">
+            <span class="event-card__type">${escapeHtml(e.type ?? "event")}</span>
+            ${formatChip}
           </div>
-          <div class="event-card__body">
-            <div class="event-card__type">${escapeHtml(e.type ?? "event")}</div>
-            <h3 class="event-card__title">${escapeHtml(e.title)}</h3>
-            ${desc ? `<p class="event-card__desc">${desc}</p>` : ""}
-            <div class="event-card__meta">${time} · ${e.points_attend} pts</div>
-          </div>
-        </article>
-      `;
-    })
-    .join("");
+          ${parentBadge}
+          <h3 class="event-card__title">${escapeHtml(e.title)}</h3>
+          ${cohostBadge}
+          ${desc}
+          ${locationPill || virtualPill ? `<div class="event-card__pills">${locationPill}${virtualPill}</div>` : ""}
+          <div class="event-card__meta">${meta}</div>
+        </div>
+      </div>
+    </article>
+  `;
 }
 
 /* ──────────────────────────────────────────────────────────────────

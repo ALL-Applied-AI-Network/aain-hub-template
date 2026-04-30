@@ -679,20 +679,46 @@ code {
 }
 
 .event-card {
+  /* Outer card shell — single column when no cover image, full-bleed
+     header strip when one is set. The .event-card__inner takes over
+     the date + body layout that used to live directly under
+     .event-card before the cover-image variant was added. */
   display: flex;
-  gap: 1.1rem;
-  padding: 1.2rem 1.25rem;
+  flex-direction: column;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
-  align-items: flex-start;
+  overflow: hidden;
 }
 
 .event-card:hover {
   border-color: var(--border-strong);
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* Cover image header — 16:9 aspect, full-width. Matches the
+   dashboard preview so what eboards see is what visitors see. */
+.event-card__cover {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: rgba(127, 127, 127, 0.05);
+}
+
+.event-card__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.event-card__inner {
+  display: flex;
+  gap: 1.1rem;
+  padding: 1.2rem 1.25rem;
+  align-items: flex-start;
 }
 
 .event-card__date {
@@ -703,6 +729,13 @@ code {
   background: linear-gradient(180deg, rgba(var(--color-primary-rgb), 0.12), rgba(var(--color-accent-rgb), 0.08));
   border: 1px solid rgba(var(--color-primary-rgb), 0.25);
   border-radius: 10px;
+}
+
+/* Multi-day variant — adds a "→ N" range stripe below the day so
+   visitors see at a glance "this runs more than one day" without
+   us forcing a wider chip. */
+.event-card__date--range {
+  width: 64px;
 }
 
 .event-card__date-month {
@@ -724,9 +757,27 @@ code {
   font-variant-numeric: tabular-nums;
 }
 
+.event-card__date-range {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-top: 0.3rem;
+  padding-top: 0.3rem;
+  border-top: 1px solid rgba(var(--color-primary-rgb), 0.25);
+  font-variant-numeric: tabular-nums;
+}
+
 .event-card__body {
   flex: 1;
   min-width: 0;
+}
+
+.event-card__type-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
 }
 
 .event-card__type {
@@ -739,7 +790,32 @@ code {
   border-radius: 4px;
   background: var(--bg-elevated);
   color: var(--text-tertiary);
-  margin-bottom: 0.5rem;
+}
+
+/* Format chip — compact pill that surfaces only when the event
+   isn't pure in-person. Color-coded so visitors clock the format
+   at a glance without reading the pill content. */
+.event-card__format-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+}
+
+.event-card__format-chip--virtual {
+  background: rgba(99, 102, 241, 0.14);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+}
+
+.event-card__format-chip--hybrid {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
 }
 
 .event-card__title {
@@ -756,11 +832,113 @@ code {
   color: var(--text-secondary);
   line-height: 1.5;
   margin: 0 0 0.5rem;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
+}
+
+.event-card__desc p {
+  margin: 0 0 0.5rem;
+}
+
+.event-card__desc p:last-child {
+  margin-bottom: 0;
+}
+
+.event-card__desc strong {
+  color: var(--text-primary);
+}
+
+.event-card__desc a {
+  color: var(--color-primary);
+}
+
+.event-card__desc ul {
+  margin: 0.25rem 0 0.5rem 1.1rem;
+  padding: 0;
+}
+
+/* "Hosted by X" attribution — shown when this hub is surfacing
+   another chapter's event. Visually quiet; the host chapter name
+   gets emphasized via <strong>. */
+.event-card__cohost {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  margin-bottom: 0.4rem;
+}
+
+.event-card__cohost strong {
+  color: var(--text-secondary);
+}
+
+/* "Part of X" — a small breadcrumb-style badge above the title
+   linking the visitor to the umbrella event when both are in the
+   same window (parent_event_id resolves in the bundle). */
+.event-card__parent {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  margin-bottom: 0.3rem;
+}
+
+.event-card__parent strong {
+  color: var(--text-secondary);
+}
+
+/* Pills row — map link + Join virtually buttons. Sits between the
+   description and meta line so it reads as "where" then "when." */
+.event-card__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.4rem 0 0.5rem;
+}
+
+.event-card__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-decoration: none;
+  max-width: 100%;
+}
+
+.event-card__pill span {
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
+.event-card__pill--map {
+  background: rgba(var(--color-primary-rgb), 0.1);
+  color: var(--text-primary);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
+}
+
+.event-card__pill--map:hover {
+  background: rgba(var(--color-primary-rgb), 0.18);
+  border-color: rgba(var(--color-primary-rgb), 0.5);
+}
+
+.event-card__pill--map svg {
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
+
+.event-card__pill--virtual {
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--text-primary);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+}
+
+.event-card__pill--virtual:hover {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.55);
+}
+
+.event-card__pill--virtual svg {
+  flex-shrink: 0;
+  color: #818cf8;
 }
 
 .event-card__meta {
