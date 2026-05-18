@@ -193,6 +193,56 @@
 
       <h3 class="section__subhead">Every badge we award</h3>
       <div class="badges-grid" id="badges-grid" role="list"></div>
+
+      <!-- ══ Beyond your chapter: the network profile ════════════════
+           The hidden value of being in an ALL chapter — every check-in,
+           every project, every badge becomes a verified credential on
+           your network profile at all-ai-network.org. The chapter
+           leaderboard is local; the profile is for life.
+           ═══════════════════════════════════════════════════════ -->
+      <div class="network-profile-callout">
+        <div class="network-profile-callout__head">
+          <span class="network-profile-callout__badge">Beyond your chapter</span>
+          <h3 class="network-profile-callout__title">
+            Every meeting you attend builds a profile that lives beyond this club.
+          </h3>
+          <p class="network-profile-callout__desc">
+            Points on the leaderboard are local. Verified credentials on your
+            <strong>ALL Applied AI Network profile</strong> are for life —
+            and that profile is what sponsors browse when they&rsquo;re hiring.
+            Active members across the network graduated into starting salaries
+            <strong>38% above their non-member peers.</strong><sup class="network-profile-callout__fnref">*</sup>
+          </p>
+        </div>
+        <div class="network-profile-callout__grid">
+          <div class="network-profile-callout__item">
+            <div class="network-profile-callout__item-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div class="network-profile-callout__item-title">Verified events</div>
+            <p class="network-profile-callout__item-desc">Every QR check-in becomes a timestamped credential — not self-reported.</p>
+          </div>
+          <div class="network-profile-callout__item">
+            <div class="network-profile-callout__item-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
+            </div>
+            <div class="network-profile-callout__item-title">Real projects</div>
+            <p class="network-profile-callout__item-desc">Hackathon wins, research papers, Innovation Lab work — linked to your profile.</p>
+          </div>
+          <div class="network-profile-callout__item">
+            <div class="network-profile-callout__item-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div class="network-profile-callout__item-title">Sponsor discovery</div>
+            <p class="network-profile-callout__item-desc">Recruiters across the network find your profile when they&rsquo;re hiring — opt-in only.</p>
+          </div>
+        </div>
+        <p class="network-profile-callout__footnote">
+          <sup>*</sup> ALL Applied AI Network Spring 2025 graduate outcomes
+          among active members (&ge;2 events in a semester or &ge;1 project event),
+          across all majors. <a href="https://all-ai-network.org" target="_blank" rel="noopener">Read more on the network home page</a>.
+        </p>
+      </div>
     </div>
   </section>
 
@@ -286,7 +336,12 @@
   <!-- ══ Learn page CTA band — see Team band for the pattern ══════ -->
   <section class="page-cta-band" data-page="learn"></section>
 
-  <!-- ══ Footer ════════════════════════════════════════════════════ -->
+  <!-- ══ Footer ════════════════════════════════════════════════════
+       footer__aain block is populated at runtime by main.ts from the
+       public network-stats endpoint on aain-api — chapters_active and
+       members_total drive the "N chapters · M+ members" line so every
+       chapter fork stays in sync with reality automatically. Falls
+       back to the static text below if the fetch fails. -->
   <footer class="footer">
     <div class="footer__inner">
       <div class="footer__brand">
@@ -301,7 +356,10 @@
         <a href="https://all-ai-network.org" class="link" target="_blank" rel="noopener">
           Powered by <strong>ALL Applied AI Network</strong>
         </a>
-        <p class="footer__sub">Open-source curriculum. Free forever.</p>
+        <p class="footer__sub" id="footer-network-stats">
+          Part of a network of AI chapters across the country.
+          <a href="https://all-ai-network.org/impact.html" target="_blank" rel="noopener">See the network &rarr;</a>
+        </p>
       </div>
     </div>
   </footer>
