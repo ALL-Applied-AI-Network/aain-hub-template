@@ -209,6 +209,25 @@ interface EventRow {
    *  the title on co-hosted events ("hosted by MSOE AI Club") so
    *  attribution is clear when more than one chapter is involved. */
   host_chapter?: { id: string; name: string; slug: string } | null;
+  /** Wave 4a — phases inside this event (multi-phase projects).
+   *  When present + non-empty, the card renders a phase timeline
+   *  under the description so members see all checkpoints at once
+   *  instead of trying to piece together separate event cards. */
+  phases?: EventPhase[];
+}
+
+interface EventPhase {
+  id: string;
+  name: string;
+  description: string | null;
+  date_start: string;
+  date_end: string | null;
+  format: "in_person" | "virtual" | "hybrid" | "milestone";
+  location: string | null;
+  virtual_url: string | null;
+  has_check_in: boolean;
+  points_attend: number;
+  ordering: number;
 }
 
 interface LeaderboardBadge {
@@ -1191,6 +1210,22 @@ function renderEventCard(
     isMultiDay && endTime ? `${startTime} → ${endTime}` : startTime;
   const meta = `${timeLabel} · ${e.points_attend} ${e.points_attend === 1 ? "pt" : "pts"}`;
 
+  // Phase timeline — when the event has phases (kickoff → midpoint →
+  // finals → due-date), render them as a numbered checkpoint list
+  // under the description. Each row carries its own format chip and
+  // a short relative date so members can see the whole arc at once.
+  // Sorted by the bundle endpoint (ordering, then date_start), so we
+  // just render in order.
+  const phases = (e.phases ?? []).slice();
+  const phaseTimeline = phases.length
+    ? `<div class="event-card__phases" aria-label="Event phases">
+        <div class="event-card__phases-heading">${phases.length}-part project</div>
+        <ol class="event-card__phase-list">
+          ${phases.map((p, i) => renderPhaseRow(p, i + 1)).join("")}
+        </ol>
+      </div>`
+    : "";
+
   return `
     <article class="event-card${cover ? " event-card--with-cover" : ""}" role="listitem">
       ${cover}
@@ -1205,11 +1240,87 @@ function renderEventCard(
           <h3 class="event-card__title">${escapeHtml(e.title)}</h3>
           ${cohostBadge}
           ${desc}
+          ${phaseTimeline}
           ${locationPill || virtualPill ? `<div class="event-card__pills">${locationPill}${virtualPill}</div>` : ""}
           <div class="event-card__meta">${meta}</div>
         </div>
       </div>
     </article>
+  `;
+}
+
+/** Render a single phase row inside the event-card phase timeline.
+ *  Format milestone → no chip, just the "Milestone" pill (no
+ *  check-in expected). in_person / virtual / hybrid → coloured chip
+ *  + location or "Virtual" hint, matching how the parent event card
+ *  surfaces format. Points are only shown when has_check_in (otherwise
+ *  the row is a checkpoint without attendance). */
+function renderPhaseRow(p: EventPhase, num: number): string {
+  const start = new Date(p.date_start);
+  const end = p.date_end ? new Date(p.date_end) : null;
+  const startStr = start.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+  const startTime = start.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  const sameDayEnd =
+    end !== null &&
+    end.getFullYear() === start.getFullYear() &&
+    end.getMonth() === start.getMonth() &&
+    end.getDate() === start.getDate();
+  const endStr = end
+    ? sameDayEnd
+      ? end.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+      : end.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : null;
+  const whenLabel = endStr
+    ? sameDayEnd
+      ? `${startStr} · ${startTime} → ${endStr}`
+      : `${startStr} → ${endStr}`
+    : `${startStr} · ${startTime}`;
+
+  const formatLabel =
+    p.format === "in_person"
+      ? "In person"
+      : p.format === "virtual"
+        ? "Virtual"
+        : p.format === "hybrid"
+          ? "Hybrid"
+          : "Milestone";
+  const formatChip = `<span class="event-card__phase-chip event-card__phase-chip--${p.format}">${formatLabel}</span>`;
+
+  const locText =
+    (p.format === "in_person" || p.format === "hybrid") &&
+    p.location &&
+    p.location.trim().length > 0
+      ? `<span class="event-card__phase-loc">${escapeHtml(p.location)}</span>`
+      : "";
+
+  const pointsText =
+    p.has_check_in && p.points_attend > 0
+      ? `<span class="event-card__phase-points">+${p.points_attend} ${p.points_attend === 1 ? "pt" : "pts"}</span>`
+      : "";
+
+  const descBlock = p.description
+    ? `<div class="event-card__phase-desc">${escapeHtml(p.description)}</div>`
+    : "";
+
+  return `
+    <li class="event-card__phase-row event-card__phase-row--${p.format}">
+      <div class="event-card__phase-num" aria-hidden="true">${num}</div>
+      <div class="event-card__phase-body">
+        <div class="event-card__phase-head">
+          <span class="event-card__phase-name">${escapeHtml(p.name)}</span>
+          ${formatChip}
+          ${pointsText}
+        </div>
+        <div class="event-card__phase-when">${escapeHtml(whenLabel)}${locText ? " · " : ""}${locText}</div>
+        ${descBlock}
+      </div>
+    </li>
   `;
 }
 

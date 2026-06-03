@@ -947,6 +947,167 @@ code {
   font-family: "JetBrains Mono", monospace;
 }
 
+/* ══ Phase timeline ════════════════════════════════════════════
+   Renders inline on the event card when an event has phases
+   (kickoff → midpoint → finals → due-date). Numbered rows linked
+   by a vertical connector make the arc obvious; each row carries
+   its own format chip + when/where text so members see the whole
+   project at a glance without drilling in.
+   ────────────────────────────────────────────────────────────── */
+
+.event-card__phases {
+  margin: 0.6rem 0 0.65rem;
+  padding: 0.7rem 0.8rem 0.6rem;
+  background: color-mix(in srgb, var(--color-primary) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 18%, transparent);
+  border-radius: 10px;
+}
+
+.event-card__phases-heading {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 0.55rem;
+}
+
+.event-card__phase-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  position: relative;
+}
+
+/* Vertical connector line behind the numbered badges so the rows
+   feel like a single sequence rather than a stack of cards. The
+   badges sit on top so the line appears to flow through them. */
+.event-card__phase-list::before {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  background: color-mix(in srgb, var(--color-primary) 28%, transparent);
+  border-radius: 1px;
+}
+
+.event-card__phase-row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0;
+}
+
+.event-card__phase-num {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--bg-surface);
+  border: 2px solid var(--color-primary);
+  color: var(--color-primary);
+  position: relative;
+  z-index: 1;
+  font-family: "JetBrains Mono", monospace;
+}
+
+/* Milestone numbers render as a filled dot so the timeline ends
+   read as "checkpoint reached" rather than "another meeting." */
+.event-card__phase-row--milestone .event-card__phase-num {
+  background: var(--color-primary);
+  color: var(--bg-base);
+}
+
+.event-card__phase-body {
+  flex: 1;
+  min-width: 0;
+  padding-top: 0.1rem;
+}
+
+.event-card__phase-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.event-card__phase-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.event-card__phase-when {
+  margin-top: 0.18rem;
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  font-family: "JetBrains Mono", monospace;
+}
+
+.event-card__phase-loc {
+  color: var(--text-secondary);
+}
+
+.event-card__phase-desc {
+  margin-top: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.event-card__phase-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.event-card__phase-chip--in_person {
+  background: rgba(34, 211, 238, 0.12);
+  color: #67e8f9;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+}
+
+.event-card__phase-chip--virtual {
+  background: rgba(167, 139, 250, 0.14);
+  color: #c4b5fd;
+  border: 1px solid rgba(167, 139, 250, 0.32);
+}
+
+.event-card__phase-chip--hybrid {
+  background: rgba(45, 212, 191, 0.14);
+  color: #5eead4;
+  border: 1px solid rgba(45, 212, 191, 0.32);
+}
+
+.event-card__phase-chip--milestone {
+  background: rgba(251, 191, 36, 0.14);
+  color: #fcd34d;
+  border: 1px solid rgba(251, 191, 36, 0.34);
+}
+
+.event-card__phase-points {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #4ade80;
+  font-family: "JetBrains Mono", monospace;
+}
+
 /* ══ Empty state ═══════════════════════════════════════════════ */
 
 .empty-state {
