@@ -1658,6 +1658,49 @@ code {
   margin: 0;
 }
 
+/* Italics inside the body copy ("talent visibility") — pick up the
+   primary accent so the toggle name reads as a UI label, not just
+   emphasis. Members glancing at the paragraph spot the term they
+   need to look for in their dashboard settings. */
+.network-profile-callout__desc em {
+  font-style: normal;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* CTA row — pairs the dashboard link with a short reassurance line
+   so the call-to-action carries the opt-in promise inline. Stacks on
+   narrow viewports via flex-wrap. Sits between the three-card grid
+   and the methodology footnote. */
+.network-profile-callout__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-bottom: 1.1rem;
+}
+
+.network-profile-callout__cta {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(var(--color-primary-rgb), 0.4);
+  padding-bottom: 1px;
+  transition: border-bottom-color 0.15s;
+}
+.network-profile-callout__cta:hover {
+  border-bottom-color: var(--color-primary);
+}
+
+.network-profile-callout__cta-note {
+  font-size: 0.78rem;
+  color: var(--text-tertiary, rgba(255, 255, 255, 0.55));
+  line-height: 1.4;
+}
+
 .network-profile-callout__footnote {
   font-size: 0.78rem;
   line-height: 1.55;
