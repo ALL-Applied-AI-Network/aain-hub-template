@@ -1668,6 +1668,106 @@ code {
   font-weight: 600;
 }
 
+/* ── "Where this leads" outcomes block ─────────────────────────
+   Concrete proof points (named cohort + network-wide salary delta)
+   sandwiched between the 3-card grid and the CTA row. Inherits
+   chapter theming via --color-primary, so each fork recolors with
+   the eboard's brand. The two outcome cards sit side-by-side at
+   ≥620px and stack on narrower viewports — the grid's auto-fit /
+   minmax handles that without a media query. Headline + cards +
+   single-line behavior CTA at the bottom; no second button so we
+   don't compete with the existing "Manage your profile" link. */
+.network-profile-callout__outcomes {
+  margin-bottom: 1.25rem;
+  padding: 1.25rem 1.35rem 1.35rem;
+  background: rgba(var(--color-primary-rgb), 0.05);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.18);
+  border-radius: var(--radius-md, 8px);
+}
+
+.network-profile-callout__outcomes-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  color: var(--text-primary);
+  margin: 0 0 0.85rem;
+}
+
+.network-profile-callout__outcome-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 0.95rem;
+}
+
+.network-profile-callout__outcome-card {
+  padding: 1rem 1.1rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 8px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.network-profile-callout__outcome-eyebrow {
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.network-profile-callout__outcome-stat {
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.network-profile-callout__outcome-stat strong {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.network-profile-callout__outcome-desc {
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.network-profile-callout__outcome-desc strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Behavior CTA pinned to the bottom of the outcomes block — text-only,
+   no button. The icon nods at the QR check-in mechanism without
+   needing to spell it out twice in the copy. */
+.network-profile-callout__outcomes-cta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.network-profile-callout__outcomes-cta-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 5px;
+  background: rgba(var(--color-primary-rgb), 0.1);
+  color: var(--color-primary);
+}
+
 /* CTA row — pairs the dashboard link with a short reassurance line
    so the call-to-action carries the opt-in promise inline. Stacks on
    narrow viewports via flex-wrap. Sits between the three-card grid
