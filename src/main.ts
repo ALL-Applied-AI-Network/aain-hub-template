@@ -1971,17 +1971,29 @@ async function loadLearningTree() {
     return;
   }
 
-  // Point the iframe at the upstream tree page. Using ?embed=1 as a
-  // hint for any future tweaks on the content side (e.g., hiding the
-  // outer nav when embedded) — it's harmless if ignored.
-  frame.src = `${config.content_url}/tree.html?embed=1`;
+  // Point the iframe at the upstream tree page. ?embed=1 is a hint
+  // for any future embed tweaks on the content side; &chapter=<slug>
+  // makes the content site fetch THIS chapter's merged tree from the
+  // dashboard's public endpoint — the chapter's own nodes, colors,
+  // and layout render on top of the base curriculum. Older content
+  // deploys ignore the param and just show the base tree.
+  const slug =
+    new URLSearchParams(window.location.search).get("slug") ??
+    config.hub_id?.trim().toLowerCase() ??
+    "";
+  const chapterParam = slug ? `&chapter=${encodeURIComponent(slug)}` : "";
+  frame.src = `${config.content_url}/tree.html?embed=1${chapterParam}`;
 
   // Also wire the fallback's "Open the full interactive tree" link
   // in case the iframe itself is ever unreachable.
   const treeLink = document.getElementById(
     "tree-link",
   ) as HTMLAnchorElement | null;
-  if (treeLink) treeLink.href = `${config.content_url}/tree.html`;
+  if (treeLink) {
+    treeLink.href = `${config.content_url}/tree.html${
+      chapterParam ? `?chapter=${encodeURIComponent(slug)}` : ""
+    }`;
+  }
 
   // If the iframe takes more than 8 s to signal load, show the
   // fallback. The content repo is usually sub-second, so this only
