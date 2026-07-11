@@ -257,7 +257,14 @@ interface MerchRow {
   name: string;
   description: string | null;
   cost_points: number;
+  // Ordered gallery of image URLs. Newer bundles ship `images`; older
+  // ones only have the single `image_url` mirror, so renderMerch falls
+  // back to `[image_url]` when `images` is absent.
+  images?: string[];
   image_url: string | null;
+  // Optional chapter-authored cost label that overrides the default
+  // "{cost_points} points" display when non-empty.
+  cost_text?: string | null;
   stock: number | null;
 }
 
@@ -1529,9 +1536,50 @@ function renderMerch(items: MerchRow[]) {
 
   grid.innerHTML = items
     .map((m) => {
-      const photo = m.image_url
-        ? `<img src="${escapeAttr(m.image_url)}" alt="" />`
-        : `<div class="merch-card__photo-placeholder">${packageIcon}</div>`;
+      // Prefer the ordered `images` gallery; fall back to the legacy
+      // single `image_url` for older bundles. Drop anything non-string
+      // or blank so a bad entry can't render an empty <img>.
+      const imgs = (m.images && m.images.length
+        ? m.images
+        : m.image_url
+          ? [m.image_url]
+          : []
+      ).filter((u) => typeof u === "string" && u.trim().length > 0);
+
+      const name = escapeHtml(m.name);
+      let photo: string;
+      if (imgs.length > 1) {
+        // Gallery: a primary image plus a thumbnail strip. Clicking a
+        // thumb swaps the primary (wired via delegation below).
+        const thumbs = imgs
+          .map(
+            (u, i) => `
+            <button type="button" class="merch-card__thumb${i === 0 ? " is-active" : ""}"
+              data-merch-thumb data-src="${escapeAttr(u)}"
+              aria-label="Show photo ${i + 1} of ${imgs.length}" aria-pressed="${i === 0}">
+              <img src="${escapeAttr(u)}" alt="" loading="lazy" />
+            </button>`,
+          )
+          .join("");
+        photo = `
+          <div class="merch-card__photo" data-merch-gallery>
+            <img class="merch-card__photo-main" data-merch-main src="${escapeAttr(imgs[0])}" alt="${name}" />
+          </div>
+          <div class="merch-card__thumbs" role="group" aria-label="${name} photos">${thumbs}</div>`;
+      } else if (imgs.length === 1) {
+        photo = `<div class="merch-card__photo"><img src="${escapeAttr(imgs[0])}" alt="${name}" loading="lazy" /></div>`;
+      } else {
+        photo = `<div class="merch-card__photo"><div class="merch-card__photo-placeholder">${packageIcon}</div></div>`;
+      }
+
+      // Cost display rule (identical everywhere): a non-empty chapter
+      // `cost_text` overrides the default "{cost_points} points". Never
+      // show both. cost_text is chapter-authored → escape it.
+      const cost =
+        m.cost_text && m.cost_text.trim()
+          ? escapeHtml(m.cost_text.trim())
+          : `${m.cost_points.toLocaleString()} points`;
+
       const stockLine =
         m.stock === null
           ? "Unlimited stock"
@@ -1541,11 +1589,11 @@ function renderMerch(items: MerchRow[]) {
       const stockClass = m.stock === 0 ? " merch-card__stock--empty" : "";
       return `
       <div class="merch-card" role="listitem">
-        <div class="merch-card__photo">${photo}</div>
+        ${photo}
         <div class="merch-card__body">
           <div class="merch-card__header">
-            <div class="merch-card__name">${escapeHtml(m.name)}</div>
-            <div class="merch-card__cost">${m.cost_points.toLocaleString()} pts</div>
+            <div class="merch-card__name">${name}</div>
+            <div class="merch-card__cost">${cost}</div>
           </div>
           ${
             m.description
@@ -1558,6 +1606,27 @@ function renderMerch(items: MerchRow[]) {
     `;
     })
     .join("");
+
+  // Thumbnail swap — one delegated listener on the grid handles every
+  // card's strip, matching the modal's delegation style.
+  grid.addEventListener("click", (e) => {
+    const thumb = (e.target as HTMLElement | null)?.closest<HTMLButtonElement>(
+      "[data-merch-thumb]",
+    );
+    if (!thumb) return;
+    const card = thumb.closest(".merch-card");
+    const main = card?.querySelector<HTMLImageElement>("[data-merch-main]");
+    const src = thumb.getAttribute("data-src");
+    if (!main || !src) return;
+    main.src = src;
+    card
+      ?.querySelectorAll<HTMLButtonElement>("[data-merch-thumb]")
+      .forEach((t) => {
+        const active = t === thumb;
+        t.classList.toggle("is-active", active);
+        t.setAttribute("aria-pressed", String(active));
+      });
+  });
 }
 
 /* ──────────────────────────────────────────────────────────────────
