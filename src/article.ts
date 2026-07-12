@@ -123,7 +123,13 @@ function preprocessDirectives(md: string): string {
       while (i < lines.length && lines[i].trim() !== ':::') { body.push(lines[i]); i++; }
       i++;
       const mermaidContent = body.join('\n').replace(/^```mermaid\s*\n?/, '').replace(/\n?```\s*$/, '');
-      output.push(`<div class="diagram"><div class="mermaid">${escapeHtml(mermaidContent)}</div></div>`, '');
+      // A blank line inside a raw <div> HTML block ends the block early under
+      // CommonMark, so a diagram with a blank line (common, for readability)
+      // got split and the remainder mangled as an indented code block before
+      // ever reaching mermaid. Keep the whole div on one source line; browsers
+      // decode &#10; back to "\n" in the text node. Mirrors aain-content's fix.
+      const inlineMermaid = escapeHtml(mermaidContent).replace(/\r?\n/g, '&#10;');
+      output.push(`<div class="diagram"><div class="mermaid">${inlineMermaid}</div></div>`, '');
       continue;
     }
 
