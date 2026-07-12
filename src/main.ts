@@ -2019,6 +2019,13 @@ function renderGridEmpty(
  * If the iframe never loads (content_url missing, CORS hiccup,
  * content repo down), we flip to a simple fallback message with a
  * link out to the tree page.
+ *
+ * This only wires the missing-config fallback and the "open full
+ * tree" link at boot. Setting frame.src and starting the load
+ * timeout is deferred to activateLearningTree() — the iframe is
+ * loading="lazy" inside the Learn tab, which is display:none until
+ * clicked, so starting an 8 s timer here would race against a load
+ * the browser hasn't even attempted yet.
  */
 async function loadLearningTree() {
   const frame = document.getElementById(
@@ -2040,29 +2047,58 @@ async function loadLearningTree() {
     return;
   }
 
+  // Wire the fallback's "Open the full interactive tree" link in
+  // case the iframe itself is ever unreachable. &chapter=<slug> (see
+  // learningTreeChapterSlug()) makes the content site fetch THIS
+  // chapter's merged tree instead of just the base curriculum.
+  const treeLink = document.getElementById(
+    "tree-link",
+  ) as HTMLAnchorElement | null;
+  if (treeLink) {
+    const slug = learningTreeChapterSlug();
+    treeLink.href = `${config.content_url}/tree.html${
+      slug ? `?chapter=${encodeURIComponent(slug)}` : ""
+    }`;
+  }
+}
+
+/** Chapter slug to overlay on the base curriculum — explicit ?slug=
+ *  wins (dashboard preview), otherwise this hub's own configured id.
+ *  Shared by loadLearningTree()'s fallback link and
+ *  activateLearningTree()'s iframe src so both point at the same
+ *  chapter's merged tree. */
+function learningTreeChapterSlug(): string {
+  return (
+    new URLSearchParams(window.location.search).get("slug") ??
+    config.hub_id?.trim().toLowerCase() ??
+    ""
+  );
+}
+
+let learningTreeActivated = false;
+
+/** Fires the iframe load + 8 s fallback timer. Called once, the
+ *  first time the Learn tab is actually shown (see showPage()) —
+ *  not at boot, so the timer only starts once the lazy iframe has a
+ *  real chance to load. */
+function activateLearningTree() {
+  if (learningTreeActivated) return;
+  const frame = document.getElementById(
+    "learn-tree-frame",
+  ) as HTMLIFrameElement | null;
+  const fallback = document.getElementById("learn-tree-fallback");
+  if (!frame || !config.content_url) return;
+  learningTreeActivated = true;
+
   // Point the iframe at the upstream tree page. ?embed=1 is a hint
   // for any future embed tweaks on the content side; &chapter=<slug>
   // makes the content site fetch THIS chapter's merged tree from the
   // dashboard's public endpoint — the chapter's own nodes, colors,
   // and layout render on top of the base curriculum. Older content
   // deploys ignore the param and just show the base tree.
-  const slug =
-    new URLSearchParams(window.location.search).get("slug") ??
-    config.hub_id?.trim().toLowerCase() ??
-    "";
+  const slug = learningTreeChapterSlug();
   const chapterParam = slug ? `&chapter=${encodeURIComponent(slug)}` : "";
   frame.src = `${config.content_url}/tree.html?embed=1${chapterParam}`;
-
-  // Also wire the fallback's "Open the full interactive tree" link
-  // in case the iframe itself is ever unreachable.
-  const treeLink = document.getElementById(
-    "tree-link",
-  ) as HTMLAnchorElement | null;
-  if (treeLink) {
-    treeLink.href = `${config.content_url}/tree.html${
-      chapterParam ? `?chapter=${encodeURIComponent(slug)}` : ""
-    }`;
-  }
 
   // If the iframe takes more than 8 s to signal load, show the
   // fallback. The content repo is usually sub-second, so this only
@@ -2291,6 +2327,11 @@ const PAGE_HEADER_COPY: Record<
 function showPage(pageKey: string, pages: Page[]) {
   const page = pages.find((p) => p.key === pageKey) ?? pages[0];
   if (!page) return;
+
+  // Learning tree's iframe is loading="lazy" and sits behind this
+  // tab, so only start loading it (and its 8s fallback timer) once
+  // the tab is actually shown.
+  if (page.key === "learn") activateLearningTree();
 
   // Flip nav tab active state.
   document.querySelectorAll("[data-page-tab]").forEach((el) => {

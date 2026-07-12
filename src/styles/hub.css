@@ -2642,11 +2642,14 @@ a.project-card:hover {
   display: block;
 }
 
+.learn-tree-frame[hidden] { display: none; }
+
 .learn-tree-fallback {
   position: absolute;
   inset: 0;
   padding: 3rem 1.5rem;
   overflow-y: auto;
+  background: var(--bg-surface);
 }
 
 .learn-tree-fallback[hidden] { display: none; }
