@@ -65,7 +65,18 @@ const SECTION_EDIT_INFO: Record<
   // tweak per-section in the dashboard.
   about: { path: "/website", label: "Customize → About", kind: "internal" },
   events: { path: "/events", label: "Events page", kind: "internal" },
-  leaderboard: { path: "/people", label: "Members page", kind: "internal" },
+  // The Members tab of /your-chapter — that's where the roster and point
+  // totals feeding this section actually live. NOT /people: that route
+  // does not exist in the dashboard (empty directory, no page.tsx) and
+  // 404s. It matters that this is right, because the dashboard calls
+  // router.push() on whatever path we send it — so the old value
+  // navigated the user's whole dashboard onto a 404 and threw them out
+  // of the Customize panel they were working in.
+  leaderboard: {
+    path: "/your-chapter?view=members",
+    label: "Members",
+    kind: "internal",
+  },
   badges: { path: "/awards", label: "Badges & Awards", kind: "internal" },
   merch: { path: "/merch", label: "Merch page", kind: "internal" },
   projects: { path: "/projects", label: "Projects page", kind: "internal" },
