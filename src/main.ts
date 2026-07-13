@@ -150,6 +150,7 @@ interface Officer {
   role: string;
   image_url?: string | null;
   linkedin?: string | null;
+  email?: string | null;
 }
 
 interface RemoteConfig {
@@ -1788,21 +1789,40 @@ function officerInitials(name: string): string {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 }
 
-function renderOfficers(officers: Officer[]) {
+/**
+ * Only http(s) URLs are safe to place in an href. Officer LinkedIn URLs
+ * are admin-entered and stored raw, so a `javascript:` value would be a
+ * clickable XSS sink on the public page — scheme-validate before render.
+ */
+function safeHttpUrl(raw: string): string | null {
+  try {
+    const u = new URL(raw.trim());
+    return u.protocol === "http:" || u.protocol === "https:" ? u.href : null;
+  } catch {
+    return null;
+  }
+}
+
+function renderOfficers(officers: Officer[], hasRemote: boolean) {
   const grid = document.getElementById("officers-grid");
   if (!grid) return;
 
-  // Fall back to the template's local officers if none from remote, so
-  // a fresh fork still shows something.
+  // When the dashboard bundle loaded, its roster is authoritative — an
+  // empty roster means "hide the Team section," NOT "show the template's
+  // placeholders." Only fall back to the bundled local officers when
+  // there was no remote at all (a fresh fork or an offline preview).
   const list =
     officers.length > 0
       ? officers
-      : (config.officers ?? []).map((o) => ({
-          name: o.name,
-          role: o.role,
-          image_url: o.image || null,
-          linkedin: null,
-        }));
+      : hasRemote
+        ? []
+        : (config.officers ?? []).map((o) => ({
+            name: o.name,
+            role: o.role,
+            image_url: o.image || null,
+            linkedin: null,
+            email: null,
+          }));
 
   if (!list.length) {
     // No officers anywhere — remove the section entirely.
@@ -1815,21 +1835,30 @@ function renderOfficers(officers: Officer[]) {
   }
 
   const linkedinIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM8.34 18.34V9.67H5.67v8.67zM7 8.5a1.54 1.54 0 1 0 0-3.08 1.54 1.54 0 0 0 0 3.08zm11.34 9.84v-4.75c0-2.53-1.35-3.7-3.15-3.7-1.45 0-2.1.8-2.47 1.37V9.67h-2.68s.03.76 0 8.67h2.68v-4.84c0-.24.02-.48.09-.65.18-.48.62-.98 1.35-.98.96 0 1.34.73 1.34 1.8v4.67z"/></svg>`;
+  const emailIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>`;
 
   grid.innerHTML = list
     .map((o) => {
       const avatar = o.image_url
         ? `<img src="${escapeAttr(o.image_url)}" alt="" />`
         : officerInitials(o.name);
-      const linkedin = o.linkedin
-        ? `<a class="officer-card__linkedin" href="${escapeAttr(o.linkedin)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttr(o.name)} on LinkedIn">${linkedinIcon}</a>`
+      const linkedinUrl = o.linkedin ? safeHttpUrl(o.linkedin) : null;
+      const linkedin = linkedinUrl
+        ? `<a class="officer-card__linkedin" href="${escapeAttr(linkedinUrl)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttr(o.name)} on LinkedIn">${linkedinIcon}</a>`
         : "";
+      const email = o.email
+        ? `<a class="officer-card__email" href="mailto:${escapeAttr(o.email)}" aria-label="Email ${escapeAttr(o.name)}">${emailIcon}</a>`
+        : "";
+      const links =
+        linkedin || email
+          ? `<div class="officer-card__links">${linkedin}${email}</div>`
+          : "";
       return `
       <div class="officer-card" role="listitem">
         <div class="officer-card__avatar">${avatar}</div>
         <div class="officer-card__name">${escapeHtml(o.name)}</div>
         <div class="officer-card__role">${escapeHtml(o.role ?? "")}</div>
-        ${linkedin}
+        ${links}
       </div>
     `;
     })
@@ -2560,7 +2589,7 @@ async function init() {
   renderBadges(bundle?.badges ?? []);
   renderMerch(bundle?.merch ?? []);
   renderProjects(bundle?.projects ?? []);
-  renderOfficers(remote?.officers ?? []);
+  renderOfficers(remote?.officers ?? [], remote !== null);
   renderSocials(remote?.social_links ?? {});
   renderHeroNetwork();
 

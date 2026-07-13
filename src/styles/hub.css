@@ -2373,12 +2373,22 @@ a.project-card:hover {
   font-weight: 500;
 }
 
-.officer-card__linkedin {
+.officer-card__links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
   margin-top: 0.2rem;
+}
+
+.officer-card__linkedin,
+.officer-card__email {
+  display: inline-flex;
   color: var(--text-tertiary);
   transition: color 0.15s;
 }
-.officer-card__linkedin:hover {
+.officer-card__linkedin:hover,
+.officer-card__email:hover {
   color: var(--color-primary);
 }
 
