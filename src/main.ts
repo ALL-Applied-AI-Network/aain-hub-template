@@ -185,6 +185,9 @@ interface EventRow {
   /** Optional end timestamp for multi-day events. NULL = single-
    *  point event (the legacy case). */
   end_date: string | null;
+  /** IANA timezone the event's date/end_date are in. NULL for legacy
+   *  events → rendered as UTC (their stored wall-clock). */
+  timezone: string | null;
   /** Free-text address. Hub site auto-links to a Google Maps search
    *  so visitors can pull it up on their phone. */
   location: string | null;
@@ -1099,36 +1102,77 @@ function renderEvents(events: EventRow[], _tagline: string | null | undefined) {
   grid.innerHTML = events.map((e) => renderEventCard(e, byId)).join("");
 }
 
+/**
+ * Calendar parts of an ISO instant, computed in `tz` (or UTC for legacy
+ * null-tz events) so the hub shows the same wall-clock as the dashboard
+ * regardless of the visitor's own timezone. `tzAbbr` is "" when there's
+ * no captured zone (legacy), so those events render without a label.
+ */
+function zoneParts(
+  iso: string,
+  tz: string | null,
+): {
+  year: number;
+  month: number;
+  day: number;
+  monthShort: string;
+  time: string;
+  tzAbbr: string;
+} {
+  const d = new Date(iso);
+  const timeZone = tz || "UTC";
+  const p: Record<string, string> = {};
+  for (const part of new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d)) {
+    p[part.type] = part.value;
+  }
+  const tzAbbr = tz
+    ? d
+        .toLocaleTimeString("en-US", { timeZone, timeZoneName: "short" })
+        .split(" ")
+        .pop() || ""
+    : "";
+  return {
+    year: Number(p.year),
+    month: Number(p.month),
+    day: Number(p.day),
+    monthShort: d.toLocaleDateString("en-US", { timeZone, month: "short" }),
+    time: d.toLocaleTimeString("en-US", {
+      timeZone,
+      hour: "numeric",
+      minute: "2-digit",
+    }),
+    tzAbbr,
+  };
+}
+
 function renderEventCard(
   e: EventRow,
   byId: Map<string, EventRow>,
 ): string {
-  const start = new Date(e.date);
-  const end = e.end_date ? new Date(e.end_date) : null;
+  const tz = e.timezone;
+  const s = zoneParts(e.date, tz);
+  const eParts = e.end_date ? zoneParts(e.end_date, tz) : null;
   const isMultiDay =
-    end !== null &&
-    Number.isFinite(end.getTime()) &&
-    (end.getFullYear() !== start.getFullYear() ||
-      end.getMonth() !== start.getMonth() ||
-      end.getDate() !== start.getDate());
+    eParts !== null &&
+    (eParts.year !== s.year ||
+      eParts.month !== s.month ||
+      eParts.day !== s.day);
 
-  const month = start
-    .toLocaleDateString("en-US", { month: "short" })
-    .toUpperCase();
-  const day = start.getDate();
-  const startTime = start.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  const endTime = end
-    ? end.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+  const month = s.monthShort.toUpperCase();
+  const day = s.day;
+  const startTime = e.timezone ? `${s.time} ${s.tzAbbr}` : s.time;
+  const endTime = eParts
+    ? e.timezone
+      ? `${eParts.time} ${eParts.tzAbbr}`
+      : eParts.time
     : null;
-  const endLabel = end
-    ? end.toLocaleDateString("en-US", {
-        month:
-          end.getMonth() === start.getMonth() ? undefined : "short",
-        day: "numeric",
-      })
+  const endLabel = eParts
+    ? `${eParts.month === s.month ? "" : eParts.monthShort + " "}${eParts.day}`.trim()
     : null;
 
   // Date chip on the left — adds a "→ N" range stripe for multi-day.
@@ -1229,7 +1273,7 @@ function renderEventCard(
     ? `<div class="event-card__phases" aria-label="Event phases">
         <div class="event-card__phases-heading">${phases.length}-part project</div>
         <ol class="event-card__phase-list">
-          ${phases.map((p, i) => renderPhaseRow(p, i + 1)).join("")}
+          ${phases.map((p, i) => renderPhaseRow(p, i + 1, e.timezone)).join("")}
         </ol>
       </div>`
     : "";
@@ -1263,26 +1307,26 @@ function renderEventCard(
  *  + location or "Virtual" hint, matching how the parent event card
  *  surfaces format. Points are only shown when has_check_in (otherwise
  *  the row is a checkpoint without attendance). */
-function renderPhaseRow(p: EventPhase, num: number): string {
-  const start = new Date(p.date_start);
-  const end = p.date_end ? new Date(p.date_end) : null;
-  const startStr = start.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
-  const startTime = start.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+function renderPhaseRow(
+  p: EventPhase,
+  num: number,
+  tz: string | null,
+): string {
+  const s = zoneParts(p.date_start, tz);
+  const eParts = p.date_end ? zoneParts(p.date_end, tz) : null;
+  const startStr = `${s.monthShort} ${s.day}`;
+  const startTime = tz ? `${s.time} ${s.tzAbbr}` : s.time;
   const sameDayEnd =
-    end !== null &&
-    end.getFullYear() === start.getFullYear() &&
-    end.getMonth() === start.getMonth() &&
-    end.getDate() === start.getDate();
-  const endStr = end
+    eParts !== null &&
+    eParts.year === s.year &&
+    eParts.month === s.month &&
+    eParts.day === s.day;
+  const endStr = eParts
     ? sameDayEnd
-      ? end.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-      : end.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      ? tz
+        ? `${eParts.time} ${eParts.tzAbbr}`
+        : eParts.time
+      : `${eParts.monthShort} ${eParts.day}`
     : null;
   const whenLabel = endStr
     ? sameDayEnd
