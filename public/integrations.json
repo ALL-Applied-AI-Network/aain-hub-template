@@ -1,6 +1,6 @@
 {
   "$schema": "https://all-ai-network.org/schemas/integrations.schema.json",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Canonical list of ALL Applied AI Network dashboard API integrations. This file is the ground truth for the hub website template — it drives both the template's own rendering code and the Website tab inside dashboard.all-ai-network.org. Edit this file to add or change integrations.",
   "apiBase": "https://dashboard.all-ai-network.org",
   "envVar": "AAIN_API_KEY",
@@ -36,8 +36,16 @@
         "path": "/api/v1/events",
         "example": "/api/v1/events?upcoming=true&limit=5",
         "queryParams": [
-          { "name": "upcoming", "type": "boolean", "description": "Return only events in the future" },
-          { "name": "limit", "type": "integer", "description": "Max number of events to return (1-100)" }
+          {
+            "name": "upcoming",
+            "type": "boolean",
+            "description": "Return only events in the future"
+          },
+          {
+            "name": "limit",
+            "type": "integer",
+            "description": "Max number of events to return (1-100)"
+          }
         ]
       },
       "templatePath": "src/components/events-section.ts",
@@ -59,7 +67,11 @@
         "path": "/api/v1/leaderboard",
         "example": "/api/v1/leaderboard?limit=10",
         "queryParams": [
-          { "name": "limit", "type": "integer", "description": "Max number of members to return (1-100)" }
+          {
+            "name": "limit",
+            "type": "integer",
+            "description": "Max number of members to return (1-100)"
+          }
         ]
       },
       "templatePath": "src/components/leaderboard-widget.ts",
@@ -101,7 +113,11 @@
         "path": "/api/v1/badges",
         "example": "/api/v1/badges?limit=100",
         "queryParams": [
-          { "name": "limit", "type": "integer", "description": "Max badges to return (1-500, default 100)" }
+          {
+            "name": "limit",
+            "type": "integer",
+            "description": "Max badges to return (1-500, default 100)"
+          }
         ]
       },
       "templatePath": "src/components/badges-wall.ts",
@@ -123,8 +139,16 @@
         "path": "/api/v1/merch",
         "example": "/api/v1/merch?limit=50",
         "queryParams": [
-          { "name": "include", "type": "string", "description": "Pass `all` to include hidden + out-of-stock items. Default returns only active items." },
-          { "name": "limit", "type": "integer", "description": "Max items to return (1-500, default 100)" }
+          {
+            "name": "include",
+            "type": "string",
+            "description": "Pass `all` to include hidden + out-of-stock items. Default returns only active items."
+          },
+          {
+            "name": "limit",
+            "type": "integer",
+            "description": "Max items to return (1-500, default 100)"
+          }
         ]
       },
       "templatePath": "src/components/merch-catalog.ts",
@@ -133,6 +157,26 @@
         "curl": "curl -H \"Authorization: Bearer $AAIN_API_KEY\" \\\n  \"https://dashboard.all-ai-network.org/api/v1/merch\"",
         "response": "{\n  \"merch\": [\n    {\n      \"id\": \"mrch_tshirt\",\n      \"name\": \"MAIC T-Shirt\",\n      \"description\": \"Classic black tee with the MAIC logo.\",\n      \"cost_points\": 75,\n      \"image_url\": \"https://gdxifnnfirnzljtxnhch.supabase.co/storage/v1/object/public/merch-images/<chapter>/tshirt.jpg\",\n      \"stock\": 12,\n      \"is_active\": true,\n      \"created_at\": \"2026-04-19T14:02:31.000Z\"\n    },\n    {\n      \"id\": \"mrch_stickers\",\n      \"name\": \"Sticker pack\",\n      \"description\": \"Three vinyl stickers — MAIC logo, ROSIE, NVIDIA-Olympus.\",\n      \"cost_points\": 15,\n      \"image_url\": null,\n      \"stock\": null,\n      \"is_active\": true,\n      \"created_at\": \"2026-04-19T14:03:11.000Z\"\n    }\n  ]\n}",
         "agentPrompt": "Build a \"Merch Catalog\" section that shows every reward the chapter offers in exchange for earned points. This is a display-only catalog — actual redemption happens in person at an event (no request-to-buy flow yet).\n\nData source: ALL Applied AI Network dashboard API.\n- Endpoint: GET https://dashboard.all-ai-network.org/api/v1/merch\n- Auth: `Authorization: Bearer ${process.env.AAIN_API_KEY}` (env var already set — never hardcode it)\n- Response shape:\n    {\n      \"merch\": [\n        {\n          \"id\": \"mrch_...\",\n          \"name\": \"MAIC T-Shirt\",\n          \"description\": \"Classic black tee with the MAIC logo.\",\n          \"cost_points\": 75,\n          \"image_url\": \"https://.../tshirt.jpg\" | null,\n          \"stock\": 12 | null,\n          \"is_active\": true,\n          \"created_at\": \"2026-04-19T14:02:31.000Z\"\n        }\n      ]\n    }\n\nCritical nuance on `stock`:\n  - `null` → unlimited supply (stickers, digital rewards). Render as \"Unlimited\" or hide the stock line entirely.\n  - `0`    → out of stock. Still list the item, but mark it visibly (grayscale image, \"Out of stock\" badge).\n  - `> 0`  → finite supply remaining. Render as \"<N> left\".\n\nAnd on `image_url`:\n  - A full https URL → render as <img src={image_url} alt={name} />. Images are raw uploads (no automatic CDN resizing), so apply object-fit: cover and a reasonable max size.\n  - `null` → render a tasteful placeholder (a solid-color block with the chapter accent color, or a generic package icon).\n\nRequirements:\n1. Fetch server-side so the key stays private.\n2. Render as a responsive grid of cards. Each card: photo on top (4:3 ratio), name, one-line description, cost pill (e.g., \"75 pts\" with a subtle accent-color background), and stock line.\n3. Out-of-stock items should read as muted — visibly distinct but not hidden. Don't let them feel like broken listings.\n4. Include a short heading + one-sentence subheading explaining how redemption works: \"Earn points by attending events and completing coursework. Redeem in person at any chapter event — see any eboard member to claim.\"\n5. If `merch` is empty, skip the section entirely (no empty state).\n6. Match the existing design system — reuse typography and spacing tokens from sibling components before defining new ones.\n\nPlace it on the homepage near the leaderboard, or as a dedicated /merch route. Link to the chapter's events page from the redemption callout so visitors know where to go."
+      }
+    },
+    {
+      "id": "socials",
+      "title": "Club social feed",
+      "description": "Latest public posts from the club's linked LinkedIn and Instagram accounts, synced on demand from the dashboard. Renders as a card grid; hides itself until the eboard has synced a feed.",
+      "iconKey": "share",
+      "accent": "#06b6d4",
+      "endpoint": {
+        "method": "GET",
+        "path": "/api/public/chapter/{slug}/bundle",
+        "example": "/api/public/chapter/{slug}/bundle",
+        "queryParams": []
+      },
+      "templatePath": "src/main.ts",
+      "snippets": {
+        "javascript": "// Latest public posts from the club's linked LinkedIn/Instagram\n// accounts, synced by the eboard from Dashboard -> Website -> Social feed.\n// No API key needed: the public bundle is slug-keyed and CORS-open.\nconst res = await fetch(\n  \"https://dashboard.all-ai-network.org/api/public/chapter/YOUR-CHAPTER-SLUG/bundle\"\n);\nconst { social_feeds } = await res.json();\n\n// social_feeds = { linkedin?: {source_url, synced_at, posts[]}, instagram?: {...} }\nconst posts = Object.entries(social_feeds ?? {})\n  .flatMap(([platform, feed]) =>\n    (feed?.posts ?? []).map((p) => ({ ...p, platform }))\n  )\n  .sort(\n    (a, b) =>\n      new Date(b.posted_at ?? 0).getTime() - new Date(a.posted_at ?? 0).getTime()\n  )\n  .slice(0, 6);\n\n// Escape remote text before inserting into HTML, and only link http(s) URLs.\nconst esc = (s) =>\n  String(s).replace(/[&<>\"']/g, (c) =>\n    ({ \"&\": \"&amp;\", \"<\": \"&lt;\", \">\": \"&gt;\", '\"': \"&quot;\", \"'\": \"&#39;\" }[c])\n  );\nconst httpUrl = (u) => (/^https?:\\/\\//.test(u ?? \"\") ? u : null);\n\nconst grid = document.querySelector(\"#social-feed\");\nif (!grid) {\n  // Section not on this page — nothing to do.\n} else if (posts.length === 0) {\n  // Nothing synced yet -- hide the whole section rather than show an empty box.\n  grid.closest(\"section\")?.remove();\n} else {\n  grid.innerHTML = posts\n    .map((p) => {\n      const img = httpUrl(p.image_url);\n      const link = httpUrl(p.url);\n      return `\n      <article class=\"social-post\">\n        ${img ? `<img src=\"${esc(img)}\" alt=\"\" loading=\"lazy\" />` : \"\"}\n        <p>${esc((p.content ?? \"\").slice(0, 200))}</p>\n        ${link ? `<a href=\"${esc(link)}\" target=\"_blank\" rel=\"noopener\">View on ${esc(p.platform)}</a>` : `<span>${esc(p.platform)}</span>`}\n      </article>`;\n    })\n    .join(\"\");\n}",
+        "curl": "curl \"https://dashboard.all-ai-network.org/api/public/chapter/YOUR-CHAPTER-SLUG/bundle\" | jq .social_feeds",
+        "response": "{\n  \"social_feeds\": {\n    \"linkedin\": {\n      \"source_url\": \"https://www.linkedin.com/company/msoe-ai-club\",\n      \"synced_at\": \"2026-07-16T14:03:22.000Z\",\n      \"posts\": [\n        {\n          \"id\": \"7351234567890\",\n          \"url\": \"https://www.linkedin.com/posts/...\",\n          \"posted_at\": \"2026-07-12T18:30:00.000Z\",\n          \"content\": \"Our Spring Innovation Lab teams just demoed...\",\n          \"image_url\": \"https://media.licdn.com/dms/image/...\",\n          \"likes\": 42,\n          \"comments\": 7\n        }\n      ]\n    },\n    \"instagram\": {\n      \"source_url\": \"https://www.instagram.com/msoe.aiclub/\",\n      \"synced_at\": \"2026-07-16T14:05:10.000Z\",\n      \"posts\": [\n        {\n          \"id\": \"3391234567890\",\n          \"url\": \"https://www.instagram.com/p/ABC123/\",\n          \"posted_at\": \"2026-07-10T21:00:00.000Z\",\n          \"content\": \"Workshop night recap!\",\n          \"image_url\": \"https://scontent.cdninstagram.com/...\",\n          \"likes\": 88,\n          \"comments\": 12\n        }\n      ]\n    }\n  }\n}",
+        "agentPrompt": "Add a \"Latest from our socials\" section to this EXISTING website, fed by the ALL Applied AI Network dashboard. Keep the site's current design language — reuse its existing card/section styles rather than inventing new ones.\n\nData source (no API key required — public, CORS-open):\n- Endpoint: GET https://dashboard.all-ai-network.org/api/public/chapter/{your-chapter-slug}/bundle\n- The response's `social_feeds` field is keyed by platform (`linkedin`, `instagram`); each has `{ source_url, synced_at, posts: [{ id, url, posted_at, content, image_url, likes, comments }] }`. Platforms the eboard hasn't synced are simply absent.\n\nImplementation requirements:\n1. Fetch the bundle client-side on page load (it's edge-cached ~30s; no key, no server needed).\n2. Merge posts across platforms, sort newest-first by `posted_at`, cap at ~6.\n3. Render each post using the site's existing card styling: image (if `image_url`), caption text (truncate ~200 chars, HTML-escape it), a platform label, and a link to the original post (`url`, open in a new tab). Only make links for http(s) URLs.\n4. If there are zero posts (nothing synced yet), hide/remove the section entirely — never show an empty shell.\n5. Fail soft: if the fetch errors, leave the page exactly as it was.\n\nThe eboard controls the content from the dashboard (Website → Social feed → Sync); this section updates automatically on the next page load after each sync — no site redeploys."
       }
     }
   ]
