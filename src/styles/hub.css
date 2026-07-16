@@ -806,6 +806,17 @@ code {
   border-radius: 999px;
 }
 
+.event-card__format-chip--tree {
+  background: rgba(52, 211, 153, 0.13);
+  color: #34d399;
+  text-decoration: none;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+.event-card__format-chip--tree:hover {
+  background: rgba(52, 211, 153, 0.22);
+}
+
 .event-card__format-chip--virtual {
   background: rgba(99, 102, 241, 0.14);
   color: #818cf8;

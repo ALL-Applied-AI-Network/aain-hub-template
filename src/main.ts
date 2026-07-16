@@ -188,6 +188,10 @@ interface EventRow {
   /** IANA timezone the event's date/end_date are in. NULL for legacy
    *  events → rendered as UTC (their stored wall-clock). */
   timezone: string | null;
+  /** Learning Tree node this event teaches (title is the display
+   *  snapshot; ref identifies the node). NULL = not linked. */
+  learning_tree_node_ref?: string | null;
+  learning_tree_node_title?: string | null;
   /** Free-text address. Hub site auto-links to a Google Maps search
    *  so visitors can pull it up on their phone. */
   location: string | null;
@@ -1215,6 +1219,13 @@ function renderEventCard(
         }</span>`
       : "";
 
+  // Learning Tree association — links to the Learn PAGE (hash-router key
+  // "learn", not the section's DOM id) so a visitor can jump from a
+  // workshop event to the material it teaches.
+  const treeChip = e.learning_tree_node_title
+    ? `<a class="event-card__format-chip event-card__format-chip--tree" href="#learn">🌳 ${escapeHtml(e.learning_tree_node_title)}</a>`
+    : "";
+
   const locationPill = showLocation
     ? `<a class="event-card__pill event-card__pill--map" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.location ?? "")}" target="_blank" rel="noopener noreferrer">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1225,14 +1236,25 @@ function renderEventCard(
       </a>`
     : "";
 
-  const virtualPill = showVirtual
-    ? `<a class="event-card__pill event-card__pill--virtual" href="${escapeAttr(e.virtual_url ?? "")}" target="_blank" rel="noopener noreferrer">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  // virtual_url is free text: a real join URL renders as a "Join
+  // virtually" link; anything else ("See in Teams (private)") renders as
+  // a plain pill showing the note itself. safeHttpUrl also keeps
+  // javascript:-style values out of the href.
+  const virtualHref = showVirtual ? safeHttpUrl(e.virtual_url ?? "") : null;
+  const virtualIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <polygon points="23 7 16 12 23 17 23 7"/>
           <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
-        </svg>
+        </svg>`;
+  const virtualPill = showVirtual
+    ? virtualHref
+      ? `<a class="event-card__pill event-card__pill--virtual" href="${escapeAttr(virtualHref)}" target="_blank" rel="noopener noreferrer">
+        ${virtualIcon}
         <span>Join virtually</span>
       </a>`
+      : `<span class="event-card__pill event-card__pill--virtual">
+        ${virtualIcon}
+        <span>${escapeHtml(e.virtual_url ?? "")}</span>
+      </span>`
     : "";
 
   // Co-host attribution: when this hub is surfacing another chapter's
@@ -1287,6 +1309,7 @@ function renderEventCard(
           <div class="event-card__type-row">
             <span class="event-card__type">${escapeHtml(e.type ?? "event")}</span>
             ${formatChip}
+            ${treeChip}
           </div>
           ${parentBadge}
           <h3 class="event-card__title">${escapeHtml(e.title)}</h3>
