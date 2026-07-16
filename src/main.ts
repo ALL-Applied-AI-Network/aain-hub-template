@@ -37,7 +37,7 @@ const PAGES: Page[] = [
   // be toggled off or hidden when their data array is empty. Pillars
   // and per-page CTA bands aren't here because they're hardcoded
   // decorations and don't influence whether a page is "empty."
-  { key: "home", label: "Home", sections: ["hero", "events", "leaderboard", "badges"] },
+  { key: "home", label: "Home", sections: ["hero", "events", "leaderboard", "badges", "socials"] },
   // Learn is just the tree. Workshops/playbooks are on the content
   // CDN; the hub template used to mirror them but that duplicated
   // effort and a fresh chapter site doesn't need them by default.
@@ -304,6 +304,22 @@ interface ProjectRow {
   files?: ProjectFileRow[];
 }
 
+interface SocialPost {
+  id: string;
+  url: string | null;
+  posted_at: string | null;
+  content: string;
+  image_url: string | null;
+  likes: number;
+  comments: number;
+}
+
+interface SocialFeed {
+  source_url: string;
+  synced_at: string;
+  posts: SocialPost[];
+}
+
 interface ChapterBundle {
   chapter: { slug: string; name: string; university: string; member_count: number; event_count: number };
   config: RemoteConfig;
@@ -312,6 +328,10 @@ interface ChapterBundle {
   badges: BadgeRow[];
   merch: MerchRow[];
   projects: ProjectRow[];
+  /** Latest public posts synced from the chapter's linked accounts
+   *  (keyed by platform: linkedin / instagram). Optional — older
+   *  bundle responses won't carry it. */
+  social_feeds?: Record<string, SocialFeed>;
 }
 
 const config = __HUB_CONFIG__;
@@ -1850,6 +1870,75 @@ function renderProjects(projects: ProjectRow[]) {
     .join("");
 }
 
+/* ── Socials — latest public posts from the club's linked accounts ──
+   Fed by the bundle's social_feeds (synced from the dashboard via
+   Apify). Self-hides until at least one platform has synced posts. */
+function renderSocialFeed(feeds: Record<string, SocialFeed> | undefined) {
+  const grid = document.getElementById("socials-grid");
+  const section = document.getElementById("socials");
+  if (!grid || !section) return;
+
+  type TaggedPost = SocialPost & { platform: string };
+  const posts: TaggedPost[] = [];
+  for (const [platform, feed] of Object.entries(feeds ?? {})) {
+    for (const p of feed?.posts ?? []) {
+      posts.push({ ...p, platform });
+    }
+  }
+  if (posts.length === 0) {
+    section.remove();
+    return;
+  }
+
+  // Newest first across platforms; undated posts sink to the end.
+  posts.sort((a, b) => {
+    const ta = a.posted_at ? new Date(a.posted_at).getTime() : 0;
+    const tb = b.posted_at ? new Date(b.posted_at).getTime() : 0;
+    return tb - ta;
+  });
+
+  const platformLabel = (p: string) =>
+    p === "linkedin" ? "LinkedIn" : p === "instagram" ? "Instagram" : p;
+
+  grid.innerHTML = posts
+    .slice(0, 9)
+    .map((p) => {
+      const img =
+        p.image_url && safeHttpUrl(p.image_url)
+          ? `<div class="social-card__media"><img src="${escapeAttr(safeHttpUrl(p.image_url) ?? "")}" alt="" loading="lazy" /></div>`
+          : "";
+      const text = p.content
+        ? escapeHtml(
+            p.content.length > 220 ? `${p.content.slice(0, 220)}…` : p.content,
+          )
+        : "";
+      const date = p.posted_at
+        ? new Date(p.posted_at).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          })
+        : "";
+      const postHref = p.url ? safeHttpUrl(p.url) : null;
+      const link = postHref
+        ? `<a class="social-card__link" href="${escapeAttr(postHref)}" target="_blank" rel="noopener noreferrer">View on ${platformLabel(p.platform)} →</a>`
+        : `<span class="social-card__link">${platformLabel(p.platform)}</span>`;
+      return `
+      <article class="social-card" role="listitem">
+        ${img}
+        <div class="social-card__body">
+          <div class="social-card__meta">
+            <span class="social-card__platform social-card__platform--${escapeAttr(p.platform)}">${platformLabel(p.platform)}</span>
+            ${date ? `<span>${date}</span>` : ""}
+            ${p.likes ? `<span>♥ ${p.likes}</span>` : ""}
+          </div>
+          ${text ? `<p class="social-card__text">${text}</p>` : ""}
+          ${link}
+        </div>
+      </article>`;
+    })
+    .join("");
+}
+
 function officerInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
@@ -2657,6 +2746,7 @@ async function init() {
   renderMerch(bundle?.merch ?? []);
   renderProjects(bundle?.projects ?? []);
   renderOfficers(remote?.officers ?? [], remote !== null);
+  renderSocialFeed(bundle?.social_feeds);
   renderSocials(remote?.social_links ?? {});
   renderHeroNetwork();
 
