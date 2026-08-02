@@ -85,7 +85,15 @@ Content updates happen upstream in [`aain-content`](https://github.com/ALL-Appli
 
 ## Dashboard integrations
 
-Every hub can pull live data from the ALL Applied AI Network dashboard (events, leaderboard, chapter stats) using an API key. The canonical list of available integrations lives in **[`public/integrations.json`](./public/integrations.json)** — it describes every supported endpoint with code snippets, response shapes, and agent prompts.
+Every hub can pull live data from the ALL Applied AI Network dashboard — events, leaderboard, chapter stats, badges, merch, projects, socials, and the learning tree. The canonical list lives in **[`public/integrations.json`](./public/integrations.json)**, which describes every supported endpoint with code snippets, response shapes, and agent prompts.
+
+**No API key required.** Everything above is reachable through one public, CORS-open endpoint:
+
+```
+GET https://dashboard.all-ai-network.org/api/public/chapter/{hub_id}/bundle
+```
+
+That matters because this template is a static Vite build served from GitHub Pages. There is no server, and every `VITE_*` environment variable is inlined into the JavaScript shipped to visitors — so a key placed there would be public. The authenticated `/api/v1/*` endpoints exist for chapter sites that genuinely run code on a server; a static hub should never use them. Each module in `integrations.json` names its keyless route under `publicSource`.
 
 This file is the single source of truth:
 - The **hub template** itself uses these definitions to render live widgets.
