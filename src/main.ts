@@ -543,10 +543,16 @@ function renderHeroActions(remote: RemoteConfig | null) {
           ? "btn--ghost btn--ghost-accent"
           : "btn--ghost";
     a.className = `btn ${styleClass}`;
-    a.href = b.href;
+    // The href is officer-authored via the dashboard bundle. Assigning it
+    // straight to a.href executed javascript: URLs on click (security
+    // audit 2026-08-18, finding 3) — safeHttpUrl already existed in this
+    // file for LinkedIn and social URLs, it just wasn't applied here.
+    const href = safeCtaHref(b.href);
+    if (!href) continue;
+    a.href = href;
     // Only true externals open in a new tab — anchor + mailto + tel
     // stay in the current window.
-    if (/^https?:\/\//.test(b.href)) {
+    if (/^https?:\/\//.test(href)) {
       a.target = "_blank";
       a.rel = "noopener noreferrer";
     }
@@ -1025,9 +1031,16 @@ function renderInlineMarkdown(text: string): string {
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/\*([^*]+)\*/g, "<em>$1</em>")
     .replace(/_([^_]+)_/g, "<em>$1</em>")
+    // The URL is validated and attribute-escaped rather than substituted
+    // raw: a double quote inside the captured URL used to close the href
+    // and add an onclick (security audit 2026-08-18, finding 4).
     .replace(
       /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
-      '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>',
+      (_m, label: string, url: string) => {
+        const safe = safeHttpUrl(url);
+        if (!safe) return label;
+        return `<a href="${escapeAttr(safe)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+      },
     )
     .replace(/\n/g, "<br />");
 }
@@ -1385,7 +1398,7 @@ function renderPhaseRow(
         : p.format === "hybrid"
           ? "Hybrid"
           : "Milestone";
-  const formatChip = `<span class="event-card__phase-chip event-card__phase-chip--${p.format}">${formatLabel}</span>`;
+  const formatChip = `<span class="event-card__phase-chip event-card__phase-chip--${escapeAttr(p.format)}">${formatLabel}</span>`;
 
   const locText =
     (p.format === "in_person" || p.format === "hybrid") &&
@@ -1404,7 +1417,7 @@ function renderPhaseRow(
     : "";
 
   return `
-    <li class="event-card__phase-row event-card__phase-row--${p.format}">
+    <li class="event-card__phase-row event-card__phase-row--${escapeAttr(p.format)}">
       <div class="event-card__phase-num" aria-hidden="true">${num}</div>
       <div class="event-card__phase-body">
         <div class="event-card__phase-head">
@@ -1950,6 +1963,19 @@ function officerInitials(name: string): string {
  * are admin-entered and stored raw, so a `javascript:` value would be a
  * clickable XSS sink on the public page — scheme-validate before render.
  */
+/**
+ * CTA hrefs come from chapter officers. Anchors, mailto: and tel: are
+ * legitimate button targets; anything else has to parse as http(s).
+ * Returns null for values that should not become a link at all.
+ */
+function safeCtaHref(raw: string): string | null {
+  const h = (raw ?? "").trim();
+  if (!h) return null;
+  if (h.startsWith("#")) return h;
+  if (/^(mailto|tel):[^\s<>"']+$/i.test(h)) return h;
+  return safeHttpUrl(h);
+}
+
 function safeHttpUrl(raw: string): string | null {
   try {
     const u = new URL(raw.trim());
@@ -2253,11 +2279,11 @@ async function loadLearningTree() {
  *  activateLearningTree()'s iframe src so both point at the same
  *  chapter's merged tree. */
 function learningTreeChapterSlug(): string {
-  return (
-    new URLSearchParams(window.location.search).get("slug") ??
-    config.hub_id?.trim().toLowerCase() ??
-    ""
-  );
+  // Deliberately ignores ?slug=: it used to be honoured here even without
+  // preview=1, so any link could swap which chapter's tree this hub showed
+  // (security audit 2026-08-18, finding 6). The dashboard preview drives
+  // the iframe through its own URL, not through this hub's query string.
+  return config.hub_id?.trim().toLowerCase() ?? "";
 }
 
 let learningTreeActivated = false;
@@ -2672,16 +2698,22 @@ async function init() {
     typeof window !== "undefined"
       ? new URLSearchParams(window.location.search)
       : null;
-  const isPreview = params?.get("preview") === "1";
+  // Preview overrides exist for the dashboard's Customize iframe. Honouring
+  // them at top level let anyone paint another chapter's identity onto this
+  // hostname and divert its sponsor leads (security audit 2026-08-18,
+  // finding 6), so require that we are genuinely embedded by the dashboard.
+  const embeddedByDashboard =
+    window.parent !== window &&
+    (document.referrer === "" ||
+      document.referrer.startsWith("https://dashboard.all-ai-network.org/"));
+  const isPreview = params?.get("preview") === "1" && embeddedByDashboard;
   const editMode = isPreview && params?.get("edit") === "1";
 
   // Resolve which slug to fetch: preview mode passes slug explicitly
   // from the dashboard; normal mode reads it from the bundled config
   // (set by the chapter's hub.config.json).
-  const slug =
-    (isPreview ? params?.get("slug") : null) ??
-    config.hub_id?.trim().toLowerCase() ??
-    "";
+  const configuredSlug = config.hub_id?.trim().toLowerCase() ?? "";
+  const slug = (isPreview ? params?.get("slug") : null) ?? configuredSlug;
 
   // Always try to fetch the bundle — in preview we want live data on
   // top of in-progress URL overrides; in normal mode it's the whole
@@ -2732,8 +2764,10 @@ async function init() {
   renderPageCtaBands();
   // Sponsor inquiry modal — mounted once; triggered via the
   // `#sponsor` hash route which the hero's partner CTA points to.
+  // Always the configured chapter, never the preview slug: a diverted
+  // sponsor lead is the part of finding 6 that costs real money.
   setupSponsorModal(
-    slug || null,
+    configuredSlug || null,
     bundle?.chapter?.name ?? remote?.hub_name ?? config.hub_name,
     remote,
   );
