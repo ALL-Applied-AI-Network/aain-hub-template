@@ -70,7 +70,7 @@ We actively encourage using AI coding tools (Cursor, Claude Code, etc.) to contr
 
 - Open a [discussion](https://github.com/ALL-Applied-AI-Network/aain-hub-template/discussions)
 - Join our [Discord](https://discord.gg/all-applied-ai)
-- Email: contribute@all-ai-network.org
+- Email: ben.paulson@all-ai-network.org
 
 ---
 
