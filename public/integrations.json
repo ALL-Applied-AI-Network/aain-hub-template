@@ -119,6 +119,26 @@
       }
     },
     {
+      "id": "officers",
+      "title": "Officers & team",
+      "description": "Your eboard, straight from the dashboard's Officers & Roles roster — name, role, photo and links for every member marked visible. Update the roster once; every embed follows.",
+      "iconKey": "users",
+      "accent": "#22d3ee",
+      "endpoint": {
+        "method": "GET",
+        "path": "/api/public/chapter/{slug}/bundle",
+        "example": "/api/public/chapter/msoe/bundle",
+        "queryParams": []
+      },
+      "templatePath": "src/main.ts",
+      "snippets": {
+        "javascript": "// Officers — from the public bundle's config. No API key required,\n// which is what a static site or SPA must use.\nconst res = await fetch(\n  \"https://dashboard.all-ai-network.org/api/public/chapter/{slug}/bundle\"\n);\nconst { config } = await res.json();\n// [{ name, role, image }] — only members the eboard marked visible.\nrenderTeam(config.officers ?? []);\n",
+        "curl": "curl \"https://dashboard.all-ai-network.org/api/public/chapter/{slug}/bundle\"",
+        "response": "{\n  \"config\": {\n    \"officers\": [\n      { \"name\": \"Brett Storoe\", \"role\": \"President\", \"image\": \"https://…\" },\n      { \"name\": \"Adam Haile\", \"role\": \"Vice President\", \"image\": \"https://…\" }\n    ]\n  }\n}"
+      },
+      "agentPrompt": "Render this from the chapter's dashboard so the eboard controls it without touching this repo.\n\nThe chapter's officer roster: name, role, and photo for every member the eboard marked visible on the dashboard's Officers & Roles page. The order is the dashboard's order — do not re-sort.\n\nThese are real people's names and faces on a public page: render exactly what the dashboard sent, nothing more. If a member has no photo, show initials rather than a broken image.\n\nWhere it comes from: the public bundle's `config.officers` field — GET /api/public/chapter/{slug}/bundle. No API key, CORS-open, safe to call from the browser.\n\nHow to fit it in:\n- If the site already has a team/officers section, REWIRE it — change its data source and leave its markup and styling alone. Only build something new if nothing equivalent exists.\n- Match the site's existing components, spacing, and type scale. Inspect a sibling section before writing any CSS.\n- Escape remote text.\n- Empty response → omit the section entirely rather than render an empty shell. Fetch failure → leave the page exactly as it was.\n"
+    },
+    {
       "id": "badges",
       "title": "Chapter badges",
       "description": "Render the full catalog of recognition badges your chapter awards — with their name, description, icon, and how many members have earned each one.",
