@@ -40,11 +40,15 @@ function injectSocialMeta() {
       ? `The applied AI club at ${university}. Events, projects and workshops — no experience required.`
       : 'A student-run applied AI community.');
 
-  // site_url and logo_url are stamped by the dashboard at deploy time on
-  // newer deploys; older repos have neither, hence the slug fallback.
-  const siteUrl =
-    String(config.site_url || '').trim() ||
-    (slug ? `https://${slug}.all-ai-network.org` : '');
+  // Only a site_url the dashboard actually stamped. This deliberately does
+  // NOT guess `https://{slug}.all-ai-network.org`: subdomain provisioning is
+  // best-effort (skipped entirely without VERCEL_API_TOKEN, and its failures
+  // are swallowed), so plenty of live sites are served from a github.io URL
+  // instead. A canonical pointing at a host that doesn't resolve tells Google
+  // to drop the URL that works, and og:url is the card's click target — that
+  // is strictly worse than emitting neither. Nothing stamps site_url yet, so
+  // today canonical/og:url are simply absent, which is neutral.
+  const siteUrl = String(config.site_url || '').trim();
 
   // Prefer the chapter's own logo (an absolute URL from the dashboard).
   // Never emit a relative og:image — crawlers won't resolve it, and a
@@ -79,14 +83,25 @@ function injectSocialMeta() {
   return {
     name: 'inject-social-meta',
     transformIndexHtml(html: string, ctx: { filename?: string; path?: string }) {
-      const where = ctx?.filename || ctx?.path || '';
-      const isHome = !where.includes('article');
+      // Basename only: ctx.filename is an absolute path, so testing the
+      // whole string would misread the homepage as an article whenever any
+      // ancestor directory happens to contain "article".
+      const where = (ctx?.filename || ctx?.path || '').split(/[\\/]/).pop() || '';
+      const isHome = !where.startsWith('article');
+      // Replacer FUNCTIONS, not strings: a string replacement expands $$,
+      // $&, $` and $'. esc() rewrites & < > " into entities that all begin
+      // with '&', so any '$' immediately before one of those characters
+      // becomes the '$&' pattern and expands to the matched text — a real
+      // chapter writing "grants for $<1k" shipped `</head>` inside its own
+      // meta description, four </head> tags in the document, and a broken
+      // unfurl card. A '$\'' would splice the whole document body into the
+      // attribute. Functions make the replacement literal.
       return html
         // The template ships a hardcoded title and description; replace
         // rather than append so crawlers never see two of either.
-        .replace(/<title>[\s\S]*?<\/title>/, `<title>${esc(title)}</title>`)
+        .replace(/<title>[\s\S]*?<\/title>/, () => `<title>${esc(title)}</title>`)
         .replace(/\s*<meta\s+name="description"[^>]*>/gi, '')
-        .replace('</head>', `  ${buildTags(isHome)}\n</head>`);
+        .replace('</head>', () => `  ${buildTags(isHome)}\n</head>`);
     },
   };
 }
