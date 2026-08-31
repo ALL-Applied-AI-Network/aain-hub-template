@@ -3538,3 +3538,58 @@ body.sponsor-modal-open {
     padding: 2rem 1.25rem 1.5rem;
   }
 }
+
+/* ── Under-construction holding page ──────────────────────────────────
+   Shown in place of the whole site when the chapter's data can't be
+   loaded. Uses the site's own theme so it reads as a deliberate page
+   rather than an error, and carries no diagnostic detail — that goes to
+   the console for whoever runs the site. */
+body.is-holding {
+  display: flex;
+  min-height: 100vh;
+  margin: 0;
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+
+.holding {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+
+.holding__inner {
+  max-width: 34rem;
+}
+
+.holding__mark {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 1.75rem;
+  border-radius: 16px;
+  background: linear-gradient(
+    135deg,
+    var(--color-primary) 0%,
+    var(--color-accent) 100%
+  );
+  opacity: 0.9;
+}
+
+.holding__title {
+  margin: 0 0 0.9rem;
+  font-size: clamp(1.5rem, 4vw, 2.1rem);
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.holding__body {
+  margin: 0;
+  font-size: 1.02rem;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}

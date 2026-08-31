@@ -367,6 +367,50 @@ async function fetchBundle(slug: string): Promise<ChapterBundle | null> {
 }
 
 /* ──────────────────────────────────────────────────────────────────
+   Under construction
+   ──────────────────────────────────────────────────────────────────
+   When the bundle can't be loaded there is no chapter data to show —
+   no events, no members, no officers. The site used to fall through to
+   whatever was left in hub.config.json, which on an unconfigured fork is
+   the template's sample club: "My AI Club", a fake president, invented
+   events. It looked completely real, so nobody ever found out their site
+   was broken. Three of the four live chapter sites were serving that.
+
+   A visitor gets a clean themed holding page instead. The person who owns
+   the site gets the actual diagnosis in the console — that detail is for
+   them, not for whoever wandered onto the page.
+   ────────────────────────────────────────────────────────────────── */
+
+function renderUnderConstruction(opts: {
+  hubName: string;
+  slug: string;
+  reason: string;
+}) {
+  console.warn(
+    `[ALL hub] This site can't load its chapter data, so it's showing the ` +
+      `holding page instead of sample content.\n` +
+      `Reason: ${opts.reason}\n` +
+      `It is asking the dashboard for the chapter "${opts.slug || "(none set)"}".\n` +
+      `Fix: set "hub_id" in hub.config.json to your chapter's slug — or open ` +
+      `the Website page in your dashboard and use "Relink my site".`,
+  );
+
+  document.body.classList.add("is-holding");
+  document.body.innerHTML = `
+    <main class="holding" role="main">
+      <div class="holding__inner">
+        <div class="holding__mark" aria-hidden="true"></div>
+        <h1 class="holding__title">Sorry — this site is under construction</h1>
+        <p class="holding__body">
+          ${escapeHtml(opts.hubName || "This chapter")} is still setting things
+          up. Check back soon.
+        </p>
+      </div>
+    </main>
+  `;
+}
+
+/* ──────────────────────────────────────────────────────────────────
    Theme + layout primitives
    ────────────────────────────────────────────────────────────────── */
 
@@ -2719,6 +2763,27 @@ async function init() {
   // top of in-progress URL overrides; in normal mode it's the whole
   // source of truth.
   const bundle = slug ? await fetchBundle(slug) : null;
+
+  // No bundle means no chapter data at all. Rather than dressing the
+  // template's sample club up as this chapter, say so. Preview is exempt:
+  // the dashboard's Customize iframe is a controlled context where a
+  // transient miss shouldn't replace the theme the eboard is editing, and
+  // the dashboard raises its own banner for a genuinely broken site.
+  if (!isPreview && !bundle) {
+    applyTheme({
+      primary: config.theme.primary_color,
+      accent: config.theme.accent_color,
+    });
+    renderUnderConstruction({
+      hubName: config.hub_name ?? "",
+      slug,
+      reason: slug
+        ? `the dashboard has no chapter with the id "${slug}"`
+        : "no hub_id is set in hub.config.json",
+    });
+    return;
+  }
+
   const remote = bundle?.config ?? null;
   const savedSections: Record<string, boolean> = remote?.sections ?? {};
 
