@@ -67,7 +67,22 @@ function injectSocialMeta() {
   // Prefer the chapter's own logo (an absolute URL from the dashboard).
   // Never emit a relative og:image — crawlers won't resolve it, and a
   // broken image card is worse than none.
-  const image = String(config.logo_url || '').trim();
+  //
+  /**
+   * Unfurl bots won't render SVG. The dashboard's generated chapter logo is
+   * an SVG, so a chapter that never uploaded a logo of its own unfurled as a
+   * text-only card everywhere — Discord, Slack, iMessage, X, LinkedIn all
+   * refuse it. The same endpoint has a PNG sibling that renders a proper
+   * 1200x630 card, and it lives at the same origin, so the URL is the only
+   * thing that has to change. An UPLOADED logo is already a raster file and
+   * is left exactly as the chapter set it.
+   */
+  const rawImage = String(config.logo_url || '').trim();
+  const image = rawImage.replace(
+    '/api/public/chapter-logo/',
+    () => '/api/public/chapter-card/',
+  );
+  const generatedCard = image !== rawImage;
 
   const title = `${name} — ALL Applied AI Network`;
 
@@ -86,7 +101,9 @@ function injectSocialMeta() {
       isHome && siteUrl ? `<meta property="og:url" content="${esc(siteUrl)}" />` : '',
       image ? `<meta property="og:image" content="${esc(image)}" />` : '',
       image ? `<meta property="og:image:alt" content="${esc(name + ' logo')}" />` : '',
-      `<meta name="twitter:card" content="${image ? 'summary_large_image' : 'summary'}" />`,
+      // The generated card is a real 1.91:1 image; an uploaded logo is
+      // usually square and gets cropped by a large card.
+      `<meta name="twitter:card" content="${!image ? 'summary' : generatedCard ? 'summary_large_image' : 'summary'}" />`,
       `<meta name="twitter:title" content="${esc(title)}" />`,
       `<meta name="twitter:description" content="${esc(description)}" />`,
       image ? `<meta name="twitter:image" content="${esc(image)}" />` : '',

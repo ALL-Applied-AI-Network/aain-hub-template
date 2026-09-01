@@ -67,6 +67,16 @@ export default async function middleware(req: Request): Promise<Response> {
   if (!slug) return origin;
 
   let name = "", tagline = "", image = "", university = "";
+  /**
+   * Unfurl bots won't render SVG. The dashboard's generated chapter logo is
+   * an SVG, so a chapter that never uploaded a logo of its own unfurled as a
+   * text-only card everywhere — Discord, Slack, iMessage, X, LinkedIn all
+   * refuse it. The same endpoint has a PNG sibling that renders a proper
+   * 1200x630 card, and it lives at the same origin, so the URL is the only
+   * thing that has to change. An UPLOADED logo is already a raster file and
+   * is left exactly as the chapter set it.
+   */
+  let generatedCard = false;
   try {
     const res = await fetch(
       `${DASHBOARD_ORIGIN}/api/public/chapter/${encodeURIComponent(slug)}/bundle`,
@@ -79,6 +89,11 @@ export default async function middleware(req: Request): Promise<Response> {
     name = String(cfg.hub_name ?? chapter.name ?? "").trim();
     tagline = String(cfg.tagline ?? cfg.description ?? "").trim();
     image = String(cfg.logo_url ?? "").trim();
+    generatedCard = image.includes("/api/public/chapter-logo/");
+    image = image.replace(
+      "/api/public/chapter-logo/",
+      () => "/api/public/chapter-card/",
+    );
     university = String(chapter.university ?? cfg.university ?? "").trim();
   } catch {
     return origin; // unreachable dashboard must not take the site down
@@ -106,7 +121,7 @@ export default async function middleware(req: Request): Promise<Response> {
     `<meta property="og:description" content="${esc(description)}">`,
     `<meta property="og:url" content="${esc(pageUrl)}">`,
     image ? `<meta property="og:image" content="${esc(image)}">` : "",
-    `<meta name="twitter:card" content="${image ? "summary_large_image" : "summary"}">`,
+    `<meta name="twitter:card" content="${image && generatedCard ? "summary_large_image" : "summary"}">`,
     `<meta name="twitter:title" content="${esc(title)}">`,
     `<meta name="twitter:description" content="${esc(description)}">`,
     image ? `<meta name="twitter:image" content="${esc(image)}">` : "",
