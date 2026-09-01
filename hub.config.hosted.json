@@ -1,11 +1,7 @@
 {
-  "_comment": "Config for the HOSTED multi-tenant deployment that serves *.all-ai-network.org. Every chapter is served from this one build, so the identity must come from the hostname (see canonicalSlug in src/main.ts) and the content from the dashboard bundle. Everything here is therefore deliberately BLANK: the template's sample officers, events and copy are fallbacks, and on a shared deployment a fallback is somebody else's chapter showing Alex Johnson as its president. A hostname that matches no chapter gets the holding page, which is the correct answer.",
-  "hub_name": "",
-  "hub_acronym": "",
+  "_comment": "Config for the HOSTED multi-tenant deployment that serves *.all-ai-network.org. One build serves every chapter, so identity comes from the hostname (canonicalSlug in src/main.ts) and content from the dashboard bundle. Two deliberate rules here. (1) Sample officers/events/content are EMPTY ARRAYS: they are fallbacks, and on a shared deployment a fallback is somebody else's chapter showing Alex Johnson as its president. (2) Name, acronym, tagline, about and university are OMITTED, not blanked. main.ts resolves them with `remote ?? config ?? hardcoded default`, and `??` only falls through on null — so an empty string here would defeat its own defaults and leave a chapter with no tagline and no acronym rather than a sensible generic one.",
   "hub_id": "",
-  "university": "",
-  "description": "",
-  "about": "",
+  "hub_domain": "all-ai-network.org",
   "theme": {
     "primary_color": "#6366f1",
     "accent_color": "#06b6d4"
@@ -29,6 +25,5 @@
     "custom_order": [],
     "local_content": []
   },
-  "content_url": "https://all-ai-network.org",
-  "hub_domain": "all-ai-network.org"
+  "content_url": "https://all-ai-network.org"
 }
