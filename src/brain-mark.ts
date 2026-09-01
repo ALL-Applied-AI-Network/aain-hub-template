@@ -48,11 +48,21 @@ const EDGES: Array<[number, number]> = [
   [0, 1], [0, 2], [0, 5], [0, 21], [1, 5], [1, 7], [2, 5], [2, 20], [4, 6], [4, 9], [4, 20], [4, 21], [5, 7], [5, 10], [6, 8], [6, 9], [6, 11], [6, 20], [7, 10], [7, 14], [8, 19], [9, 12], [10, 14], [11, 12], [11, 14], [11, 17], [11, 19], [12, 16], [12, 18], [12, 19], [14, 17], [15, 16], [15, 17], [15, 18], [15, 19], [16, 18], [16, 19], [20, 21],
 ];
 
-/** Where "ALL" sits in the original mark, so the acronym lands in the same
- *  place rather than at the geometric centre. */
-const WORD_X = 46.69;
-const WORD_Y = 42.61;
-const WORD_SPAN = 34;
+/** Optically centred in the mark.
+ *
+ *  This first used the original "ALL" word position (46.69, 42.61), which
+ *  is right for the full logo's composition but reads as misaligned once
+ *  the mark is a small square icon — the eye centres text against the
+ *  SQUARE, and that position is 3.2 units left and 7.2 units high of the
+ *  silhouette's centre (bbox 49.89, 49.79). The half-unit down is the usual
+ *  nudge for all-caps text, which has no descenders and otherwise sits
+ *  visually high. */
+const WORD_X = 50;
+const WORD_Y = 48.5;
+/* The clear band between the two big inner nodes (x 28.7 r 4.8 on the left,
+ * x 69.9 on the right). Centring the wordmark without narrowing it ran the
+ * first letter straight into that left node. */
+const WORD_SPAN = 30;
 
 function escapeXml(v: string): string {
   return v
