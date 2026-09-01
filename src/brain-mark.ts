@@ -50,6 +50,14 @@ const EDGES: Array<[number, number]> = [
 
 /** Optically centred in the mark.
  *
+ *  Only the X moved. The original art's height (42.61) is where a designer
+ *  put "ALL", and the brain is genuinely top-heavy — it widens at the top
+ *  and narrows to a stem, so its visual mass sits well above the middle of
+ *  its own bounding box (area centroid 45.25 vs bbox centre 49.79). Moving
+ *  the wordmark down to the bbox centre made it read as too low. The
+ *  original X (46.69) is what looked off, because the eye centres text
+ *  against the SQUARE, so that is the only value changed.
+ *
  *  This first used the original "ALL" word position (46.69, 42.61), which
  *  is right for the full logo's composition but reads as misaligned once
  *  the mark is a small square icon — the eye centres text against the
@@ -58,7 +66,7 @@ const EDGES: Array<[number, number]> = [
  *  nudge for all-caps text, which has no descenders and otherwise sits
  *  visually high. */
 const WORD_X = 50;
-const WORD_Y = 48.5;
+const WORD_Y = 42.61;
 /* The clear band between the two big inner nodes (x 28.7 r 4.8 on the left,
  * x 69.9 on the right). Centring the wordmark without narrowing it ran the
  * first letter straight into that left node. */
