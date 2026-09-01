@@ -4,3 +4,6 @@ dist/
 *.local
 .env
 .env.*
+
+# Vercel (hosted deployment link — local only)
+.vercel

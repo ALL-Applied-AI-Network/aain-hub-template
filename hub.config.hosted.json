@@ -1,0 +1,34 @@
+{
+  "_comment": "Config for the HOSTED multi-tenant deployment that serves *.all-ai-network.org. Every chapter is served from this one build, so the identity must come from the hostname (see canonicalSlug in src/main.ts) and the content from the dashboard bundle. Everything here is therefore deliberately BLANK: the template's sample officers, events and copy are fallbacks, and on a shared deployment a fallback is somebody else's chapter showing Alex Johnson as its president. A hostname that matches no chapter gets the holding page, which is the correct answer.",
+  "hub_name": "",
+  "hub_acronym": "",
+  "hub_id": "",
+  "university": "",
+  "description": "",
+  "about": "",
+  "theme": {
+    "primary_color": "#6366f1",
+    "accent_color": "#06b6d4"
+  },
+  "links": {
+    "discord": "",
+    "github": "",
+    "instagram": "",
+    "linkedin": "",
+    "email": ""
+  },
+  "officers": [],
+  "events": [],
+  "features": {
+    "learning_tree": true,
+    "playbooks": true,
+    "workshops": true
+  },
+  "content": {
+    "exclude_paths": [],
+    "custom_order": [],
+    "local_content": []
+  },
+  "content_url": "https://all-ai-network.org",
+  "hub_domain": "all-ai-network.org"
+}

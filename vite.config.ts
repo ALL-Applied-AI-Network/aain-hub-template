@@ -4,7 +4,21 @@ import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const config = JSON.parse(readFileSync(resolve(__dirname, 'hub.config.json'), 'utf-8'));
+/**
+ * Which identity this build carries.
+ *
+ * A chapter's own build reads hub.config.json, stamped with their slug at
+ * deploy time. The HOSTED deployment that serves *.all-ai-network.org sets
+ * HUB_CONFIG=hub.config.hosted.json instead: one build serves every chapter,
+ * so it must carry no chapter's identity and no sample content — see the
+ * note at the top of that file.
+ */
+const configFile = process.env.HUB_CONFIG?.trim() || 'hub.config.json';
+const configPath = resolve(__dirname, configFile);
+if (!existsSync(configPath)) {
+  throw new Error(`HUB_CONFIG points at ${configFile}, which does not exist.`);
+}
+const config = JSON.parse(readFileSync(configPath, 'utf-8'));
 
 /**
  * Social/SEO meta — baked at BUILD time, on purpose.
