@@ -3592,6 +3592,8 @@ body.is-holding {
   font-size: 1.02rem;
   line-height: 1.65;
   color: var(--text-secondary);
+}
+
 /* ── The ALL mark in the hero ────────────────────────────────────
    Same geometry as the network's home page, carrying this chapter's
    acronym and colours. It sits behind the hero copy, so it is sized and
