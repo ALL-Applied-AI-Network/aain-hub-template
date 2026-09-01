@@ -307,7 +307,7 @@ code {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 6rem 1.5rem 3rem;
+  padding: clamp(2.75rem, 7vh, 5rem) 1.5rem 2.5rem;
   overflow: hidden;
 }
 
@@ -3598,24 +3598,25 @@ body.is-holding {
    Same geometry as the network's home page, carrying this chapter's
    acronym and colours. It sits behind the hero copy, so it is sized and
    faded to stay decoration rather than competing with the headline. */
+/* In the FLOW, above the eyebrow — not a backdrop behind the copy.
+   As an absolute watermark the university pill landed straight across the
+   mark and covered the acronym, which is the one part of it that belongs
+   to this chapter. all-ai-network.org gives its mark its own half of the
+   hero for the same reason; this is the centred equivalent. */
 .hero__mark {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  /* Lifted off centre: dead-centre put the acronym directly behind the H1,
-     which hid the one part of the mark that is actually the chapter's. */
-  place-items: start center;
-  padding-top: clamp(0.5rem, 4vh, 3rem);
+  display: flex;
+  justify-content: center;
+  margin-bottom: clamp(0.5rem, 1.8vh, 1.25rem);
   pointer-events: none;
-  z-index: 0;
+  z-index: 1;
 }
 .hero__mark .bmark {
-  width: min(34vh, 300px);
+  width: clamp(104px, 15vh, 140px);
   height: auto;
-  opacity: 0.62;
+  opacity: 0.95;
 }
 @media (max-width: 800px) {
-  .hero__mark .bmark { width: min(26vh, 190px); opacity: 0.4; }
+  .hero__mark .bmark { width: clamp(96px, 16vh, 132px); }
 }
 
 .bmark__outline {

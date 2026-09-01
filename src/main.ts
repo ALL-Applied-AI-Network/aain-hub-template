@@ -95,6 +95,10 @@ interface HubConfig {
   hub_name: string;
   hub_acronym: string;
   hub_id: string;
+  /** Domain whose subdomains are chapters. Only needed by a fork
+   *  self-hosting under its own domain; the network's own default is
+   *  all-ai-network.org. */
+  hub_domain?: string;
   university: string;
   description: string;
   about: string;
@@ -2324,12 +2328,59 @@ async function loadLearningTree() {
  *  Shared by loadLearningTree()'s fallback link and
  *  activateLearningTree()'s iframe src so both point at the same
  *  chapter's merged tree. */
+/* ──────────────────────────────────────────────────────────────────
+   Which chapter is this page for?
+
+   The network hosts chapter sites at {slug}.all-ai-network.org from ONE
+   deployment of this template, so the hostname is the chapter — not a
+   value baked into hub.config.json at build time. That is the whole point:
+   a hosted site can never carry a stale hub_id, and a template update
+   reaches every chapter the moment it deploys rather than never.
+
+   The baked hub_id remains the fallback, because it is still correct for a
+   chapter running its own fork on GitHub Pages, for a self-hosted copy, and
+   for local development.
+   ────────────────────────────────────────────────────────────────── */
+
+/** The domain whose subdomains are chapters. Overridable so a fork
+ *  self-hosting under its own domain still resolves. */
+const HUB_DOMAIN = (config.hub_domain ?? "all-ai-network.org").toLowerCase();
+
+/** Subdomains of HUB_DOMAIN that are network services, not chapters.
+ *  Without this, loading the hub build at dashboard.all-ai-network.org
+ *  would go looking for a chapter called "dashboard". */
+const RESERVED_LABELS = new Set([
+  "www", "api", "app", "dashboard", "sponsors", "sponsor", "admin",
+  "mail", "docs", "status", "cdn", "assets",
+]);
+
+function hostnameSlug(): string {
+  if (typeof window === "undefined") return "";
+  const host = window.location.hostname.toLowerCase();
+  // The apex is the marketing site, not a chapter.
+  if (host === HUB_DOMAIN) return "";
+  if (!host.endsWith(`.${HUB_DOMAIN}`)) return "";
+  const label = host.slice(0, host.length - HUB_DOMAIN.length - 1);
+  // Only a single label: a.b.all-ai-network.org is not a chapter.
+  if (!label || label.includes(".")) return "";
+  if (RESERVED_LABELS.has(label)) return "";
+  return label;
+}
+
+/** The chapter this page is for. NEVER reads ?slug= — that is honoured
+ *  only in dashboard preview (see the boot path), because a query string
+ *  any link can set must not change which chapter a hub site shows
+ *  (security audit 2026-08-18, finding 6). */
+function canonicalSlug(): string {
+  return hostnameSlug() || (config.hub_id?.trim().toLowerCase() ?? "");
+}
+
 function learningTreeChapterSlug(): string {
   // Deliberately ignores ?slug=: it used to be honoured here even without
   // preview=1, so any link could swap which chapter's tree this hub showed
   // (security audit 2026-08-18, finding 6). The dashboard preview drives
   // the iframe through its own URL, not through this hub's query string.
-  return config.hub_id?.trim().toLowerCase() ?? "";
+  return canonicalSlug();
 }
 
 let learningTreeActivated = false;
@@ -2758,7 +2809,9 @@ async function init() {
   // Resolve which slug to fetch: preview mode passes slug explicitly
   // from the dashboard; normal mode reads it from the bundled config
   // (set by the chapter's hub.config.json).
-  const configuredSlug = config.hub_id?.trim().toLowerCase() ?? "";
+  // Hosted: the hostname. Forked/self-hosted: the baked hub_id. Preview:
+  // whatever the dashboard asked for, and only there.
+  const configuredSlug = canonicalSlug();
   const slug = (isPreview ? params?.get("slug") : null) ?? configuredSlug;
 
   // Always try to fetch the bundle — in preview we want live data on
@@ -2781,7 +2834,9 @@ async function init() {
       slug,
       reason: slug
         ? `the dashboard has no chapter with the id "${slug}"`
-        : "no hub_id is set in hub.config.json",
+        : hostnameSlug()
+          ? "this address doesn't match a chapter"
+          : "no hub_id is set in hub.config.json",
     });
     return;
   }
