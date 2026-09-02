@@ -34,6 +34,14 @@ jobs:
 
       - name: Build site
         run: npm run build
+        env:
+          # This repository's own Pages deploy is the demo linked from
+          # all-ai-network.org, so it renders the sample club in
+          # hub.config.json instead of the holding page. The comparison
+          # is what keeps that true only here: a fork builds with an empty
+          # value and keeps the holding page until its hub_id points at a
+          # real chapter.
+          VITE_DEMO_SITE: ${{ github.repository == 'ALL-Applied-AI-Network/aain-hub-template' && '1' || '0' }}
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
