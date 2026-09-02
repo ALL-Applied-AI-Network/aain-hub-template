@@ -86,6 +86,22 @@ export default async function middleware(req: Request): Promise<Response> {
     const data = await res.json();
     const cfg = data?.config ?? data ?? {};
     const chapter = data?.chapter ?? {};
+
+    /* The dashboard resolves slugs a chapter used to have as well as the one
+       it holds now, so this address may be an old one. Send visitors (and
+       crawlers) to the current address rather than serving the chapter on
+       two hostnames — a rename would otherwise leave every shared link
+       working but pointing at a name the chapter has moved on from. */
+    const canonical = String(chapter.slug ?? "").trim().toLowerCase();
+    if (canonical && canonical !== slug) {
+      return new Response(null, {
+        status: 301,
+        headers: {
+          location: `https://${canonical}.${HUB_DOMAIN}${url.pathname}${url.search}`,
+          "cache-control": "public, max-age=0, s-maxage=300",
+        },
+      });
+    }
     name = String(cfg.hub_name ?? chapter.name ?? "").trim();
     tagline = String(cfg.tagline ?? cfg.description ?? "").trim();
     image = String(cfg.logo_url ?? "").trim();
