@@ -55,16 +55,20 @@ const STRIP = [
   /<meta\s+name="twitter:[^"]*"[^>]*>/gi,
 ];
 
-export default async function middleware(req: Request): Promise<Response> {
+/** Hand the request to the static site untouched. Returning nothing is the
+ *  cheapest possible fallback — no extra fetch, and nothing that can throw —
+ *  which matters because ANY error thrown here is a 500 on a chapter's
+ *  homepage. This middleware exists to improve a meta tag; it must never be
+ *  the reason a site is down. */
+const passThrough = undefined;
+
+export default async function middleware(
+  req: Request,
+): Promise<Response | undefined> {
   const url = new URL(req.url);
   const slug = hostnameSlug(url.host);
 
-  // The static asset. Not matched by this middleware, so no recursion.
-  const origin = fetch(new URL("/index.html", url.origin), {
-    headers: { accept: "text/html" },
-  });
-
-  if (!slug) return origin;
+  if (!slug) return passThrough;
 
   let name = "", tagline = "", image = "", university = "";
   /**
@@ -82,7 +86,7 @@ export default async function middleware(req: Request): Promise<Response> {
       `${DASHBOARD_ORIGIN}/api/public/chapter/${encodeURIComponent(slug)}/bundle`,
       { signal: AbortSignal.timeout(2000) },
     );
-    if (!res.ok) return origin;
+    if (!res.ok) return passThrough;
     const data = await res.json();
     const cfg = data?.config ?? data ?? {};
     const chapter = data?.chapter ?? {};
@@ -112,13 +116,22 @@ export default async function middleware(req: Request): Promise<Response> {
     );
     university = String(chapter.university ?? cfg.university ?? "").trim();
   } catch {
-    return origin; // unreachable dashboard must not take the site down
+    return passThrough; // unreachable dashboard must not take the site down
   }
 
-  if (!name) return origin;
+  if (!name) return passThrough;
 
-  const res = await origin;
-  if (!res.ok) return res;
+  // Only now is the origin HTML actually needed. Fetching it up front meant a
+  // blip on that request threw a 500 even for the paths that never used it.
+  let res: Response;
+  try {
+    res = await fetch(new URL("/index.html", url.origin), {
+      headers: { accept: "text/html" },
+    });
+  } catch {
+    return passThrough;
+  }
+  if (!res.ok) return passThrough;
 
   const description =
     tagline ||
@@ -146,7 +159,12 @@ export default async function middleware(req: Request): Promise<Response> {
     .filter(Boolean)
     .join("\n    ");
 
-  let html = await res.text();
+  let html: string;
+  try {
+    html = await res.text();
+  } catch {
+    return passThrough;
+  }
   for (const re of STRIP) html = html.replace(re, () => "");
   html = html.replace(/<\/head>/i, () => `    ${head}\n  </head>`);
 
