@@ -10,14 +10,12 @@
     "hubUrl": "https://msoe-maic.com",
     "logoUrl": "https://gdxifnnfirnzljtxnhch.supabase.co/storage/v1/object/public/chapter-logos/8d09420c-becd-42eb-9506-e7f9a1afa636/c0949032-6627-4879-a64a-de7f7066e041.jpg",
     "primaryColor": "#4f8fea",
-    "verifyStudentId": "f14c22da-cc49-4037-aa8a-dbd2e5b0550f"
+    "verifyStudentId": "f14c22da-cc49-4037-aa8a-dbd2e5b0550f",
+    "acronym": "MAIC"
   },
   "chapterCount": 1,
   "since": "2026-08-27T16:09:51.442727+00:00",
-  "now": {
-    "kind": "member",
-    "text": "Now · checked in at Innovation Lab 2026"
-  },
+  "now": null,
   "record": {
     "entries": [
       {

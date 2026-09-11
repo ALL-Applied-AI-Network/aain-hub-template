@@ -73,7 +73,9 @@ export function deriveAccent(primaryColor: string | null | undefined): Accent {
   }
 
   // Stamp numerals and badge icons sit on solid accent ink.
-  const inkText = contrastRatio(accent, "#ffffff") >= 3 ? "#ffffff" : GROUND;
+  // 4.5:1, not the 3:1 large-text floor: the band's "since" line is
+  // 11 px mono. The dashboard's OG card uses the same threshold.
+  const inkText = contrastRatio(accent, "#ffffff") >= 4.5 ? "#ffffff" : GROUND;
 
   return { accent, accentRgb: rgb.join(", "), accentText: text, inkText };
 }

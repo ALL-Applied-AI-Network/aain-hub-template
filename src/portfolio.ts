@@ -11,7 +11,7 @@ document.documentElement.classList.add("js-rv");
 import { escapeHtml as esc, escapeAttr as attr } from "./lib/html";
 import { hostnameSlug, isDashboardPreview } from "./lib/slug";
 import { BUILT_IN_ICONS, renderBadgeIcon } from "./badge-icon";
-import { deriveAccent } from "./accent";
+import { contrastRatio, deriveAccent } from "./accent";
 import { langColor } from "./lang-colors";
 import { plainText } from "./plain-text";
 
@@ -59,12 +59,21 @@ type Bundle = {
   headline: string | null;
   chapter: {
     name: string; hubUrl: string | null; logoUrl: string | null;
-    primaryColor: string | null; verifyStudentId: string | null;
+    primaryColor: string | null; acronym: string | null; verifyStudentId: string | null;
   } | null;
   chapterCount: number;
   since: string;
-  now: { text: string };
-  record?: { entries: Entry[]; totals: { points: number; events: number } };
+  /** A present-tense fact (a band in progress, a public build, a recent
+   *  check-in) or null. The composer files the check-in line under kind
+   *  "member" too, so renderHero tells the retired "member of …" filler
+   *  apart by its sentence, not its kind. */
+  now: { kind: "learning" | "building" | "checkin" | "member"; text: string } | null;
+  record?: {
+    entries: Entry[];
+    totals: { points: number; events: number };
+    /** Points carried in from before events were tracked. */
+    startingBalance?: number;
+  };
   badges?: { id: string; name: string; icon: string | null; awardedAt: string; chapterName: string | null }[];
   learning?: { bands: { id: string; title: string; done: number; count: number; lessons: { id: string; title: string; completedAt: string }[] }[] };
   projects?: Project[];
@@ -104,47 +113,19 @@ function formatLong(iso: string): string {
 function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
-function firstName(name: string): string {
-  return name.trim().split(/\s+/)[0] ?? name;
-}
-function initials(name: string, max = 3): string {
-  return name.split(/\s+/).filter(Boolean).map((w) => w[0]).join("").slice(0, max).toUpperCase();
-}
 function fnv1a(s: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193) >>> 0;
   return h;
 }
-/** The 4-char minted suffix of a public slug, or null. */
-function slugSuffix(slug: string | null): string | null {
-  const m = /^(.+)-([23456789bcdfghjkmnpqrstvwxyz]{4})$/.exec(slug ?? "");
-  return m ? m[2].toUpperCase() : null;
-}
 /** First letters of up to five words, punctuation dropped first so
- *  "(AI) Club" contributes "A" rather than "(": "MSOE AI Club" → "MAC". */
+ *  "(AI) Club" contributes "A" rather than "(": "MSOE AI Club" → "MAC".
+ *  Drawn in type at the seal's centre — never the uploaded logo image,
+ *  which at 40 px reads as a smudge. */
 function acronymOf(name: string): string {
   return name.split(/\s+/)
     .map((w) => w.replace(/[^\p{L}\p{N}]/gu, "")[0] ?? "")
     .join("").toUpperCase().slice(0, 5);
-}
-/** ASCII-fold, uppercase, and turn everything that is not [A-Z0-9] into
- *  the strip's filler, so "José" prints JOSE rather than JOS<. */
-function stripField(s: string): string {
-  return s.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]/g, "<");
-}
-/** The machine-readable strip: only data already printed on the card.
- *  Same rule as the OG card route (network-api member-card strip()):
- *  LAST = last word, FIRST = every other word, a single-word name has no
- *  FIRST segment — the unfurl and the page must print one strip. */
-function mrz(name: string, chapter: string | null, suffix: string | null, since: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  const last = words.length > 1 ? words[words.length - 1] : words[0] ?? "";
-  const first = words.length > 1 ? words.slice(0, -1).join(" ") : "";
-  const acronym = chapter ? acronymOf(chapter) : "";
-  const [y, m] = ymd(since);
-  const mon = `${MONTHS[m - 1].toUpperCase()}${y}`;
-  return [last, first, acronym, suffix ?? "", mon]
-    .filter(Boolean).map(stripField).join("<<").padEnd(44, "<").slice(0, 44);
 }
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const $ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = document) =>
@@ -162,59 +143,59 @@ const btn = (label: string, extra = "", cls = "") => `<button type="button" clas
 const restOf = (html: string, label: string) => html
   ? `<div class="pp-rest rv-group" hidden>${html}</div><div class="pp-more">${btn(label, " data-show-all")}</div>` : "";
 const linkBtn = (label: string, href: string) => `<a class="pp-btn" href="${attr(href)}"${ext}><span>${label}</span></a>`;
-const section = (cls: string, eyebrow: string, body: string, rv = true, hold = false) => `
+/** Section head: the word in sentence case, the count as a small tertiary
+ *  number after it, then the hairline. No eyebrow system. */
+const section = (cls: string, title: string, count: string | number | null, body: string, rv = true, hold = false) => `
   <section class="pp-section ${cls}${rv ? " rv" : ""}">
     <div class="pp-section__head"${hold ? " data-hold" : ""}>
-      <span class="pp-section__eyebrow">${eyebrow}</span><span class="pp-section__rule"></span>
+      <h2 class="pp-section__title">${title}${count ? `<span class="pp-section__count">${count}</span>` : ""}</h2><span class="pp-section__rule"></span>
     </div>${body}
   </section>`;
 
-/** Ten concentric rings; the outer one draws on clockwise from 12 o'clock
- *  (rotated so the dash starts at the top; the arrival sets the offset). */
+/** Five thin concentric rings knocked out of the band; the outer one
+ *  draws on clockwise from 12 o'clock (rotated so the dash starts at the
+ *  top; the arrival sets the offset). */
 function sealSvg(): string {
-  let rings = "";
-  for (let i = 0; i < 10; i++) {
-    const r = 48 - i * (26 / 9);
-    const w = i < 4 ? 1.1 : 0.8;
-    rings += i === 0
-      ? `<circle class="pp-seal__ring" cx="50" cy="50" r="48" stroke-width="${w}" stroke-dasharray="302" transform="rotate(-90 50 50)"/>`
-      : `<circle cx="50" cy="50" r="${r.toFixed(2)}" stroke-width="${w}"/>`;
-  }
-  return `<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" aria-hidden="true">${rings}</svg>`;
+  let rings = `<circle class="pp-seal__ring" cx="50" cy="50" r="48" stroke-dasharray="302" transform="rotate(-90 50 50)"/>`;
+  for (let i = 1; i < 5; i++) rings += `<circle cx="50" cy="50" r="${48 - i * 3}"/>`;
+  return `<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width=".9" aria-hidden="true">${rings}</svg>`;
 }
 
 function renderCard(b: Bundle): string {
   const ch = b.chapter;
-  const suffix = slugSuffix(b.slug);
-  const seal = ch
-    ? `<div class="pp-card__seal">${sealSvg()}${
-        ch.logoUrl
-          ? `<img src="${attr(ch.logoUrl)}" alt="" width="30" height="30" referrerpolicy="no-referrer" data-initials="${attr(initials(ch.name))}">`
-          : `<i>${esc(initials(ch.name))}</i>`
-      }</div>`
+  // The identity block: a solid band in the chapter's colour carrying the
+  // seal, the chapter's name and the issue month. No chapter, no band.
+  const band = ch
+    ? `<div class="pp-card__band">
+      <div class="pp-card__seal">${sealSvg()}<i>${esc(ch.acronym ?? acronymOf(ch.name))}</i></div>
+      <span class="pp-card__chapter">${esc(ch.name)}</span>
+      <span class="pp-card__since">since ${formatMonth(b.since)}</span>
+    </div>`
     : "";
   const headline = b.headline ?? b.resume?.tagline ?? null;
-  const fields: [string, string, boolean][] = [
-    ["SINCE", formatMonth(b.since), false],
-    ["EVENTS", String(b.record?.totals.events ?? 0), false],
-    ["POINTS", String(b.record?.totals.points ?? 0), false],
-    ["CHAPTER", ch?.name ?? "", (ch?.name.length ?? 0) > 22],
+  // SINCE lives in the band; with no band it has nowhere else to print,
+  // so it joins the fields row (the OG card does the same). Zero is never
+  // printed, so a row with nothing true in it does not exist.
+  const fields: [string, string | number | null][] = [
+    ["SINCE", ch ? null : formatMonth(b.since)],
+    ["EVENTS", b.record?.totals.events || null],
+    ["POINTS", b.record?.totals.points || null],
   ];
   const fieldHtml = fields
-    .filter(([, v]) => v && v !== "0")
-    .map(([k, v, wide]) => `<div class="pp-card__field${wide ? " pp-card__field--wide" : ""}"><b>${esc(v)}</b><span>${k}</span></div>`)
+    .filter(([, v]) => v)
+    .map(([k, v]) => `<div class="pp-card__field"><b>${esc(String(v))}</b><span>${k}</span></div>`)
     .join("");
   return `
-  <div class="pp-card" id="pp-card">
-    ${seal}
-    <div class="pp-card__kind" aria-hidden="true">MEMBER${suffix ? `<br>№ ${esc(suffix)}` : ""}</div>
-    <div class="pp-card__id">
-      <h1 class="pp-card__name" id="pp-name">${esc(b.name)}</h1>
-      ${headline ? `<p class="pp-card__headline">${esc(headline)}</p>` : ""}
+  <div class="pp-card${b.imageUrl ? " pp-card--portrait" : ""}" id="pp-card">
+    ${band}
+    <div class="pp-card__body">
+      ${b.imageUrl ? `<img class="pp-card__photo" src="${attr(b.imageUrl)}" alt="" width="88" height="88" referrerpolicy="no-referrer">` : ""}
+      <div class="pp-card__id">
+        <h1 class="pp-card__name" id="pp-name">${esc(b.name)}</h1>
+        ${headline ? `<p class="pp-card__headline">${esc(headline)}</p>` : ""}
+      </div>
+      ${fieldHtml ? `<div class="pp-card__fields">${fieldHtml}</div>` : ""}
     </div>
-    ${b.imageUrl ? `<img class="pp-card__photo" src="${attr(b.imageUrl)}" alt="" width="56" height="56" referrerpolicy="no-referrer">` : ""}
-    <div class="pp-card__fields">${fieldHtml}</div>
-    <div class="pp-card__strip" aria-hidden="true">${esc(mrz(b.name, ch?.name ?? null, suffix, b.since))}</div>
   </div>`;
 }
 
@@ -222,10 +203,17 @@ function renderHero(b: Bundle): string {
   const ch = b.chapter;
   const verify = ch?.verifyStudentId
     ? `${DASHBOARD_ORIGIN}/verify/${encodeURIComponent(ch.verifyStudentId)}` : null;
+  // Only a real present-tense fact is printed. The composer still files
+  // its recent-check-in line under kind "member" (compose.ts nowLine),
+  // so the kind cannot tell a fact from the retired "member of …"
+  // filler; only the sentence can, and a cached bundle may still carry it.
+  // The composer sends null when there is no present-tense fact; the
+  // "member of" guard only catches a bundle cached before that change.
+  const now = b.now?.text && !b.now.text.startsWith("Now · member of") ? b.now.text : null;
   return `
   <header class="pp-hero">
     ${renderCard(b)}
-    <p class="pp-now" id="pp-now">${esc(b.now.text)}</p>
+    ${now ? `<p class="pp-now" id="pp-now">${esc(now)}</p>` : ""}
     <div class="pp-actions" id="pp-actions">
       ${btn("Copy link", ' data-copy')}
       ${ch?.hubUrl ? linkBtn("Chapter site →", ch.hubUrl) : ""}
@@ -236,14 +224,12 @@ function renderHero(b: Bundle): string {
 
 function renderStamps(b: Bundle): string {
   const entries = (b.record?.entries ?? []).filter((e) => e.kind === "checkin");
-  const n = entries.length;
+  const carried = b.record?.startingBalance ?? 0;
+  const n = entries.length + (carried > 0 ? 1 : 0);
   if (!n) return "";
-  const stamp = (e: Entry, i: number) => {
-    const r = ((fnv1a(e.id) % 25) - 12) * 0.5;
-    const meta = [e.points ? `+${e.points}` : null, b.chapterCount > 1 ? e.chapterName : null]
-      .filter(Boolean).join(" · ");
-    return `
-      <div class="pp-stamp${i >= 6 ? " rv" : ""}" style="--r:${r}deg">
+  const rot = (id: string) => ((fnv1a(id) % 25) - 12) * 0.5;
+  const stamp = (e: Entry, i: number) => `
+      <div class="pp-stamp${i >= 6 ? " rv" : ""}" style="--r:${rot(e.id)}deg">
         <div class="pp-stamp__ink" aria-hidden="true">
           <span class="pp-stamp__day">${ymd(e.date)[2]}</span>
           <span class="pp-stamp__mon">${formatStampMonth(e.date)}</span>
@@ -251,15 +237,30 @@ function renderStamps(b: Bundle): string {
         </div>
         <div class="pp-stamp__cap">
           <div class="pp-stamp__title">${esc(e.title)}</div>
-          ${meta ? `<div class="pp-stamp__meta">${esc(meta)}</div>` : ""}
+          ${e.points ? `<div class="pp-stamp__meta">+${e.points}</div>` : ""}
         </div>
       </div>`;
-  };
-  const shown = entries.slice(0, 24).map(stamp).join("");
-  const rest = restOf(entries.slice(24).map((e, i) => stamp(e, i + 24)).join(""), `Show all ${n} stamps`);
+  // Points from before events were tracked have no date to stamp, so the
+  // oldest stamp in the cascade carries the points instead. It counts
+  // toward POINTS (totals already include it) and never toward EVENTS.
+  const carriedStamp = (i: number) => `
+      <div class="pp-stamp pp-stamp--carried${i >= 6 ? " rv" : ""}" style="--r:${rot("carried")}deg">
+        <div class="pp-stamp__ink" aria-hidden="true">
+          <span class="pp-stamp__day">+${carried}</span>
+          <span class="pp-stamp__mon">Carried</span>
+        </div>
+        <div class="pp-stamp__cap">
+          <div class="pp-stamp__title">Carried forward</div>
+          <div class="pp-stamp__meta">${esc(["Points from before events were tracked", b.chapter?.name].filter(Boolean).join(" · "))}</div>
+        </div>
+      </div>`;
+  const all = entries.map((e, i) => stamp(e, i));
+  if (carried > 0) all.push(carriedStamp(entries.length));
+  const shown = all.slice(0, 24).join("");
+  const rest = restOf(all.slice(24).join(""), `Show all ${n} stamps`);
   return section(
     `pp-stamps${n === 1 ? " pp-stamps--one" : ""}`,
-    `Stamps · ${n}`,
+    "Stamps", n,
     `<div class="pp-stamps__grid" id="pp-stamps">${shown}${rest}</div>`,
     false, true,
   );
@@ -281,7 +282,7 @@ function renderBadges(b: Bundle): string {
   }).join("");
   return section(
     `pp-badges${badges.length === 1 ? " pp-badges--one" : ""}`,
-    `Badges · ${badges.length}`,
+    "Badges", badges.length,
     `<div class="pp-badges__grid rv-group">${items}</div>`,
   );
 }
@@ -292,7 +293,7 @@ function renderAbout(b: Bundle): string {
   const kw = r?.keywords ?? [];
   if (!summary && !kw.length) return "";
   const paras = summary.split(/\n\s*\n/).filter(Boolean).map((p) => `<p>${esc(p)}</p>`).join("");
-  return section("pp-about", "About", `
+  return section("pp-about", "About", null, `
     ${r?.overview?.location ? `<div class="pp-about__loc">${esc(r.overview.location)}</div>` : ""}
     ${paras ? `<div class="pp-about__body">${paras}</div>` : ""}
     ${kw.length ? `<div class="pp-about__kw">${esc(kw.join(" · "))}</div>` : ""}`);
@@ -320,7 +321,7 @@ function renderExperience(b: Bundle): string {
         ${bulletList(x.bullets ?? [], 4)}
       </div>`;
   }).join("");
-  return section("pp-experience", `Experience · ${xs.length}`, `<div class="pp-timeline">${items}</div>`);
+  return section("pp-experience", "Experience", xs.length, `<div class="pp-timeline">${items}</div>`);
 }
 
 function renderEducation(b: Bundle): string {
@@ -333,7 +334,7 @@ function renderEducation(b: Bundle): string {
         <div class="pp-titem__period">${esc(plainText(x.period))}</div>
         ${bulletList((x.highlights ?? []).slice(0, 3), 3)}
       </div>`).join("");
-  return section("pp-education", `Education · ${xs.length}`, `<div class="pp-timeline">${items}</div>`);
+  return section("pp-education", "Education", xs.length, `<div class="pp-timeline">${items}</div>`);
 }
 
 function renderProjects(b: Bundle): string {
@@ -375,7 +376,7 @@ function renderProjects(b: Bundle): string {
     : "";
   return section(
     `pp-projects${n === 1 ? " pp-projects--one" : ""}`,
-    `Projects · ${n}`,
+    "Projects", n,
     `<div class="pp-projects__grid rv-group">${ps.map(card).join("")}</div>${gh}`,
   );
 }
@@ -396,7 +397,7 @@ function renderLearning(b: Bundle): string {
         ${meter}${lessons}
       </div>`;
   };
-  return section("pp-learn", `Learning · ${plural(done, "lesson")}`, `
+  return section("pp-learn", "Learning", plural(done, "lesson"), `
     <div class="pp-learn__body" id="pp-learn"><div class="pp-learn__track" id="pp-track"></div>${bands.map(band).join("")}</div>`);
 }
 
@@ -445,21 +446,16 @@ function renderLedger(b: Bundle): string {
   }
   return section(
     `pp-ledger${multi ? " pp-ledger--multi" : ""}`,
-    "Record",
+    "Record", null,
     `<div id="pp-ledger">${shown}${restOf(hidden, `Show all ${entries.length} entries`)}</div>`,
   );
 }
 
-function footerBand(b: Bundle | null): string {
-  const text = b
-    ? b.chapter
-      ? `This page is generated from ${esc(firstName(b.name))}'s record at ${esc(b.chapter.name)}, a chapter of the ALL Applied AI Network.`
-      : `This page is generated from ${esc(firstName(b.name))}'s record in the ALL Applied AI Network.`
-    : "";
+/** The one ALL call-out: the mark and two doors, no sentence. */
+function footerBand(): string {
   return `
   <aside class="pp-footer rv">
     <img src="./portfolio/all-logo.png" alt="ALL" width="24" height="24">
-    <p class="pp-footer__text">${text}</p>
     <div class="pp-footer__links">
       <a href="https://all-ai-network.org/impact.html#chapters"${ext}>Join a chapter →</a>
       <a href="https://sponsors.all-ai-network.org"${ext}>Sponsor the network →</a>
@@ -468,19 +464,13 @@ function footerBand(b: Bundle | null): string {
 }
 
 function renderColophon(b: Bundle): string {
-  const parts = [
-    `Updated ${formatDay(b.updatedAt, true)}`,
-    b.chapterCount ? plural(b.chapterCount, "chapter") : null,
-    b.record?.totals.events ? plural(b.record.totals.events, "event") : null,
-    b.record?.totals.points ? plural(b.record.totals.points, "point") : null,
-  ].filter(Boolean);
-  return `<p class="pp-colophon">${esc(parts.join(" · "))}</p>`;
+  return `<p class="pp-colophon">Updated ${formatDay(b.updatedAt, true)}</p>`;
 }
 
 function renderPage(b: Bundle): string {
   return renderHero(b) + renderStamps(b) + renderBadges(b) + renderAbout(b) +
     renderExperience(b) + renderProjects(b) + renderEducation(b) + renderLearning(b) +
-    renderLedger(b) + footerBand(b) + renderColophon(b);
+    renderLedger(b) + footerBand() + renderColophon(b);
 }
 
 /* ── shells ──────────────────────────────────────────────────────── */
@@ -488,7 +478,7 @@ function renderPage(b: Bundle): string {
 function showShell(inner: string, withFooter = true) {
   const el = $("#pp-shell")!;
   el.className = "pp-shell";
-  el.innerHTML = inner + (withFooter ? footerBand(null) : "");
+  el.innerHTML = inner + (withFooter ? footerBand() : "");
   el.hidden = false;
   $("#pp")!.hidden = true;
 }
@@ -525,18 +515,17 @@ function bezier(x1: number, y1: number, x2: number, y2: number) {
 const E1 = bezier(0.2, 0.7, 0.2, 1);
 const E2 = bezier(0.2, 1.4, 0.4, 1);
 const E3 = bezier(0.2, 0.9, 0.3, 1.25);
-const EO = bezier(0, 0, 0.58, 1);
 const RING = 302; // 2π·48, the outer seal ring's length
 
-/** `reveal` runs once the now-line and actions have landed (1280 ms): the
- *  sections standing in the first viewport must not show before the card
- *  does, or the eye lands on résumé text while the card is still invisible. */
+/** `reveal` runs once the now-line and actions have landed: the sections
+ *  standing in the first viewport must not show before the card does, or
+ *  the eye lands on résumé text while the card is still invisible. */
 function mountArrival(seek: number | null, reveal: () => void) {
   const card = $("#pp-card")!;
   let revealed = false;
   const seal = $(".pp-card__seal");
   const ring = $<SVGCircleElement>(".pp-seal__ring");
-  const late = [$("#pp-now"), $("#pp-actions"), $(".pp-card__strip")].filter(Boolean) as HTMLElement[];
+  const late = [$("#pp-now"), $("#pp-actions")].filter(Boolean) as HTMLElement[];
   const stampsHead = $(".pp-stamps .pp-section__head");
   // Only stamps standing inside the first screen are pressed by the
   // timeline; the rest are at rest and reveal on scroll.
@@ -546,23 +535,24 @@ function mountArrival(seek: number | null, reveal: () => void) {
       ink: $(".pp-stamp__ink", s)!, cap: $(".pp-stamp__cap", s)!,
       r: parseFloat(s.style.getPropertyValue("--r")) || 0,
     }));
-  const END = 1400 + stamps.length * 140 + 220;
-  // A member with no chapter has no seal, so the 720–1000 beat has no
-  // actor: the now-line and actions take that slot instead of leaving
-  // 280 ms of dead air on a card that looks finished.
-  const LATE = seal ? 1000 : 720;
+  // Card 0–520, then the seal draws on in the band (520–800), then the
+  // now-line and actions. A member with no chapter has no band, so the
+  // seal beat has no actor and the late elements take its slot instead
+  // of leaving 280 ms of dead air on a card that looks finished.
+  const LATE = seal ? 800 : 520;
+  const STAMP0 = LATE + 400;
+  const END = STAMP0 + stamps.length * 140 + 220;
   const T = (t: number, a: number, b: number) => Math.max(0, Math.min(1, (t - a) / (b - a)));
 
   const frame = (t: number) => {
     let p = E1(T(t, 0, 520));
     card.style.opacity = String(p);
     card.style.transform = p < 1 ? `translateY(${24 * (1 - p)}px) scale(${0.97 + 0.03 * p})` : "";
-    card.style.setProperty("--pp-rule", String(EO(T(t, 520, 720))));
     if (seal) {
-      p = E2(T(t, 720, 940));
-      seal.style.opacity = String(T(t, 720, 940));
+      p = E2(T(t, 520, 740));
+      seal.style.opacity = String(T(t, 520, 740));
       seal.style.transform = p < 1 ? `rotate(${-8 * (1 - p)}deg) scale(${0.88 + 0.12 * p})` : "";
-      ring?.style.setProperty("stroke-dashoffset", String(RING * (1 - E1(T(t, 720, 1000)))));
+      ring?.style.setProperty("stroke-dashoffset", String(RING * (1 - E1(T(t, 520, 800)))));
     }
     p = E1(T(t, LATE, LATE + 280));
     for (const el of late) {
@@ -570,9 +560,9 @@ function mountArrival(seek: number | null, reveal: () => void) {
       el.style.transform = p < 1 ? `translateY(${10 * (1 - p)}px)` : "";
     }
     if (t >= LATE + 280 && !revealed) { revealed = true; reveal(); }
-    if (stampsHead && t >= 1400) { stampsHead.removeAttribute("data-hold"); stampsHead.classList.add("in"); }
+    if (stampsHead && t >= STAMP0) { stampsHead.removeAttribute("data-hold"); stampsHead.classList.add("in"); }
     stamps.forEach((s, i) => {
-      const t0 = 1400 + i * 140;
+      const t0 = STAMP0 + i * 140;
       const raw = T(t, t0, t0 + 220);
       p = E3(raw);
       s.ink.style.opacity = String(raw);
@@ -585,7 +575,6 @@ function mountArrival(seek: number | null, reveal: () => void) {
     for (const el of [card, seal, ...late, ...stamps.map((s) => s.ink), ...stamps.map((s) => s.cap)]) {
       if (el) { el.style.opacity = ""; el.style.transform = ""; }
     }
-    card.style.removeProperty("--pp-rule");
     ring?.style.removeProperty("stroke-dashoffset");
   };
 
@@ -695,7 +684,7 @@ function fitName() {
   const el = $("#pp-name");
   if (!el) return;
   let size = parseFloat(getComputedStyle(el).fontSize);
-  while (el.offsetHeight > size * 1.05 * 2 + 2 && size > 18) {
+  while (el.offsetHeight > size * 1.02 * 2 + 2 && size > 18) {
     size -= 1;
     el.style.fontSize = `${size}px`;
   }
@@ -747,16 +736,15 @@ async function init() {
   root.setProperty("--pp-accent", a.accent);
   root.setProperty("--pp-accent-rgb", a.accentRgb);
   root.setProperty("--pp-accent-text", a.accentText);
+  // The band's "since" line is 11 px mono, so ink on solid accent must
+  // clear 4.5:1 (white on the default blue is 3.26); deriveAccent's own
+  // inkText is the large-numeral 3:1 rule and is not used on this page.
   root.setProperty("--pp-ink-text", a.inkText);
   document.title = `${b.name} — ${b.chapter?.name ?? "Portfolio"}`;
   $<HTMLMetaElement>('meta[name="description"]')?.setAttribute(
     "content", b.headline ?? (b.chapter ? `Member of ${b.chapter.name}` : "Member of the ALL Applied AI Network"));
 
   main.innerHTML = renderPage(b);
-  // A chapter logo that fails to load gives way to the chapter's initials.
-  $<HTMLImageElement>(".pp-card__seal img")?.addEventListener("error", function () {
-    this.replaceWith(Object.assign(document.createElement("i"), { textContent: this.dataset.initials }));
-  });
   // Laid out but unseen: measure-then-move happens before first paint so
   // the name never resizes in view and a wrapped now-line never shifts
   // the actions.

@@ -10,13 +10,14 @@
     "hubUrl": "https://msoe-maic.com",
     "logoUrl": "https://gdxifnnfirnzljtxnhch.supabase.co/storage/v1/object/public/chapter-logos/8d09420c-becd-42eb-9506-e7f9a1afa636/c0949032-6627-4879-a64a-de7f7066e041.jpg",
     "primaryColor": "#4f8fea",
-    "verifyStudentId": "f14c22da-cc49-4037-aa8a-dbd2e5b0550f"
+    "verifyStudentId": "f14c22da-cc49-4037-aa8a-dbd2e5b0550f",
+    "acronym": "MAIC"
   },
   "chapterCount": 1,
   "since": "2026-08-27T16:09:51.442727+00:00",
   "now": {
-    "kind": "member",
-    "text": "Now · checked in at Innovation Lab 2026"
+    "kind": "checkin",
+    "text": "Now \u00b7 checked in at Innovation Lab 2026"
   },
   "record": {
     "entries": [
@@ -33,14 +34,28 @@
         "phase": null,
         "badgeIcon": null,
         "learningTreeNodeRef": null
+      },
+      {
+        "id": "starting-msoe",
+        "kind": "starting",
+        "date": "2026-04-19T04:27:05.648Z",
+        "title": "Starting balance",
+        "chapterId": "8d09420c-becd-42eb-9506-e7f9a1afa636",
+        "chapterName": "MSOE AI Club",
+        "chapterSlug": "msoe-ai-club",
+        "hubUrl": "https://msoe-maic.com",
+        "points": 31,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null
       }
     ],
     "totals": {
-      "points": 1,
+      "points": 32,
       "events": 1,
       "badges": 0
     },
-    "startingBalance": 0
+    "startingBalance": 31
   },
   "badges": [],
   "updatedAt": "2026-09-07T01:59:57.386228+00:00"

@@ -6,16 +6,13 @@
   "chapter": null,
   "chapterCount": 0,
   "since": "2026-08-27T16:09:51.442727+00:00",
-  "now": {
-    "kind": "member",
-    "text": "Now · member of the ALL Applied AI Network"
-  },
+  "now": null,
   "projects": [
     {
       "id": "repo-https://github.com/Benja-Pauls/portfolio-pulse",
       "kind": "repo",
       "title": "portfolio-pulse",
-      "description": "AI-powered investment portfolio magazine — daily editorial-style market analysis delivered to your phone via iMessage. Built with Claude Code.",
+      "description": "AI-powered investment portfolio magazine \u2014 daily editorial-style market analysis delivered to your phone via iMessage. Built with Claude Code.",
       "url": "https://github.com/Benja-Pauls/portfolio-pulse",
       "chapterProject": false,
       "chapterName": null,
@@ -109,7 +106,7 @@
     "experience": [
       {
         "role": "Applied AI Engineer",
-        "period": "Jun 2025 – Present",
+        "period": "Jun 2025 \u2013 Present",
         "bullets": [
           "Continues to build on Menu.ai, a patent-pending AI system (US Prov. 63/759509) that hits 90%+ accuracy on complex food unit conversions across the senior-living supply chain.",
           "Represented Direct Supply at the AI Engineer CODE Summit in NYC; brought back patterns for context engineering, GenAI observability, and learning-velocity metrics now folding into the team's prototyping loops.",
@@ -118,13 +115,13 @@
         "company": "Direct Supply",
         "current": true,
         "location": "Milwaukee, WI (On-site)",
-        "description": "Full-time on the Applied AI team at a 1,001–5,000 person healthcare company serving senior living."
+        "description": "Full-time on the Applied AI team at a 1,001\u20135,000 person healthcare company serving senior living."
       },
       {
         "role": "Data Science Intern",
-        "period": "Jun 2022 – Jun 2025",
+        "period": "Jun 2022 \u2013 Jun 2025",
         "bullets": [
-          "Co-developed Menu.ai, a patent-pending AI system (US Prov. 63/759509) achieving 90%+ accuracy on complex food unit conversions — earned the 2025 Direct Supply Invention Award for early involvement.",
+          "Co-developed Menu.ai, a patent-pending AI system (US Prov. 63/759509) achieving 90%+ accuracy on complex food unit conversions \u2014 earned the 2025 Direct Supply Invention Award for early involvement.",
           "Led a tech-wide shift to a prototyping-first culture, cutting average experimentation lifecycle from 2 months to 1 week and contributing to a 100-prototype / 20-roadmapped 2025 OKR.",
           "Designed and ran a Cursor agentic-coding workshop for 150 non-technical attendees, walking each of them through building a working RAG system end-to-end."
         ],
@@ -135,7 +132,7 @@
       },
       {
         "role": "President & Founder (former)",
-        "period": "2021 – May 2025",
+        "period": "2021 \u2013 May 2025",
         "bullets": [
           "Grew the club to 400+ members across multi-campus research, industry partnerships, hackathons, and innovation challenges; transitioned leadership cleanly to incoming e-board in May 2025.",
           "Hosted recurring hackathons and 'Innovation Labs' connecting students with non-profits and Milwaukee-area sponsors; launched Late Night Launch Labs as a builder-focused programming track.",
@@ -149,11 +146,11 @@
       },
       {
         "role": "AI Development Lead",
-        "period": "Aug 2024 – Sep 2025",
+        "period": "Aug 2024 \u2013 Sep 2025",
         "bullets": [
           "Led AI development for stupa placement, sprinkler-timing, and impact-measurement models running on AWS and the ROSIE supercomputer; outputs feed an impact dashboard used by sponsors.",
           "Combined satellite imagery analysis, hydrological modeling, and 3D topology mapping to recommend optimal stupa locations across the Chilean Andes.",
-          "Spent a week on-site in Santiago and at the active stupa field — hiking and snowmobiling to 8 stupas (each 4–5 stories tall) the team had been growing remotely for over a year."
+          "Spent a week on-site in Santiago and at the active stupa field \u2014 hiking and snowmobiling to 8 stupas (each 4\u20135 stories tall) the team had been growing remotely for over a year."
         ],
         "company": "NILUS",
         "current": false,
@@ -161,8 +158,8 @@
         "description": "Contract role with a climate-tech org building artificial glaciers (\"ice stupas\") to restore freshwater to dry regions."
       },
       {
-        "role": "Research Team Lead — UN FAO Commodity Price Prediction",
-        "period": "Oct 2023 – Apr 2024",
+        "role": "Research Team Lead \u2014 UN FAO Commodity Price Prediction",
+        "period": "Oct 2023 \u2013 Apr 2024",
         "bullets": [
           "Shipped next-month price forecasts plus a reinforcement-learning framework for severity-state (warning) prediction targeting integration with GIEWS.",
           "Won 3rd place at the 2024 ROSIE Supercomputer Challenge against the rest of MSOE's research cohort."
@@ -174,7 +171,7 @@
       },
       {
         "role": "CT-Scan Medical Imaging AI Researcher",
-        "period": "Nov 2022 – Apr 2023",
+        "period": "Nov 2022 \u2013 Apr 2023",
         "bullets": [
           "First-author on 'XprospeCT: CT Volume Generation from Paired X-Rays', combining U-Net-based architectures to reconstruct full CT scans from front/side X-rays.",
           "Finalist team at the 2nd-annual ROSIE Competition (Apr 2023), winning an RTX 4090 for the lab."
@@ -185,8 +182,8 @@
         "description": "Eight-person undergrad research team generating 3D CT volumes from paired 2D X-rays."
       },
       {
-        "role": "Project Manager — Cancer Screening AI Research",
-        "period": "Nov 2021 – Apr 2022",
+        "role": "Project Manager \u2014 Cancer Screening AI Research",
+        "period": "Nov 2021 \u2013 Apr 2022",
         "bullets": [
           "First-author on 'Lymphocyte Classification in Hyperspectral Images of Ovarian Cancer Tissue Biopsy Samples'.",
           "Won Best Undergraduate Paper Award at MICS 2022 and reached finalist at the inaugural ROSIE Competition."
@@ -198,7 +195,7 @@
       },
       {
         "role": "Game Director (Self-Employed)",
-        "period": "Apr 2020 – Apr 2024",
+        "period": "Apr 2020 \u2013 Apr 2024",
         "bullets": [
           "Directed the release of two games, each amassing 7,500+ plays, and continues to ship side projects with collaborators in his free time."
         ],
@@ -212,7 +209,7 @@
       {
         "field": "Machine Learning Engineering",
         "degree": "M.S.",
-        "period": "May 2025 – Dec 2025",
+        "period": "May 2025 \u2013 Dec 2025",
         "school": "Milwaukee School of Engineering (MSOE)",
         "highlights": [
           "GPA: 4.0 / 4.0",
@@ -223,10 +220,10 @@
       {
         "field": "Computer Science",
         "degree": "B.S.",
-        "period": "2021 – 2025",
+        "period": "2021 \u2013 2025",
         "school": "Milwaukee School of Engineering (MSOE)",
         "highlights": [
-          "GPA: 4.0 / 4.0 — Class of 2025 Valedictorian and commencement speaker.",
+          "GPA: 4.0 / 4.0 \u2014 Class of 2025 Valedictorian and commencement speaker.",
           "Fred F. Loock Outstanding Student Award (2025) and Thomas W. Davis Student Leadership Award (2023).",
           "Stanford D.School University Innovation Fellow."
         ]
@@ -234,7 +231,7 @@
       {
         "field": "Valedictorian",
         "degree": "High School Diploma",
-        "period": "2017 – 2021",
+        "period": "2017 \u2013 2021",
         "school": "Mosinee High School",
         "highlights": [
           "GPA 4.0/4.0, Class Rank 1/140.",
