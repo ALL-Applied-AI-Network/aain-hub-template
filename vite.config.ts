@@ -90,8 +90,21 @@ function injectSocialMeta() {
   // build time we don't know its URL. Emitting the site root as canonical
   // there would tell crawlers every article IS the homepage — worse than
   // emitting nothing — so those two tags are homepage-only.
-  const buildTags = (isHome: boolean) =>
-    [
+  //
+  // portfolio.html is a member's page, not the chapter's: the hosted
+  // middleware rewrites its head per member at request time, so at build
+  // time it gets only what is true of every portfolio — its own title and
+  // description, og:type profile and the network as site_name. Never the
+  // chapter's title, image or canonical.
+  const buildTags = (isHome: boolean, isPortfolio = false) =>
+    isPortfolio
+      ? [
+          `<meta property="og:type" content="profile" />`,
+          `<meta property="og:site_name" content="ALL Applied AI Network" />`,
+          `<meta property="og:title" content="Portfolio — ALL Applied AI Network" />`,
+          `<meta property="og:description" content="A member&#39;s record on the ALL Applied AI Network." />`,
+        ].join('\n  ')
+      : [
       `<meta name="description" content="${esc(description)}" />`,
       isHome && siteUrl ? `<link rel="canonical" href="${esc(siteUrl)}" />` : '',
       `<meta property="og:type" content="website" />`,
@@ -118,7 +131,12 @@ function injectSocialMeta() {
       // whole string would misread the homepage as an article whenever any
       // ancestor directory happens to contain "article".
       const where = (ctx?.filename || ctx?.path || '').split(/[\\/]/).pop() || '';
-      const isHome = !where.startsWith('article');
+      const isPortfolio = where.startsWith('portfolio');
+      const isHome = !where.startsWith('article') && !isPortfolio;
+      if (isPortfolio) {
+        // Keep the file's own title and description; only append.
+        return html.replace('</head>', () => `  ${buildTags(false, true)}\n</head>`);
+      }
       // Replacer FUNCTIONS, not strings: a string replacement expands $$,
       // $&, $` and $'. esc() rewrites & < > " into entities that all begin
       // with '&', so any '$' immediately before one of those characters
@@ -164,6 +182,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         article: resolve(__dirname, 'article.html'),
+        portfolio: resolve(__dirname, 'portfolio.html'),
       },
     },
   },

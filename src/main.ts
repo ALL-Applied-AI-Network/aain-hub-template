@@ -12,6 +12,8 @@
  */
 
 import { renderBrainMark } from "./brain-mark";
+import { escapeHtml, escapeAttr } from "./lib/html";
+import { hostnameSlug, isDashboardPreview } from "./lib/slug";
 
 declare const __HUB_CONFIG__: HubConfig;
 
@@ -369,6 +371,20 @@ async function fetchBundle(slug: string): Promise<ChapterBundle | null> {
     // Dashboard unreachable / CORS hiccup — we'll fall back to bundled
     // hub.config.json and skip the data-driven sections.
     return null;
+  }
+}
+
+/** Does the dashboard publish a member portfolio under this label? */
+async function isPublishedMember(slug: string): Promise<boolean> {
+  if (!slug) return false;
+  try {
+    const res = await fetch(
+      `${DASHBOARD_ORIGIN}/api/public/member/${encodeURIComponent(slug)}`,
+      { signal: AbortSignal.timeout(4000) },
+    );
+    return res.ok;
+  } catch {
+    return false;
   }
 }
 
@@ -2346,33 +2362,12 @@ async function loadLearningTree() {
  *  self-hosting under its own domain still resolves. */
 const HUB_DOMAIN = (config.hub_domain ?? "all-ai-network.org").toLowerCase();
 
-/** Subdomains of HUB_DOMAIN that are network services, not chapters.
- *  Without this, loading the hub build at dashboard.all-ai-network.org
- *  would go looking for a chapter called "dashboard". */
-const RESERVED_LABELS = new Set([
-  "www", "api", "app", "dashboard", "sponsors", "sponsor", "admin",
-  "mail", "docs", "status", "cdn", "assets",
-]);
-
-function hostnameSlug(): string {
-  if (typeof window === "undefined") return "";
-  const host = window.location.hostname.toLowerCase();
-  // The apex is the marketing site, not a chapter.
-  if (host === HUB_DOMAIN) return "";
-  if (!host.endsWith(`.${HUB_DOMAIN}`)) return "";
-  const label = host.slice(0, host.length - HUB_DOMAIN.length - 1);
-  // Only a single label: a.b.all-ai-network.org is not a chapter.
-  if (!label || label.includes(".")) return "";
-  if (RESERVED_LABELS.has(label)) return "";
-  return label;
-}
-
 /** The chapter this page is for. NEVER reads ?slug= — that is honoured
  *  only in dashboard preview (see the boot path), because a query string
  *  any link can set must not change which chapter a hub site shows
  *  (security audit 2026-08-18, finding 6). */
 function canonicalSlug(): string {
-  return hostnameSlug() || (config.hub_id?.trim().toLowerCase() ?? "");
+  return hostnameSlug(HUB_DOMAIN) || (config.hub_id?.trim().toLowerCase() ?? "");
 }
 
 function learningTreeChapterSlug(): string {
@@ -2771,19 +2766,6 @@ function wireNavToggle() {
    Utilities
    ────────────────────────────────────────────────────────────────── */
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function escapeAttr(s: string): string {
-  return escapeHtml(s);
-}
-
 /* ──────────────────────────────────────────────────────────────────
    Init
    ────────────────────────────────────────────────────────────────── */
@@ -2799,11 +2781,7 @@ async function init() {
   // them at top level let anyone paint another chapter's identity onto this
   // hostname and divert its sponsor leads (security audit 2026-08-18,
   // finding 6), so require that we are genuinely embedded by the dashboard.
-  const embeddedByDashboard =
-    window.parent !== window &&
-    (document.referrer === "" ||
-      document.referrer.startsWith("https://dashboard.all-ai-network.org/"));
-  const isPreview = params?.get("preview") === "1" && embeddedByDashboard;
+  const isPreview = isDashboardPreview(params);
   const editMode = isPreview && params?.get("edit") === "1";
 
   // Resolve which slug to fetch: preview mode passes slug explicitly
@@ -2825,6 +2803,16 @@ async function init() {
   // transient miss shouldn't replace the theme the eboard is editing, and
   // the dashboard raises its own banner for a genuinely broken site.
   if (!isPreview && !bundle) {
+    // A hostname label that is not a chapter may be a member portfolio
+    // (both live at {label}.all-ai-network.org; the middleware serves
+    // portfolio.html when it can, but it fails open to index.html during
+    // a dashboard blip). Bounce to the portfolio page rather than show a
+    // shared link a holding page — it renders without baked og tags,
+    // which beats "under construction".
+    if (hostnameSlug(HUB_DOMAIN) && (await isPublishedMember(slug))) {
+      location.replace("./portfolio.html" + location.search);
+      return;
+    }
     applyTheme({
       primary: config.theme.primary_color,
       accent: config.theme.accent_color,
@@ -2834,7 +2822,7 @@ async function init() {
       slug,
       reason: slug
         ? `the dashboard has no chapter with the id "${slug}"`
-        : hostnameSlug()
+        : hostnameSlug(HUB_DOMAIN)
           ? "this address doesn't match a chapter"
           : "no hub_id is set in hub.config.json",
     });

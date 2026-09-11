@@ -1,5 +1,5 @@
 /**
- * Per-chapter social meta for the HOSTED deployment.
+ * Per-chapter (and per-member) social meta for the HOSTED deployment.
  *
  * A chapter that deploys its own copy gets correct unfurl tags for free:
  * vite.config.ts bakes them from hub.config.json at build time. The hosted
@@ -9,16 +9,25 @@
  * without this every hosted chapter is anonymous at the exact moment an
  * officer pastes their link into a club Discord.
  *
- * So: resolve the chapter from the hostname, fetch the same bundle the page
- * is about to fetch anyway, and rewrite the head. Everything here FAILS OPEN
- * — any miss, error or timeout serves the untouched static page, which is
- * what a fork on its own domain gets too (no subdomain, no slug, no rewrite).
+ * Member portfolios live on the same wildcard: `{member-slug}.all-ai-network.org`
+ * is served by this same deployment, from /portfolio.html instead of
+ * /index.html. The two slug namespaces are one DNS label space, so a label is
+ * resolved against BOTH the chapter bundle and the member endpoint at once,
+ * and a chapter always wins a collision (mint-time exclusion on the
+ * dashboard side is meant to keep collisions from ever happening; this is
+ * the belt to that suspender).
+ *
+ * So: resolve the label from the hostname, fetch what the page is about to
+ * fetch anyway, and rewrite the head. Everything here FAILS OPEN — any miss,
+ * error or timeout serves the untouched static page, which is what a fork on
+ * its own domain gets too (no subdomain, no slug, no rewrite).
  */
 
 export const config = { matcher: "/" };
 
 const HUB_DOMAIN = "all-ai-network.org";
 const DASHBOARD_ORIGIN = "https://dashboard.all-ai-network.org";
+const NETWORK_NAME = "ALL Applied AI Network";
 
 /* Mirrors canonicalSlug() in src/main.ts, minus the baked-hub_id fallback:
    the hosted build has no hub_id, and a fork's own domain must pass through
@@ -62,14 +71,57 @@ const STRIP = [
  *  the reason a site is down. */
 const passThrough = undefined;
 
-export default async function middleware(
-  req: Request,
+/** Both lookups share one wall-clock budget: they are fired together, each
+ *  with its own 2 s abort, so the slowest possible middleware pass is still
+ *  ~2 s, not 4 — a member page must not pay for the chapter miss first. */
+const LOOKUP_TIMEOUT_MS = 2000;
+
+/** Fetch one of our own static pages and swap its head. Shared by the two
+ *  branches so the STRIP discipline is written once. */
+async function rewriteHead(
+  origin: string,
+  page: "/index.html" | "/portfolio.html",
+  head: string,
+  cacheControl: string,
 ): Promise<Response | undefined> {
-  const url = new URL(req.url);
-  const slug = hostnameSlug(url.host);
+  // Only now is the origin HTML actually needed. Fetching it up front meant a
+  // blip on that request threw a 500 even for the paths that never used it.
+  let res: Response;
+  try {
+    res = await fetch(new URL(page, origin), {
+      headers: { accept: "text/html" },
+    });
+  } catch {
+    return passThrough;
+  }
+  if (!res.ok) return passThrough;
 
-  if (!slug) return passThrough;
+  let html: string;
+  try {
+    html = await res.text();
+  } catch {
+    return passThrough;
+  }
+  for (const re of STRIP) html = html.replace(re, () => "");
+  html = html.replace(/<\/head>/i, () => `    ${head}\n  </head>`);
 
+  return new Response(html, {
+    status: 200,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": cacheControl,
+    },
+  });
+}
+
+/** The chapter branch — unchanged in behaviour from before member pages
+ *  existed: alias → 301 to the current slug; otherwise index.html with the
+ *  chapter's own title, description and card. */
+async function chapterHead(
+  url: URL,
+  slug: string,
+  res: Response,
+): Promise<Response | undefined> {
   let name = "", tagline = "", image = "", university = "";
   /**
    * Unfurl bots won't render SVG. The dashboard's generated chapter logo is
@@ -82,11 +134,6 @@ export default async function middleware(
    */
   let generatedCard = false;
   try {
-    const res = await fetch(
-      `${DASHBOARD_ORIGIN}/api/public/chapter/${encodeURIComponent(slug)}/bundle`,
-      { signal: AbortSignal.timeout(2000) },
-    );
-    if (!res.ok) return passThrough;
     const data = await res.json();
     const cfg = data?.config ?? data ?? {};
     const chapter = data?.chapter ?? {};
@@ -116,29 +163,17 @@ export default async function middleware(
     );
     university = String(chapter.university ?? cfg.university ?? "").trim();
   } catch {
-    return passThrough; // unreachable dashboard must not take the site down
+    return passThrough; // a malformed bundle must not take the site down
   }
 
   if (!name) return passThrough;
-
-  // Only now is the origin HTML actually needed. Fetching it up front meant a
-  // blip on that request threw a 500 even for the paths that never used it.
-  let res: Response;
-  try {
-    res = await fetch(new URL("/index.html", url.origin), {
-      headers: { accept: "text/html" },
-    });
-  } catch {
-    return passThrough;
-  }
-  if (!res.ok) return passThrough;
 
   const description =
     tagline ||
     (university
       ? `The applied AI club at ${university}. Events, projects and workshops — no experience required.`
       : "A student-run applied AI community.");
-  const title = `${name} — ALL Applied AI Network`;
+  const title = `${name} — ${NETWORK_NAME}`;
   const pageUrl = `https://${url.host}/`;
 
   const head = [
@@ -159,21 +194,108 @@ export default async function middleware(
     .filter(Boolean)
     .join("\n    ");
 
-  let html: string;
-  try {
-    html = await res.text();
-  } catch {
-    return passThrough;
-  }
-  for (const re of STRIP) html = html.replace(re, () => "");
-  html = html.replace(/<\/head>/i, () => `    ${head}\n  </head>`);
+  // The bundle changes when an officer edits their site, not per request.
+  return rewriteHead(
+    url.origin,
+    "/index.html",
+    head,
+    "public, s-maxage=300, stale-while-revalidate=3600",
+  );
+}
 
-  return new Response(html, {
-    status: 200,
-    headers: {
-      "content-type": "text/html; charset=utf-8",
-      // The bundle changes when an officer edits their site, not per request.
-      "cache-control": "public, s-maxage=300, stale-while-revalidate=3600",
-    },
-  });
+/** The member branch — /portfolio.html with the member's name, one-line
+ *  description and the dashboard-rendered 1200x630 card. The head mirrors
+ *  what src/portfolio.ts sets client-side, for the bots that never run it. */
+async function memberHead(
+  url: URL,
+  slug: string,
+  res: Response,
+): Promise<Response | undefined> {
+  let name = "", headline = "", chapterName = "", updatedAt = "";
+  try {
+    const data = await res.json();
+    name = String(data?.name ?? "").trim();
+    headline = String(data?.headline ?? "").trim();
+    chapterName = String(data?.chapter?.name ?? "").trim();
+    updatedAt = String(data?.updatedAt ?? "").trim();
+  } catch {
+    return passThrough; // a malformed bundle must not take the page down
+  }
+
+  if (!name) return passThrough;
+
+  // Same wording as the /p/ sheet's describe(): true, short, never a placeholder.
+  const description =
+    headline ||
+    (chapterName ? `Member of ${chapterName}` : `Member of the ${NETWORK_NAME}`);
+  const title = `${name} — ${chapterName || "Portfolio"}`;
+  const pageUrl = `https://${url.host}/`;
+
+  /* Unfurl caches key on the image URL, so a republish that changes the
+     card would otherwise show the old one for as long as LinkedIn or Slack
+     felt like keeping it. The bundle's updatedAt is the version. */
+  const version = Date.parse(updatedAt);
+  const image =
+    `${DASHBOARD_ORIGIN}/api/public/member-card/${encodeURIComponent(slug)}` +
+    (Number.isFinite(version) ? `?v=${version}` : "");
+
+  const head = [
+    `<title>${esc(title)}</title>`,
+    `<meta name="description" content="${esc(description)}">`,
+    `<meta property="og:type" content="profile">`,
+    `<meta property="og:site_name" content="${esc(NETWORK_NAME)}">`,
+    `<meta property="og:title" content="${esc(title)}">`,
+    `<meta property="og:description" content="${esc(description)}">`,
+    `<meta property="og:url" content="${esc(pageUrl)}">`,
+    `<meta property="og:image" content="${esc(image)}">`,
+    `<meta property="og:image:width" content="1200">`,
+    `<meta property="og:image:height" content="630">`,
+    `<meta name="twitter:card" content="summary_large_image">`,
+    `<meta name="twitter:title" content="${esc(title)}">`,
+    `<meta name="twitter:description" content="${esc(description)}">`,
+    `<meta name="twitter:image" content="${esc(image)}">`,
+    `<link rel="canonical" href="${esc(pageUrl)}">`,
+  ].join("\n    ");
+
+  // Shorter than the chapter's 300 s so an Unpublish bites within a minute.
+  return rewriteHead(
+    url.origin,
+    "/portfolio.html",
+    head,
+    "public, s-maxage=60, stale-while-revalidate=600",
+  );
+}
+
+export default async function middleware(
+  req: Request,
+): Promise<Response | undefined> {
+  try {
+    const url = new URL(req.url);
+    const slug = hostnameSlug(url.host);
+
+    if (!slug) return passThrough;
+
+    const enc = encodeURIComponent(slug);
+    const [chapter, member] = await Promise.allSettled([
+      fetch(`${DASHBOARD_ORIGIN}/api/public/chapter/${enc}/bundle`, {
+        signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
+      }),
+      fetch(`${DASHBOARD_ORIGIN}/api/public/member/${enc}`, {
+        signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
+      }),
+    ]);
+
+    // Chapter wins a collision: a club's homepage is never displaced by a
+    // member who happened to mint the same label. The losing response is
+    // simply dropped, body unread.
+    if (chapter.status === "fulfilled" && chapter.value.ok) {
+      return chapterHead(url, slug, chapter.value);
+    }
+    if (member.status === "fulfilled" && member.value.ok) {
+      return memberHead(url, slug, member.value);
+    }
+    return passThrough; // neither knows the label: the static page as today
+  } catch {
+    return passThrough; // unreachable dashboard must not take the site down
+  }
 }

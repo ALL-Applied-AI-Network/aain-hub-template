@@ -1,0 +1,47 @@
+{
+  "slug": "ben-paulson-test01",
+  "name": "Ben Paulson",
+  "imageUrl": "https://img.clerk.com/eyJ0eXBlIjoicHJveHkiLCJzcmMiOiJodHRwczovL2ltYWdlcy5jbGVyay5kZXYvb2F1dGhfZ2l0aHViL2ltZ18zQzZrNW1ZSUpYMktXUEFrZzN1aHZyVUt2akkifQ",
+  "headline": "Applied AI Engineer at Direct Supply, MSOE ML Master's '25, Stanford D.School Innovation Fellow",
+  "chapter": {
+    "id": "8d09420c-becd-42eb-9506-e7f9a1afa636",
+    "name": "MSOE AI Club",
+    "slug": "msoe-ai-club",
+    "hubUrl": "https://msoe-maic.com",
+    "logoUrl": "https://gdxifnnfirnzljtxnhch.supabase.co/storage/v1/object/public/chapter-logos/8d09420c-becd-42eb-9506-e7f9a1afa636/c0949032-6627-4879-a64a-de7f7066e041.jpg",
+    "primaryColor": "#4f8fea",
+    "verifyStudentId": "f14c22da-cc49-4037-aa8a-dbd2e5b0550f"
+  },
+  "chapterCount": 1,
+  "since": "2026-08-27T16:09:51.442727+00:00",
+  "now": {
+    "kind": "member",
+    "text": "Now · checked in at Innovation Lab 2026"
+  },
+  "record": {
+    "entries": [
+      {
+        "id": "58a5c702-d9f6-45d3-bfbd-44174d98e5eb",
+        "kind": "checkin",
+        "date": "2026-08-27T16:09:51.489858+00:00",
+        "title": "Innovation Lab 2026",
+        "chapterId": "8d09420c-becd-42eb-9506-e7f9a1afa636",
+        "chapterName": "MSOE AI Club",
+        "chapterSlug": "msoe-ai-club",
+        "hubUrl": "https://msoe-maic.com",
+        "points": 1,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null
+      }
+    ],
+    "totals": {
+      "points": 1,
+      "events": 1,
+      "badges": 0
+    },
+    "startingBalance": 0
+  },
+  "badges": [],
+  "updatedAt": "2026-09-07T01:59:57.386228+00:00"
+}

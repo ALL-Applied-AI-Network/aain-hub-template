@@ -1,0 +1,290 @@
+{
+  "slug": "ben-paulson-test01",
+  "name": "Ben Paulson",
+  "imageUrl": "https://img.clerk.com/eyJ0eXBlIjoicHJveHkiLCJzcmMiOiJodHRwczovL2ltYWdlcy5jbGVyay5kZXYvb2F1dGhfZ2l0aHViL2ltZ18zQzZrNW1ZSUpYMktXUEFrZzN1aHZyVUt2akkifQ",
+  "headline": "Applied AI Engineer at Direct Supply, MSOE ML Master's '25, Stanford D.School Innovation Fellow",
+  "chapter": {
+    "id": "8d09420c-becd-42eb-9506-e7f9a1afa636",
+    "name": "MSOE AI Club",
+    "slug": "msoe-ai-club",
+    "hubUrl": "https://msoe-maic.com",
+    "logoUrl": "https://gdxifnnfirnzljtxnhch.supabase.co/storage/v1/object/public/chapter-logos/8d09420c-becd-42eb-9506-e7f9a1afa636/c0949032-6627-4879-a64a-de7f7066e041.jpg",
+    "primaryColor": "#4f8fea",
+    "verifyStudentId": "f14c22da-cc49-4037-aa8a-dbd2e5b0550f"
+  },
+  "chapterCount": 1,
+  "since": "2026-08-27T16:09:51.442727+00:00",
+  "now": {
+    "kind": "member",
+    "text": "Now · checked in at Innovation Lab 2026"
+  },
+  "record": {
+    "entries": [
+      {
+        "id": "58a5c702-d9f6-45d3-bfbd-44174d98e5eb",
+        "kind": "checkin",
+        "date": "2026-08-27T16:09:51.489858+00:00",
+        "title": "Innovation Lab 2026",
+        "chapterId": "8d09420c-becd-42eb-9506-e7f9a1afa636",
+        "chapterName": "MSOE AI Club",
+        "chapterSlug": "msoe-ai-club",
+        "hubUrl": "https://msoe-maic.com",
+        "points": 1,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null
+      }
+    ],
+    "totals": {
+      "points": 1,
+      "events": 1,
+      "badges": 0
+    },
+    "startingBalance": 0
+  },
+  "badges": [],
+  "projects": [
+    {
+      "id": "repo-https://github.com/Benja-Pauls/portfolio-pulse",
+      "kind": "repo",
+      "title": "portfolio-pulse",
+      "description": "AI-powered investment portfolio magazine — daily editorial-style market analysis delivered to your phone via iMessage. Built with Claude Code.",
+      "url": "https://github.com/Benja-Pauls/portfolio-pulse",
+      "chapterProject": false,
+      "chapterName": null,
+      "status": null,
+      "language": "Python",
+      "stars": 2,
+      "date": "2026-05-01T19:45:23Z"
+    },
+    {
+      "id": "repo-https://github.com/Benja-Pauls/SerpentStack",
+      "kind": "repo",
+      "title": "SerpentStack",
+      "description": "Find any AI agent skill or MCP server. Search every registry, install in seconds.",
+      "url": "https://github.com/Benja-Pauls/SerpentStack",
+      "chapterProject": false,
+      "chapterName": null,
+      "status": null,
+      "language": "JavaScript",
+      "stars": 2,
+      "date": "2026-04-03T20:41:25Z"
+    },
+    {
+      "id": "repo-https://github.com/Benja-Pauls/Predicting-Commodity-Food-Pricing",
+      "kind": "repo",
+      "title": "Predicting-Commodity-Food-Pricing",
+      "description": "MAIC Research Group 1 (2023-2024 cohort) of 8 students from Milwaukee School of Engineering (MSOE) working together with two professors to develop an AI algorithm to predict commodity food pricing.",
+      "url": "https://github.com/Benja-Pauls/Predicting-Commodity-Food-Pricing",
+      "chapterProject": false,
+      "chapterName": null,
+      "status": null,
+      "language": "Jupyter Notebook",
+      "stars": 9,
+      "date": "2025-11-15T18:19:46Z"
+    },
+    {
+      "id": "repo-https://github.com/Benja-Pauls/Next-Step-Clinic-Patient-Intake-Pipeline",
+      "kind": "repo",
+      "title": "Next-Step-Clinic-Patient-Intake-Pipeline",
+      "description": null,
+      "url": "https://github.com/Benja-Pauls/Next-Step-Clinic-Patient-Intake-Pipeline",
+      "chapterProject": false,
+      "chapterName": null,
+      "status": null,
+      "language": "Jupyter Notebook",
+      "stars": 2,
+      "date": "2025-03-16T20:46:52Z"
+    },
+    {
+      "id": "repo-https://github.com/Benja-Pauls/Language_Translation_Transformer_in_Tensorflow",
+      "kind": "repo",
+      "title": "Language_Translation_Transformer_in_Tensorflow",
+      "description": "Transformer architecture made in tensorflow to be applied towards an NLP problem: language translation. Made following a guide online (https://www.tensorflow.org/text/tutorials/transformer) while adding additional documentation throughout the notebook for beginners to understand these advanced concepts.",
+      "url": "https://github.com/Benja-Pauls/Language_Translation_Transformer_in_Tensorflow",
+      "chapterProject": false,
+      "chapterName": null,
+      "status": null,
+      "language": "Jupyter Notebook",
+      "stars": 1,
+      "date": "2023-05-17T21:25:00Z"
+    }
+  ],
+  "resume": {
+    "tagline": "Applied AI agents for healthcare and climate; MSOE AI-Club founder.",
+    "keywords": [
+      "applied-ai",
+      "agentic-ai",
+      "rag",
+      "llms",
+      "pytorch",
+      "tensorflow",
+      "healthcare-ai",
+      "climate-ai",
+      "sales-ai",
+      "ms-graduate",
+      "stanford-uif",
+      "ai-club-founder",
+      "patent-holder",
+      "nvidia-gtc",
+      "y-combinator",
+      "msoe",
+      "valedictorian",
+      "research-lead",
+      "hackathon-organizer",
+      "published-author"
+    ],
+    "overview": {
+      "summary": "Builds production AI in healthcare at Direct Supply, where his work on Menu.ai (US Prov. Patent 63/759509) earned the 2025 Invention Award. Master's in ML Engineering and Valedictorian of MSOE's CS Class of 2025; grew the MSOE AI Club to 400+ members and led research teams on UN FAO commodity prediction and the NILUS climate-glacier project in Chile. Capstone deep-research sales agent now ships in production at Close-Rate, with first pilot showing 20%+ rep close-rate lift.",
+      "headline": "Applied AI Engineer at Direct Supply, MSOE ML Master's '25, Stanford D.School Innovation Fellow",
+      "location": "Milwaukee, Wisconsin"
+    },
+    "experience": [
+      {
+        "role": "Applied AI Engineer",
+        "period": "Jun 2025 – Present",
+        "bullets": [
+          "Continues to build on Menu.ai, a patent-pending AI system (US Prov. 63/759509) that hits 90%+ accuracy on complex food unit conversions across the senior-living supply chain.",
+          "Represented Direct Supply at the AI Engineer CODE Summit in NYC; brought back patterns for context engineering, GenAI observability, and learning-velocity metrics now folding into the team's prototyping loops.",
+          "Driving an org-wide standardization effort around plan/research templates, shared tool schemas, and durable agent memory to scale agentic systems across product teams."
+        ],
+        "company": "Direct Supply",
+        "current": true,
+        "location": "Milwaukee, WI (On-site)",
+        "description": "Full-time on the Applied AI team at a 1,001–5,000 person healthcare company serving senior living."
+      },
+      {
+        "role": "Data Science Intern",
+        "period": "Jun 2022 – Jun 2025",
+        "bullets": [
+          "Co-developed Menu.ai, a patent-pending AI system (US Prov. 63/759509) achieving 90%+ accuracy on complex food unit conversions — earned the 2025 Direct Supply Invention Award for early involvement.",
+          "Led a tech-wide shift to a prototyping-first culture, cutting average experimentation lifecycle from 2 months to 1 week and contributing to a 100-prototype / 20-roadmapped 2025 OKR.",
+          "Designed and ran a Cursor agentic-coding workshop for 150 non-technical attendees, walking each of them through building a working RAG system end-to-end."
+        ],
+        "company": "Direct Supply",
+        "current": false,
+        "location": "Milwaukee, WI",
+        "description": "Three-year internship spanning the Applied AI / data science org; converted into a full-time Applied AI Engineer role."
+      },
+      {
+        "role": "President & Founder (former)",
+        "period": "2021 – May 2025",
+        "bullets": [
+          "Grew the club to 400+ members across multi-campus research, industry partnerships, hackathons, and innovation challenges; transitioned leadership cleanly to incoming e-board in May 2025.",
+          "Hosted recurring hackathons and 'Innovation Labs' connecting students with non-profits and Milwaukee-area sponsors; launched Late Night Launch Labs as a builder-focused programming track.",
+          "Brought 4 MAIC students to NVIDIA GTC 2026 with VIP keynote and lounge access, including a private NVIDIA tour from Dwight Diercks and a Google site visit.",
+          "Sustained partnerships with Direct Supply, NILUS, and the UN FAO that turned into year-over-year student research projects on the ROSIE supercomputer."
+        ],
+        "company": "MSOE AI-Club (MAIC)",
+        "current": false,
+        "location": "Milwaukee, WI",
+        "description": "Built MAIC from a small student group into one of the largest undergraduate AI clubs in the U.S. before passing the presidency in May 2025."
+      },
+      {
+        "role": "AI Development Lead",
+        "period": "Aug 2024 – Sep 2025",
+        "bullets": [
+          "Led AI development for stupa placement, sprinkler-timing, and impact-measurement models running on AWS and the ROSIE supercomputer; outputs feed an impact dashboard used by sponsors.",
+          "Combined satellite imagery analysis, hydrological modeling, and 3D topology mapping to recommend optimal stupa locations across the Chilean Andes.",
+          "Spent a week on-site in Santiago and at the active stupa field — hiking and snowmobiling to 8 stupas (each 4–5 stories tall) the team had been growing remotely for over a year."
+        ],
+        "company": "NILUS",
+        "current": false,
+        "location": "Remote (Santiago, Chile)",
+        "description": "Contract role with a climate-tech org building artificial glaciers (\"ice stupas\") to restore freshwater to dry regions."
+      },
+      {
+        "role": "Research Team Lead — UN FAO Commodity Price Prediction",
+        "period": "Oct 2023 – Apr 2024",
+        "bullets": [
+          "Shipped next-month price forecasts plus a reinforcement-learning framework for severity-state (warning) prediction targeting integration with GIEWS.",
+          "Won 3rd place at the 2024 ROSIE Supercomputer Challenge against the rest of MSOE's research cohort."
+        ],
+        "company": "MSOE AI-Club",
+        "current": false,
+        "location": "Milwaukee, WI",
+        "description": "Mentored an 8-person undergrad research team building forecasting models for the UN FAO's GIEWS early-warning system."
+      },
+      {
+        "role": "CT-Scan Medical Imaging AI Researcher",
+        "period": "Nov 2022 – Apr 2023",
+        "bullets": [
+          "First-author on 'XprospeCT: CT Volume Generation from Paired X-Rays', combining U-Net-based architectures to reconstruct full CT scans from front/side X-rays.",
+          "Finalist team at the 2nd-annual ROSIE Competition (Apr 2023), winning an RTX 4090 for the lab."
+        ],
+        "company": "MSOE AI-Club",
+        "current": false,
+        "location": "Milwaukee, WI",
+        "description": "Eight-person undergrad research team generating 3D CT volumes from paired 2D X-rays."
+      },
+      {
+        "role": "Project Manager — Cancer Screening AI Research",
+        "period": "Nov 2021 – Apr 2022",
+        "bullets": [
+          "First-author on 'Lymphocyte Classification in Hyperspectral Images of Ovarian Cancer Tissue Biopsy Samples'.",
+          "Won Best Undergraduate Paper Award at MICS 2022 and reached finalist at the inaugural ROSIE Competition."
+        ],
+        "company": "MSOE AI-Club",
+        "current": false,
+        "location": "Milwaukee, WI",
+        "description": "Led a 7-person undergrad team as a freshman applying ML to hyperspectral biopsy imagery."
+      },
+      {
+        "role": "Game Director (Self-Employed)",
+        "period": "Apr 2020 – Apr 2024",
+        "bullets": [
+          "Directed the release of two games, each amassing 7,500+ plays, and continues to ship side projects with collaborators in his free time."
+        ],
+        "company": "Independent",
+        "current": false,
+        "location": "Remote",
+        "description": "Self-taught game development pursued during COVID; the spark that pushed him into a CS degree."
+      }
+    ],
+    "education": [
+      {
+        "field": "Machine Learning Engineering",
+        "degree": "M.S.",
+        "period": "May 2025 – Dec 2025",
+        "school": "Milwaukee School of Engineering (MSOE)",
+        "highlights": [
+          "GPA: 4.0 / 4.0",
+          "Capstone: deep-research AI agent for sales coaching that traverses real call/CRM data, runs 50+ investigative queries per session, and produces structured manager-ready reports.",
+          "Capstone shipped to production as Close-Rate's leading product offering; first pilot saw 20%+ close-rate lifts across reps."
+        ]
+      },
+      {
+        "field": "Computer Science",
+        "degree": "B.S.",
+        "period": "2021 – 2025",
+        "school": "Milwaukee School of Engineering (MSOE)",
+        "highlights": [
+          "GPA: 4.0 / 4.0 — Class of 2025 Valedictorian and commencement speaker.",
+          "Fred F. Loock Outstanding Student Award (2025) and Thomas W. Davis Student Leadership Award (2023).",
+          "Stanford D.School University Innovation Fellow."
+        ]
+      },
+      {
+        "field": "Valedictorian",
+        "degree": "High School Diploma",
+        "period": "2017 – 2021",
+        "school": "Mosinee High School",
+        "highlights": [
+          "GPA 4.0/4.0, Class Rank 1/140.",
+          "AP coursework: Calc AB/BC, Statistics, Lang & Comp, Lit & Comp, Physics I."
+        ]
+      }
+    ]
+  },
+  "github": {
+    "username": "Benja-Pauls",
+    "topLanguages": [
+      "Jupyter Notebook",
+      "Python",
+      "TypeScript",
+      "Lua",
+      "HTML"
+    ]
+  },
+  "updatedAt": "2026-09-07T01:59:57.386228+00:00"
+}

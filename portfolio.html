@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portfolio — ALL Applied AI Network</title>
+  <meta name="description" content="A member's record on the ALL Applied AI Network." />
+  <meta name="theme-color" content="#0a0a0b" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/styles/portfolio.css" />
+</head>
+<body>
+  <!-- The whole page is rendered once by portfolio.ts from the member
+       bundle. The three roots stay hidden until then so nothing flashes:
+       the arrival plays on a finished card, never on a skeleton. -->
+  <div id="pp-topbar" class="pp-topbar" hidden></div>
+  <main id="pp" class="pp" hidden></main>
+  <div id="pp-shell" hidden></div>
+  <script type="module" src="/src/portfolio.ts"></script>
+</body>
+</html>
