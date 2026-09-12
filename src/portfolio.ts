@@ -318,7 +318,7 @@ function renderExperience(b: Bundle): string {
         <div class="pp-titem__sub">${esc([x.company, x.location].filter(Boolean).map((s) => plainText(s)).join(" · "))}</div>
         <div class="pp-titem__period">${esc(period)}${now}</div>
         ${x.description ? `<p class="pp-titem__desc">${esc(plainText(x.description))}</p>` : ""}
-        ${bulletList(x.bullets ?? [], 4)}
+        ${bulletList(x.bullets ?? [], 2)}
       </div>`;
   }).join("");
   return section("pp-experience", "Experience", xs.length, `<div class="pp-timeline">${items}</div>`);
@@ -402,7 +402,14 @@ function renderLearning(b: Bundle): string {
 }
 
 function renderLedger(b: Bundle): string {
-  const entries = b.record?.entries ?? [];
+  // Badges already render above as dated tiles, so repeating all of them
+  // here pads the page with lines the reader just read. When that section
+  // is present the ledger is the point-bearing record — check-ins,
+  // lessons, starting balance — and the badges stay where they look best.
+  const hasBadgeTiles = (b.badges ?? []).length > 0;
+  const entries = (b.record?.entries ?? []).filter(
+    (e) => !(hasBadgeTiles && e.kind === "badge"),
+  );
   if (!entries.length) return "";
   const multi = b.chapterCount > 1;
   const row = (e: Entry) => {
