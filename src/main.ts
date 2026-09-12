@@ -2802,7 +2802,17 @@ async function init() {
   // the dashboard's Customize iframe is a controlled context where a
   // transient miss shouldn't replace the theme the eboard is editing, and
   // the dashboard raises its own banner for a genuinely broken site.
-  if (!isPreview && !bundle) {
+  // The canonical template repo's own Pages deploy is the public demo
+  // linked from all-ai-network.org ("See the deployed template before you
+  // fork"). It has no chapter behind it and never will, so it renders the
+  // sample club that ships in hub.config.json — which is the whole point of
+  // a demo. The flag is set by this repo's own Actions workflow and only
+  // when the build is running in THIS repository, so a fork can never
+  // inherit it: an unconfigured fork still gets the holding page rather
+  // than quietly serving someone else's sample club as its own.
+  const isDemoSite = import.meta.env.VITE_DEMO_SITE === "1";
+
+  if (!isPreview && !bundle && !isDemoSite) {
     // A hostname label that is not a chapter may be a member portfolio
     // (both live at {label}.all-ai-network.org; the middleware serves
     // portfolio.html when it can, but it fails open to index.html during
