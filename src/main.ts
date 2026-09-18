@@ -470,6 +470,48 @@ function applyLogo(logoUrl: string | null) {
   // a double-brand effect.
   const acronym = document.getElementById("nav-acronym");
   if (acronym) acronym.style.display = logoUrl ? "none" : "";
+  applyFavicon(logoUrl);
+}
+
+/** Tab icon. The page ships without one, so a chapter that uploaded a logo
+ *  would otherwise show the browser's blank default. With no logo we leave
+ *  the head alone rather than inventing an icon. `type` is deliberately not
+ *  set: the upload accepts png, jpeg, webp, svg and gif, and the browser
+ *  sniffs the real type better than a guess would. */
+function applyFavicon(logoUrl: string | null) {
+  if (!logoUrl) return;
+  let link = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
+  if (!link) {
+    link = document.createElement("link");
+    link.rel = "icon";
+    document.head.appendChild(link);
+  }
+  link.href = logoUrl;
+}
+
+/** The hero mark: the chapter's uploaded logo when it has one, otherwise
+ *  the generated brain in its colours. The brain is the fallback, not a
+ *  competitor, so a chapter that took the trouble to upload a logo sees
+ *  that logo front and centre. If the image fails to load we fall back to
+ *  the brain rather than leave the hero with a broken-image icon. */
+function renderHeroMark(
+  el: HTMLElement | null,
+  logoUrl: string | null,
+  acronym: string | null,
+) {
+  if (!el) return;
+  if (!logoUrl) {
+    renderBrainMark(el, acronym);
+    return;
+  }
+  const img = document.createElement("img");
+  img.className = "hero__logo";
+  // Decorative: #hero-mark is aria-hidden and the h1 already names the club.
+  img.alt = "";
+  img.decoding = "async";
+  img.onerror = () => renderBrainMark(el, acronym);
+  img.src = logoUrl;
+  el.replaceChildren(img);
 }
 
 function applySectionToggles(sections: Record<string, boolean>) {
@@ -2854,13 +2896,16 @@ async function init() {
   applyTheme({ primary, accent });
 
   // Logo: in preview, a URL `logo=` param wins (including empty-string
-  // = explicitly clear). Otherwise saved config wins.
+  // = explicitly clear). Otherwise saved config wins. Resolved once so the
+  // nav, footer, tab icon and hero can never disagree about which logo it is.
+  let logoUrl: string | null;
   if (isPreview && params && params.get("logo") !== null) {
     const logoParam = params.get("logo");
-    applyLogo(logoParam && logoParam.length > 0 ? logoParam : null);
+    logoUrl = logoParam && logoParam.length > 0 ? logoParam : null;
   } else {
-    applyLogo(remote?.logo_url ?? null);
+    logoUrl = remote?.logo_url ?? null;
   }
+  applyLogo(logoUrl);
 
   // Section visibility: start from saved + fold in preview `off=` list.
   const sectionsToApply: Record<string, boolean> = { ...savedSections };
@@ -2903,10 +2948,12 @@ async function init() {
   renderSocialFeed(bundle?.social_feeds);
   renderSocials(remote?.social_links ?? {});
   renderHeroNetwork();
-  // The chapter's own mark, in its colours. Acronym falls back through the
-  // live config, then the baked one, then "ALL".
-  renderBrainMark(
+  // The chapter's own mark: its uploaded logo if it has one, else the
+  // generated brain in its colours. Acronym (used by the brain) falls back
+  // through the live config, then the baked one, then "ALL".
+  renderHeroMark(
     document.getElementById("hero-mark"),
+    logoUrl,
     remote?.hub_acronym ?? config.hub_acronym ?? null,
   );
 
