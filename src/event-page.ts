@@ -36,6 +36,23 @@ export function trustedFlyerHeight(
   return Math.max(320, Math.ceil(data.height));
 }
 
+/** Only this event's trusted frame can request a section jump. */
+export function trustedFlyerTop(
+  message: Pick<MessageEvent, "origin" | "source" | "data">,
+  frameWindow: Window | null,
+  eventId: string,
+): number | null {
+  if (!frameWindow || message.origin !== DASHBOARD_ORIGIN || message.source !== frameWindow) return null;
+  const data = message.data;
+  if (
+    !data || typeof data !== "object" ||
+    data.type !== "all-event-flyer:navigate" || data.eventId !== eventId ||
+    typeof data.top !== "number" || !Number.isFinite(data.top) ||
+    data.top < 0 || data.top > 100_000
+  ) return null;
+  return Math.ceil(data.top);
+}
+
 export function mountEventPage(opts: {
   eventId: string;
   chapterSlug: string;
@@ -94,9 +111,21 @@ export function mountEventPage(opts: {
   const hideLoading = () => root.querySelector(".event-page__loading")?.remove();
   const onMessage = (message: MessageEvent) => {
     const height = trustedFlyerHeight(message, frame.contentWindow, eventId);
-    if (height === null) return;
-    frame.style.height = `${height}px`;
-    hideLoading();
+    if (height !== null) {
+      frame.style.height = `${height}px`;
+      hideLoading();
+      return;
+    }
+    const top = trustedFlyerTop(message, frame.contentWindow, eventId);
+    if (top === null) return;
+    const nav = document.getElementById("nav");
+    const navPosition = nav ? getComputedStyle(nav).position : "";
+    const stickyHeight = nav && (navPosition === "sticky" || navPosition === "fixed")
+      ? nav.getBoundingClientRect().height : 0;
+    window.scrollTo({
+      top: Math.max(0, window.scrollY + frame.getBoundingClientRect().top + top - stickyHeight - 24),
+      behavior: "instant" as ScrollBehavior,
+    });
   };
   window.addEventListener("message", onMessage);
   frame.addEventListener("load", hideLoading);

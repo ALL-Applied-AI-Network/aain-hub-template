@@ -47,6 +47,19 @@ async function main() {
   ]) assert.equal(helpers.trustedFlyerHeight(invalid, frameWindow, eventId), null);
   assert.equal(helpers.trustedFlyerHeight(valid, null, eventId), null);
 
+  const navigate = { ...valid, data: { type: "all-event-flyer:navigate", eventId, top: 1208.4 } };
+  assert.equal(helpers.trustedFlyerTop(navigate, frameWindow, eventId), 1209);
+  assert.equal(helpers.trustedFlyerTop({ ...navigate, data: { ...navigate.data, top: 0 } }, frameWindow, eventId), 0);
+  for (const invalid of [
+    { ...navigate, origin: "https://untrusted.example" },
+    { ...navigate, source: {} },
+    { ...navigate, data: null },
+    { ...navigate, data: { ...navigate.data, eventId: otherEventId } },
+    valid,
+    ...[-1, Infinity, NaN, 100001, "1200"].map((top) => ({ ...navigate, data: { ...navigate.data, top } })),
+  ]) assert.equal(helpers.trustedFlyerTop(invalid, frameWindow, eventId), null);
+  assert.equal(helpers.trustedFlyerTop(navigate, null, eventId), null);
+
   const metadata = load("middleware.ts", {
     fetch: async (url) => {
       if (String(url).includes("/api/public/chapter/")) return Response.json({
