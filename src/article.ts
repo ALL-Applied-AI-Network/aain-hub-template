@@ -116,8 +116,10 @@ function preprocessDirectives(md: string): string {
       continue;
     }
 
-    // :::diagram
-    if (line.match(/^:::diagram\s*$/)) {
+    // :::diagram or :::diagram[large]
+    const diagramMatch = line.match(/^:::diagram(?:\[(\w+)\])?\s*$/);
+    if (diagramMatch) {
+      const sizeModifier = diagramMatch[1] === 'large' ? ' diagram--large' : '';
       const body: string[] = [];
       i++;
       while (i < lines.length && lines[i].trim() !== ':::') { body.push(lines[i]); i++; }
@@ -129,7 +131,7 @@ function preprocessDirectives(md: string): string {
       // ever reaching mermaid. Keep the whole div on one source line; browsers
       // decode &#10; back to "\n" in the text node. Mirrors aain-content's fix.
       const inlineMermaid = escapeHtml(mermaidContent).replace(/\r?\n/g, '&#10;');
-      output.push(`<div class="diagram"><div class="mermaid">${inlineMermaid}</div></div>`, '');
+      output.push(`<div class="diagram${sizeModifier}"><div class="mermaid">${inlineMermaid}</div></div>`, '');
       continue;
     }
 
