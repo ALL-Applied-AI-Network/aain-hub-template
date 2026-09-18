@@ -3673,8 +3673,19 @@ body.is-holding {
   height: auto;
   opacity: 0.95;
 }
+/* An uploaded logo takes the brain's slot, at the same footprint so the
+   hero copy below doesn't shift between chapters with and without one. */
+.hero__mark .hero__logo {
+  width: clamp(104px, 15vh, 140px);
+  height: clamp(104px, 15vh, 140px);
+  object-fit: contain;
+}
 @media (max-width: 800px) {
   .hero__mark .bmark { width: clamp(96px, 16vh, 132px); }
+  .hero__mark .hero__logo {
+    width: clamp(96px, 16vh, 132px);
+    height: clamp(96px, 16vh, 132px);
+  }
 }
 
 .bmark__outline {
