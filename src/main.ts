@@ -14,6 +14,7 @@
 import { renderBrainMark } from "./brain-mark";
 import { escapeHtml, escapeAttr } from "./lib/html";
 import { hostnameSlug, isDashboardPreview } from "./lib/slug";
+import { eventFromSearch, eventPageHref, mountEventPage } from "./event-page";
 
 declare const __HUB_CONFIG__: HubConfig;
 
@@ -1303,10 +1304,12 @@ function renderEventCard(
   // virtual → just join. hybrid → both stacked.
   const fmt = e.format ?? "in_person";
   const showLocation =
+    !(e.phases?.length) &&
     (fmt === "in_person" || fmt === "hybrid") &&
     e.location &&
     e.location.trim().length > 0;
   const showVirtual =
+    !(e.phases?.length) &&
     (fmt === "virtual" || fmt === "hybrid") &&
     e.virtual_url &&
     e.virtual_url.trim().length > 0;
@@ -1411,12 +1414,13 @@ function renderEventCard(
             ${treeChip}
           </div>
           ${parentBadge}
-          <h3 class="event-card__title">${escapeHtml(e.title)}</h3>
+          <h3 class="event-card__title"><a href="${escapeAttr(eventPageHref(e.id, window.location.pathname))}">${escapeHtml(e.title)}</a></h3>
           ${cohostBadge}
           ${desc}
           ${phaseTimeline}
           ${locationPill || virtualPill ? `<div class="event-card__pills">${locationPill}${virtualPill}</div>` : ""}
           <div class="event-card__meta">${meta}</div>
+          <a class="event-card__details" href="${escapeAttr(eventPageHref(e.id, window.location.pathname))}">View event <span aria-hidden="true">→</span></a>
         </div>
       </div>
     </article>
@@ -2917,7 +2921,19 @@ async function init() {
   // Wire the multi-page tabs AFTER all sections have rendered — so
   // pagesWithContent() sees the final DOM + data state and can hide
   // tabs whose sections are all empty/toggled-off.
-  wirePageRouting(pagesWithContent(sectionsToApply));
+  const pages = pagesWithContent(sectionsToApply);
+  const eventId = eventFromSearch(window.location.search);
+  if (eventId && !isPreview) {
+    renderPageNav(pages, "");
+    mountEventPage({
+      eventId,
+      chapterSlug: bundle?.chapter.slug ?? slug,
+      chapterName: bundle?.chapter.name ?? remote?.hub_name ?? config.hub_name,
+      title: bundle?.events.find((event) => event.id === eventId)?.title,
+    });
+  } else {
+    wirePageRouting(pages);
+  }
 
   // Preview + edit mode → attach clickable "Edit here" pills to every
   // section that maps to a dashboard route. Dashboard parent listens

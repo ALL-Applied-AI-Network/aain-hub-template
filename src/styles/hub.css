@@ -838,6 +838,53 @@ code {
   letter-spacing: -0.005em;
 }
 
+.event-card__title a { color: inherit; }
+.event-card__title a:hover { color: var(--color-primary); }
+.event-card__details {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  color: var(--color-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.event-card__details:hover { color: var(--text-primary); }
+
+/* A shared event page inside the chapter's normal navigation. */
+.is-event-page [data-page][hidden] { display: none !important; }
+.event-page { min-height: 70vh; }
+.event-page__toolbar {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.875rem;
+}
+.event-page__back { color: var(--text-secondary); }
+.event-page__back span { margin-right: 0.35rem; }
+.event-page__standalone { color: var(--text-tertiary); }
+.event-page__actions { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; }
+.event-page__copy {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font: inherit;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+}
+.event-page__copy:hover { border-color: var(--color-primary); }
+.event-page__back:hover, .event-page__standalone:hover { color: var(--color-primary); }
+.event-page__loading { text-align: center; color: var(--text-secondary); padding: 2rem; }
+.event-page__frame { display: block; width: 100%; height: 1000px; border: 0; color-scheme: dark; }
+@media (max-width: 600px) {
+  .event-page__toolbar { align-items: flex-start; flex-direction: column; gap: 0.75rem; padding: 1rem; }
+}
+
 .event-card__desc {
   font-size: 0.83rem;
   color: var(--text-secondary);
