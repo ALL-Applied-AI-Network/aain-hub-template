@@ -227,6 +227,10 @@ Set `primary_color` and `accent_color`. These drive the hero gradient, nav wordm
 
 Add upcoming events as an array. Each event shows a date card, title, location, and description. Remove the array or leave it empty to hide the Events section entirely.
 
+Published dashboard events also have a shareable student page at `/?event={event-id}`. Event cards open that page with the chapter's navigation intact. It embeds the ALL event page, so the description, materials, phase schedule, RSVPs and project workspace stay in sync with the dashboard. The query route also works on GitHub Pages forks under a repository path, without a custom server or rewrite rule.
+
+The embedded page validates that the chapter hosts or co-hosts the event. It resizes through messages checked against the ALL dashboard origin, the iframe window and the event ID. Dashboard actions open outside the iframe. Chapters using their own custom website can share the standalone flyer at `https://dashboard.all-ai-network.org/e/{event-id}` instead.
+
 ### Officers
 
 Add your leadership team. Each officer gets an avatar (initials if no image provided), name, and role. Remove the array to hide the Leadership section.

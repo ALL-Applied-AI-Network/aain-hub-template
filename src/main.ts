@@ -14,6 +14,7 @@
 import { renderBrainMark } from "./brain-mark";
 import { escapeHtml, escapeAttr } from "./lib/html";
 import { hostnameSlug, isDashboardPreview } from "./lib/slug";
+import { eventFromSearch, eventPageHref, mountEventPage } from "./event-page";
 
 declare const __HUB_CONFIG__: HubConfig;
 
@@ -183,6 +184,8 @@ interface RemoteConfig {
 interface EventRow {
   id: string;
   title: string;
+  /** Listed events announce the schedule before their full details go live. */
+  publish_status?: "listed" | "published";
   /** Markdown — small subset (bold/italic/links/bullets) rendered
    *  via renderInlineMarkdown. Hub site mirrors what the dashboard
    *  preview shows. */
@@ -1299,6 +1302,7 @@ function renderEventCard(
   e: EventRow,
   byId: Map<string, EventRow>,
 ): string {
+  const listed = e.publish_status === "listed";
   const tz = e.timezone;
   const s = zoneParts(e.date, tz);
   const eParts = e.end_date ? zoneParts(e.end_date, tz) : null;
@@ -1337,7 +1341,7 @@ function renderEventCard(
   // markdown pass so what the dashboard preview shows matches what
   // visitors see (the create form's toolbar inserts `- ` lists and
   // blank-line paragraph splits).
-  const desc = e.description
+  const desc = !listed && e.description
     ? `<div class="event-card__desc">${renderRichMarkdown(e.description)}</div>`
     : "";
 
@@ -1345,10 +1349,13 @@ function renderEventCard(
   // virtual → just join. hybrid → both stacked.
   const fmt = e.format ?? "in_person";
   const showLocation =
+    !(e.phases?.length) &&
     (fmt === "in_person" || fmt === "hybrid") &&
     e.location &&
     e.location.trim().length > 0;
   const showVirtual =
+    !listed &&
+    !(e.phases?.length) &&
     (fmt === "virtual" || fmt === "hybrid") &&
     e.virtual_url &&
     e.virtual_url.trim().length > 0;
@@ -1363,7 +1370,7 @@ function renderEventCard(
   // Learning Tree association — links to the Learn PAGE (hash-router key
   // "learn", not the section's DOM id) so a visitor can jump from a
   // workshop event to the material it teaches.
-  const treeChip = e.learning_tree_node_title
+  const treeChip = !listed && e.learning_tree_node_title
     ? `<a class="event-card__format-chip event-card__format-chip--tree" href="#learn">🌳 ${escapeHtml(e.learning_tree_node_title)}</a>`
     : "";
 
@@ -1423,7 +1430,7 @@ function renderEventCard(
   // surfaces QR-disabled events with points anyway).
   const timeLabel =
     isMultiDay && endTime ? `${startTime} → ${endTime}` : startTime;
-  const meta = `${timeLabel} · ${e.points_attend} ${e.points_attend === 1 ? "pt" : "pts"}`;
+  const meta = listed ? timeLabel : `${timeLabel} · ${e.points_attend} ${e.points_attend === 1 ? "pt" : "pts"}`;
 
   // Phase timeline — when the event has phases (kickoff → midpoint →
   // finals → due-date), render them as a numbered checkpoint list
@@ -1434,9 +1441,9 @@ function renderEventCard(
   const phases = (e.phases ?? []).slice();
   const phaseTimeline = phases.length
     ? `<div class="event-card__phases" aria-label="Event phases">
-        <div class="event-card__phases-heading">${phases.length}-part project</div>
+        <div class="event-card__phases-heading">${phases.length}-${listed ? "phase event" : "part project"}</div>
         <ol class="event-card__phase-list">
-          ${phases.map((p, i) => renderPhaseRow(p, i + 1, e.timezone)).join("")}
+          ${phases.map((p, i) => renderPhaseRow(p, i + 1, e.timezone, listed)).join("")}
         </ol>
       </div>`
     : "";
@@ -1451,14 +1458,16 @@ function renderEventCard(
             <span class="event-card__type">${escapeHtml(e.type ?? "event")}</span>
             ${formatChip}
             ${treeChip}
+            ${listed ? '<span class="event-card__announcement">Details coming soon</span>' : ""}
           </div>
           ${parentBadge}
-          <h3 class="event-card__title">${escapeHtml(e.title)}</h3>
+          <h3 class="event-card__title"><a href="${escapeAttr(eventPageHref(e.id, window.location.pathname))}">${escapeHtml(e.title)}</a></h3>
           ${cohostBadge}
           ${desc}
           ${phaseTimeline}
           ${locationPill || virtualPill ? `<div class="event-card__pills">${locationPill}${virtualPill}</div>` : ""}
           <div class="event-card__meta">${meta}</div>
+          <a class="event-card__details" href="${escapeAttr(eventPageHref(e.id, window.location.pathname))}">${listed ? "View schedule" : "View event"} <span aria-hidden="true">→</span></a>
         </div>
       </div>
     </article>
@@ -1475,6 +1484,7 @@ function renderPhaseRow(
   p: EventPhase,
   num: number,
   tz: string | null,
+  listed = false,
 ): string {
   const s = zoneParts(p.date_start, tz);
   const eParts = p.date_end ? zoneParts(p.date_end, tz) : null;
@@ -1516,11 +1526,11 @@ function renderPhaseRow(
       : "";
 
   const pointsText =
-    p.has_check_in && p.points_attend > 0
+    !listed && p.has_check_in && p.points_attend > 0
       ? `<span class="event-card__phase-points">+${p.points_attend} ${p.points_attend === 1 ? "pt" : "pts"}</span>`
       : "";
 
-  const descBlock = p.description
+  const descBlock = !listed && p.description
     ? `<div class="event-card__phase-desc">${escapeHtml(p.description)}</div>`
     : "";
 
@@ -2964,7 +2974,19 @@ async function init() {
   // Wire the multi-page tabs AFTER all sections have rendered — so
   // pagesWithContent() sees the final DOM + data state and can hide
   // tabs whose sections are all empty/toggled-off.
-  wirePageRouting(pagesWithContent(sectionsToApply));
+  const pages = pagesWithContent(sectionsToApply);
+  const eventId = eventFromSearch(window.location.search);
+  if (eventId && !isPreview) {
+    renderPageNav(pages, "");
+    mountEventPage({
+      eventId,
+      chapterSlug: bundle?.chapter.slug ?? slug,
+      chapterName: bundle?.chapter.name ?? remote?.hub_name ?? config.hub_name,
+      title: bundle?.events.find((event) => event.id === eventId)?.title,
+    });
+  } else {
+    wirePageRouting(pages);
+  }
 
   // Preview + edit mode → attach clickable "Edit here" pills to every
   // section that maps to a dashboard route. Dashboard parent listens

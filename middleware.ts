@@ -123,6 +123,11 @@ async function chapterHead(
   res: Response,
 ): Promise<Response | undefined> {
   let name = "", tagline = "", image = "", university = "";
+  const requestedEvent = url.searchParams.get("event")?.trim().toLowerCase() ?? "";
+  const eventId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(requestedEvent)
+    ? requestedEvent : "";
+  let eventTitle = "", eventDescription = "", eventImage = "";
+  let eventListed = false;
   /**
    * Unfurl bots won't render SVG. The dashboard's generated chapter logo is
    * an SVG, so a chapter that never uploaded a logo of its own unfurled as a
@@ -162,19 +167,35 @@ async function chapterHead(
       () => "/api/public/chapter-card/",
     );
     university = String(chapter.university ?? cfg.university ?? "").trim();
+    // The bundle includes only this chapter's published hosted/co-hosted
+    // events. Never borrow another chapter's event for a shared-link card.
+    const event = eventId && Array.isArray(data?.events)
+      ? data.events.find((entry: { id?: string }) => entry.id === eventId) : null;
+    if (event) {
+      eventTitle = String(event.title ?? "").trim();
+      eventListed = event.publish_status === "listed";
+      eventDescription = eventListed ? "" : String(event.description ?? "").trim().slice(0, 300);
+      eventImage = String(event.image_url ?? "").trim();
+    }
   } catch {
     return passThrough; // a malformed bundle must not take the site down
   }
 
   if (!name) return passThrough;
 
-  const description =
-    tagline ||
+  const description = eventId
+    ? eventListed ? `Details coming soon. View the event schedule for ${name}.`
+      : eventDescription || `Event details, schedule and ways to take part with ${name}.`
+    : tagline ||
     (university
       ? `The applied AI club at ${university}. Events, projects and workshops — no experience required.`
       : "A student-run applied AI community.");
-  const title = `${name} — ${NETWORK_NAME}`;
-  const pageUrl = `https://${url.host}/`;
+  const title = eventId ? `${eventTitle || "Event"} — ${name}` : `${name} — ${NETWORK_NAME}`;
+  const pageUrl = `https://${url.host}/${eventId ? `?event=${encodeURIComponent(eventId)}` : ""}`;
+  if (eventImage) {
+    image = eventImage;
+    generatedCard = true;
+  }
 
   const head = [
     `<title>${esc(title)}</title>`,
@@ -199,7 +220,7 @@ async function chapterHead(
     url.origin,
     "/index.html",
     head,
-    "public, s-maxage=300, stale-while-revalidate=3600",
+    eventId ? "no-store" : "public, s-maxage=300, stale-while-revalidate=3600",
   );
 }
 
