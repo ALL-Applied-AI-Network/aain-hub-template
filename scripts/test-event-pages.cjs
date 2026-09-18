@@ -18,6 +18,26 @@ function load(relative, additions = {}) {
   return context.exports;
 }
 
+// Run the actual card-rendering functions without booting the full website.
+function loadEventRenderer() {
+  const filename = path.resolve(__dirname, "../src/main.ts");
+  const source = ts.createSourceFile(filename, fs.readFileSync(filename, "utf8"), ts.ScriptTarget.ES2022, true);
+  const names = new Set(["zoneParts", "renderEventCard", "renderPhaseRow", "renderRichMarkdown", "safeHttpUrl"]);
+  const declarations = source.statements.filter(node => ts.isFunctionDeclaration(node) && names.has(node.name?.text));
+  assert.equal(declarations.length, names.size);
+  const output = ts.transpileModule(declarations.map(node => node.getText(source)).join("\n"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const context = {
+    ...load("src/lib/html.ts"),
+    eventPageHref: load("src/event-page.ts").eventPageHref,
+    window: { location: { pathname: "/club/" } },
+    URL,
+  };
+  vm.runInNewContext(output, context, { filename });
+  return context.renderEventCard;
+}
+
 async function main() {
   const eventId = "69a49634-e7cb-4d18-9599-c1d8c4c6d16d";
   const otherEventId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
@@ -60,12 +80,44 @@ async function main() {
   ]) assert.equal(helpers.trustedFlyerTop(invalid, frameWindow, eventId), null);
   assert.equal(helpers.trustedFlyerTop(navigate, null, eventId), null);
 
+  const renderCard = loadEventRenderer();
+  const event = {
+    id: eventId, title: "Innovation Lab", publish_status: "listed", type: "Innovation Lab",
+    date: "2026-10-08T23:30:00Z", end_date: null, timezone: "America/Chicago", format: "hybrid",
+    description: "UNRELEASED_DESCRIPTION", virtual_url: "https://example.org/UNRELEASED_MEETING",
+    learning_tree_node_title: "UNRELEASED_LEARNING", points_attend: 987,
+    location: "Engineering Hall", image_url: "https://example.org/announcement.png",
+    phases: [{ id: "phase-1", name: "Kickoff", date_start: "2026-10-08T23:30:00Z", date_end: null,
+      format: "in_person", location: "Room 101", description: "UNRELEASED_PHASE", has_check_in: true, points_attend: 678 }],
+  };
+  const listedCard = renderCard(event, new Map());
+  assert.match(listedCard, /Details coming soon/);
+  assert.match(listedCard, /View schedule/);
+  assert.match(listedCard, /Innovation Lab/);
+  assert.match(listedCard, /Kickoff/);
+  assert.match(listedCard, /Room 101/);
+  assert.match(listedCard, /announcement\.png/);
+  assert.doesNotMatch(listedCard, /UNRELEASED_|987|678|Join virtually/);
+  const listedSingle = renderCard({ ...event, phases: [] }, new Map());
+  assert.match(listedSingle, /Engineering Hall/);
+  assert.doesNotMatch(listedSingle, /UNRELEASED_|Join virtually/);
+  const publishedCard = renderCard({ ...event, publish_status: "published" }, new Map());
+  assert.match(publishedCard, /UNRELEASED_DESCRIPTION/);
+  assert.match(publishedCard, /UNRELEASED_PHASE/);
+  assert.match(publishedCard, /UNRELEASED_LEARNING/);
+  assert.match(publishedCard, /987 pts/);
+  assert.match(publishedCard, /678 pts/);
+  assert.match(publishedCard, /View event/);
+  assert.doesNotMatch(publishedCard, /Details coming soon/);
+  assert.match(renderCard({ ...event, publish_status: undefined }, new Map()), /UNRELEASED_DESCRIPTION/);
+
+  let publishStatus = "published";
   const metadata = load("middleware.ts", {
     fetch: async (url) => {
       if (String(url).includes("/api/public/chapter/")) return Response.json({
         chapter: { slug: "test-club", name: "Test Club" },
         config: { hub_name: "Test Club" },
-        events: [{ id: eventId, title: 'Innovation & <Lab>', description: 'Bring your "$&" project.', image_url: "https://example.org/cover.png" }],
+        events: [{ id: eventId, publish_status: publishStatus, title: 'Innovation & <Lab>', description: 'Bring your "$&" project.', image_url: "https://example.org/cover.png" }],
       });
       if (String(url).includes("/api/public/member/")) return new Response(null, { status: 404 });
       return new Response('<!doctype html><head><title>Chapter Hub</title><meta name="description" content="old"></head><body>Site</body>');
@@ -78,11 +130,18 @@ async function main() {
   assert.match(html, /https:\/\/example.org\/cover.png/);
   assert.equal((html.match(/<\/head>/g) || []).length, 1);
   assert.equal(result.headers.get("cache-control"), "no-store");
+  publishStatus = "listed";
+  const listedMetadata = await metadata.default(new Request(`https://test-club.all-ai-network.org/?event=${eventId}`));
+  const listedHtml = await listedMetadata.text();
+  assert.match(listedHtml, /Details coming soon/);
+  assert.match(listedHtml, /Innovation &amp; &lt;Lab&gt;/);
+  assert.match(listedHtml, /https:\/\/example.org\/cover.png/);
+  assert.doesNotMatch(listedHtml, /Bring your/);
   const unknown = await metadata.default(new Request(`https://test-club.all-ai-network.org/?event=${otherEventId}`));
   assert.match(await unknown.text(), /Event — Test Club/);
   const homepage = await metadata.default(new Request("https://test-club.all-ai-network.org/"));
   assert.match(await homepage.text(), /Test Club — ALL Applied AI Network/);
-  console.log("PASS: static event routes, iframe origin/source/event validation, resize bounds, event metadata and chapter-home preservation");
+  console.log("PASS: event routes, iframe messaging, listed card/metadata redaction, published detail preservation and chapter-home metadata");
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });

@@ -792,6 +792,17 @@ code {
   color: var(--text-tertiary);
 }
 
+.event-card__announcement {
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1.5;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid rgba(var(--color-primary-rgb), 0.28);
+  background: rgba(var(--color-primary-rgb), 0.1);
+  color: var(--text-secondary);
+}
+
 /* Format chip — compact pill that surfaces only when the event
    isn't pure in-person. Color-coded so visitors clock the format
    at a glance without reading the pill content. */

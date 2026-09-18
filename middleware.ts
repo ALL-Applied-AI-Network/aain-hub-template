@@ -127,6 +127,7 @@ async function chapterHead(
   const eventId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(requestedEvent)
     ? requestedEvent : "";
   let eventTitle = "", eventDescription = "", eventImage = "";
+  let eventListed = false;
   /**
    * Unfurl bots won't render SVG. The dashboard's generated chapter logo is
    * an SVG, so a chapter that never uploaded a logo of its own unfurled as a
@@ -172,7 +173,8 @@ async function chapterHead(
       ? data.events.find((entry: { id?: string }) => entry.id === eventId) : null;
     if (event) {
       eventTitle = String(event.title ?? "").trim();
-      eventDescription = String(event.description ?? "").trim().slice(0, 300);
+      eventListed = event.publish_status === "listed";
+      eventDescription = eventListed ? "" : String(event.description ?? "").trim().slice(0, 300);
       eventImage = String(event.image_url ?? "").trim();
     }
   } catch {
@@ -182,7 +184,8 @@ async function chapterHead(
   if (!name) return passThrough;
 
   const description = eventId
-    ? eventDescription || `Event details, schedule and ways to take part with ${name}.`
+    ? eventListed ? `Details coming soon. View the event schedule for ${name}.`
+      : eventDescription || `Event details, schedule and ways to take part with ${name}.`
     : tagline ||
     (university
       ? `The applied AI club at ${university}. Events, projects and workshops — no experience required.`
