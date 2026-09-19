@@ -68,12 +68,34 @@ export interface TreeData {
   nodes: TreeNode[];
 }
 
+/**
+ * Mirrors HubOfficer in the dashboard's lib/hub-config.ts. Two gates
+ * live in this one record and the prefixes say which:
+ *
+ *  - name/role/image_url/linkedin/email/description are eboard-authored
+ *    and published under visible_on_site alone. `linkedin` is the
+ *    officer's own typed link.
+ *  - account_* come from the ALL member account the roster row resolves
+ *    to, and only while that member's portfolio is published. The
+ *    member's own off switch clears all three, so treat each as absent
+ *    by default and never substitute one from elsewhere.
+ *
+ * Optional because the legacy stored-config path omits them: a bundle
+ * served before the dashboard shipped these fields has neither.
+ */
 export interface Officer {
   name: string;
   role: string;
   image_url?: string | null;
   linkedin?: string | null;
   email?: string | null;
+  /** Officer-authored public blurb, <= 280 chars, plain text. */
+  description?: string | null;
+  /** https://{public_slug}.all-ai-network.org while it is published. */
+  account_profile_url?: string | null;
+  account_github_url?: string | null;
+  /** The account's LinkedIn, not the officer-typed `linkedin` above. */
+  account_linkedin_url?: string | null;
 }
 
 export interface RemoteConfig {

@@ -2877,34 +2877,59 @@ a.project-card:hover {
    this rule is the belt to that braces. */
 .officer-card__role:empty { display: none; }
 
+/* The officer's own blurb. The clamp is a guard rail, not a routine
+   cut: the dashboard caps the field at 280 characters, and ten lines
+   holds all 280 at the column widths this grid actually produces —
+   233px at five columns on a 1280 desktop, ~260px at four, full width
+   on a phone (measured, not assumed). Only a window sized so the
+   columns sit on the grid's 220px floor drops the last few words of a
+   blurb written right up to the cap. That is the trade: every card in
+   a row is as tall as the tallest, so one unclamped blurb sets the
+   height of four other people's cards. */
+.officer-card__bio {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 10;
+  line-clamp: 10;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .officer-card__links {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.6rem;
+  /* Profile, Email and two marks can exceed one line in a 220px
+     column; wrapping beats a row that overflows its card. */
+  flex-wrap: wrap;
+  gap: 0.35rem 0.6rem;
   margin-top: 0.2rem;
 }
 
-.officer-card__linkedin,
-.officer-card__email {
-  display: inline-flex;
-  color: var(--text-tertiary);
-  transition: color 0.15s;
-}
-.officer-card__linkedin:hover,
-.officer-card__email:hover {
-  color: var(--color-primary);
-}
-
-/* The named affordance under an officer, rather than a bare icon:
-   email is filled in for every MSOE officer and linkedin for none, so
-   "Email →" is the one that actually reaches somebody. */
+/* The named affordances under an officer — Profile, Email, and
+   LinkedIn when it is the only link there — rather than bare icons.
+   Email is filled in for all 13 MSOE officers and LinkedIn for none,
+   so "Email →" is still the one that actually reaches somebody. */
 .officer-card__contact {
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-secondary);
 }
 .officer-card__contact:hover { color: var(--color-primary); }
+
+/* GitHub and LinkedIn once an officer has an ALL account: the profile
+   link beside them already says where they are, so these are marks and
+   not two more words competing with it. */
+.officer-card__mark {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-tertiary);
+  transition: color 0.15s;
+}
+.officer-card__mark:hover { color: var(--color-primary); }
 
 /* ══ CDN content cards (learning / workshops / playbooks) ═════ */
 
