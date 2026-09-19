@@ -21,36 +21,51 @@ import type {
   EventRow,
   HubConfig,
   LocalContentEntry,
-  Officer,
   ProjectRow,
   RemoteConfig,
 } from "./lib/bundle";
-import { formatCount, officerInitials, plural } from "./lib/format";
+import { formatCount, monthDay, plural } from "./lib/format";
 import { safeHttpUrl } from "./lib/net";
 import { renderGridEmpty } from "./lib/primitives";
-import {
-  futureEventsAscending,
-  latestPastEvent,
-  nextEvent,
-  pastEventsDescending,
-} from "./lib/events";
+import { latestPastEvent, nextEvent } from "./lib/events";
 import { termLineParts } from "./lib/season";
 import { MOUNT, viewContext, type ViewCtx } from "./lib/view";
 /* Side-effect imports: each view module registers itself into MOUNT at
-   load, so showPage() can find it by page key. */
-import "./views/officers";
-import "./views/members";
+   load, so showPage() can find it by page key. views/members.ts is not
+   here — it stopped registering a view in this pass and is imported
+   for its named exports below, because the board is Home's, not a
+   destination's. */
+import "./views/about";
+/* About's header line claims a contact only when a card will carry
+   one, so the claim is checked with the view's own rule. */
+import { officerIsReachable } from "./views/about";
 import "./views/events";
 import "./views/projects";
 import "./views/learn";
-/* Named imports from the same view modules: the landing page shows a
-   sample of each room, and a sample rendered by a second copy of the
-   renderer is a sample that drifts from the room. One event row, one
-   feature card, one project card, one ranking. */
-import { renderEventRow, renderFeatureCard } from "./views/events";
+import "./views/sponsor";
+/* Named imports from the same view modules. Two different jobs:
+
+   - Home samples the Projects room, and a sample rendered by a second
+     copy of the renderer is a sample that drifts from the room, so it
+     borrows renderProjectCard rather than reimplementing a card.
+   - The board, the badge wall and the merch shelf have no room to
+     sample any more. views/members.ts stopped registering a view in
+     this pass; it is four functions that fill a host element, and Home
+     is the only caller. */
 import { deriveYearFilters, renderProjectCard } from "./views/projects";
-import { rankByPoints, renderBoardRow, scoredRows } from "./views/members";
+import {
+  hasRecognition,
+  renderBadgeWall,
+  renderBoard,
+  renderMerch,
+  renderNetworkLine,
+} from "./views/members";
 import { renderStartHereBand, startCurriculumFetch } from "./views/learn";
+/* The sponsor page is told which chapter it acts for, rather than
+   reading it from the view context: ViewCtx.slug honours the preview
+   ?slug= param and a partner's message must always reach the chapter
+   whose hostname this is. */
+import { setSponsorChapter } from "./views/sponsor";
 
 /* Capture mode is decided before anything renders, so ?still=1 never
    catches a frame that already started animating. See lib/capture.ts. */
@@ -91,26 +106,38 @@ interface Page {
    but deliberately no data-section, so they sit outside the toggle
    system and cannot keep an otherwise-empty page alive.
 
-   Home's list is six keys long because Home carries a *window* onto
-   each destination. Two elements then legitimately share a data-section
-   value — the home band and the full view — which is why
-   pagesWithContent() and hideSection() are both page-scoped. */
+   Home's list names the sections that actually live on the landing
+   page. Three of them — leaderboard, badges, merch — exist ONLY there
+   now: the Members destination is gone, because the board is the front
+   page rather than a room off it. `projects` and `learning_tree` are
+   the two keys a home band still shares with a destination, which is
+   why pagesWithContent() and hideSection() are both page-scoped.
+
+   `hero` is in Home's list and is always in the DOM, so Home is the
+   one page that can never lose its tab. That is deliberate: a site
+   with no Home is not a site. */
 const PAGES: Page[] = [
-  { key: "home", label: "Home", sections: ["hero", "events", "leaderboard", "projects", "officers", "learning_tree"] },
+  { key: "home", label: "Home", sections: ["hero", "leaderboard", "badges", "merch", "projects", "learning_tree"] },
   // Promoted from a home section to a destination: MSOE has run 59
-  // events over three years and this site rendered one of them.
+  // events over three years and this site rendered one of them. Home
+  // no longer samples it at all — the hero's next-event CTA and the
+  // Events door say what is next, and the board gets the room a feed
+  // of three rows used to take.
   { key: "events", label: "Events", sections: ["events"] },
   { key: "projects", label: "Projects", sections: ["projects"] },
-  // The tree itself, plus a native index above it. Workshops and
-  // playbooks live on the content CDN and are not mirrored here.
+  // The tree, and nothing else. Workshops and playbooks live on the
+  // content CDN and are not mirrored here.
   { key: "learn", label: "Learn", sections: ["learning_tree"] },
-  // Its own tab, named Officers, because that is what Ben asked for.
-  // Team holding a 200-row leaderboard buried it.
-  { key: "officers", label: "Officers", sections: ["officers", "about"] },
-  // Earn points → get recognised → redeem is one story. Merch folds in
-  // here: it was empty on 11 of 12 chapters, and a tab that is usually
-  // empty is worse than no tab.
-  { key: "members", label: "Members", sections: ["leaderboard", "badges", "merch"] },
+  // What the club is and who runs it, in one room. Officers used to be
+  // their own tab beside the board, which read as though the eboard
+  // were the top of it; they are people, and this is where a visitor
+  // looks for people.
+  { key: "about", label: "About", sections: ["about", "officers"] },
+  // The hand-off. The chapter's own pitch, the button through to the
+  // involvement platform that owns tiers and prices, and the chapter's
+  // own inbox. Its one section is dropped when no slug resolves, which
+  // takes the tab with it.
+  { key: "sponsor", label: "Sponsor", sections: ["sponsor"] },
 ];
 
 /** Dashboard route each section can be edited from — used by the
@@ -488,10 +515,12 @@ function renderHeroActions(
       // already says in the same words on the same button — the only
       // two buttons on the page were the same button.
       buttons.push({ label: "Start the curriculum", href: "#learn", style: "primary", authored: false });
-    } else {
+    } else if (livePages.has("sponsor")) {
       // Nothing to show and nowhere to send them but the inbox. The
       // partner CTA posts to the dashboard rather than a per-officer
-      // mailto, so the thread survives eboard turnover.
+      // mailto, so the thread survives eboard turnover. Gated on the
+      // page existing, like every other computed default: an unlinked
+      // fork has no Sponsor tab and this button would go nowhere.
       buttons.push({ label: "Become a partner", href: "#sponsor", style: "primary", authored: false });
     }
   }
@@ -546,49 +575,45 @@ const PAGE_CTA_BANDS: Record<string, PageCtaBandCopy> = {
     title: "Sponsoring, speaking, or hiring?",
     desc: "The eboard reads this inbox, and it survives every handover.",
     primary: { label: "Become a partner", href: "#sponsor" },
-    secondary: { label: "Meet the officers", href: "#officers" },
+    secondary: { label: "Meet the officers", href: "#about" },
   },
   projects: {
     kicker: "Build with us",
     title: "Want to ship a project with the chapter?",
     desc: "Members pitch ideas every semester and team up into Innovation Labs cohorts. Show up to a meeting, propose a project, recruit collaborators — eboard helps you scope it end-to-end.",
     primary: { label: "See upcoming events", href: "#events" },
-    secondary: { label: "Meet the officers", href: "#officers" },
+    secondary: { label: "Meet the officers", href: "#about" },
   },
-  officers: {
+  about: {
     kicker: "Get in touch",
     title: "Running something? Reach out.",
     desc: "Sponsoring events, guest-speaking, recruiting our members, or joining the eboard — we reply fast. The whole eboard is a student team, and we love outside-of-class opportunities to build together.",
     primary: { label: "Become a partner", href: "#sponsor" },
     secondary: { label: "See our projects", href: "#projects" },
   },
-  learn: {
-    kicker: "Go deeper",
-    title: "Pair the curriculum with a weekly build session.",
-    desc: "The tree covers the theory; our workshops and speaker nights cover the applied side. Come to one, no prior experience needed — every track starts from zero.",
-    primary: { label: "See upcoming events", href: "#events" },
-    secondary: { label: "Meet the officers", href: "#officers" },
-  },
-  members: {
-    kicker: "Earn & redeem",
-    title: "Points are earned in person.",
-    desc: "Every event check-in, shipped project, and recognition earns points. See any eboard member at a meeting to redeem — no online checkout, no shipping, all in-person.",
-    primary: { label: "See upcoming events", href: "#events" },
-    secondary: { label: "Meet the officers", href: "#officers" },
-  },
+  // Learn has no band. "Learn should just be the learning tree" — a
+  // full-bleed canvas with a two-button pitch bolted under it is the
+  // page saying one more thing after the thing it is for. The Members
+  // band went with the Members page; the board is on Home, under
+  // Home's own band.
 };
 
 /** Every secondary CTA on these bands points at a destination, and on
- *  a chapter with no officers the Officers tab does not exist — NTUA
- *  shipped a "Meet the officers" button that jumped nowhere. A hash
+ *  a chapter with no officers and no About text the About tab does not
+ *  exist — NTUA shipped a "Meet the officers" button that jumped
+ *  nowhere, and the same is true of a Sponsor button on an unlinked
+ *  fork, which is why #sponsor is checked here like any other. A hash
  *  href is only rendered when its destination is one of the live
  *  pages; anything else (mailto, an absolute URL) is left alone. */
 function ctaTargetLives(href: string, livePages: Set<string>): boolean {
   if (!href.startsWith("#")) return true;
   const key = href.slice(1).split("/")[0];
-  // #sponsor is not a page: it falls through to home and opens the
-  // sponsor modal (wireSponsorHashRoute), so it always resolves.
-  if (key === "sponsor" || key === "") return true;
+  // #sponsor used to be the exception here: it was not a page, it fell
+  // through to Home and opened a modal. It is a destination now, so it
+  // is checked like every other one — a chapter whose slug does not
+  // resolve has no Sponsor tab, and a button to it would be the dead
+  // link this function exists to prevent.
+  if (key === "") return true;
   return livePages.has(key);
 }
 
@@ -598,6 +623,17 @@ function renderPageCtaBands(livePages: Set<string>) {
       `.page-cta-band[data-page="${pageKey}"]`,
     );
     if (!band) continue;
+
+    // A band belonging to a page that does not exist. ML@IIT has no
+    // officers and no About text, so its About tab is gone — and the
+    // About band was still being filled with copy nobody could ever
+    // reach. showPage() hides it, which is not the same as it not
+    // being there: it is in the DOM, in the a11y tree, and in the
+    // ?still=1 capture.
+    if (!livePages.has(pageKey)) {
+      band.remove();
+      continue;
+    }
 
     // A band whose primary target does not exist is not a band with a
     // dead button — it is a band whose whole premise is false. The
@@ -628,281 +664,6 @@ function renderPageCtaBands(livePages: Set<string>) {
       </div>
     `;
   }
-}
-
-/* ──────────────────────────────────────────────────────────────────
-   Sponsor inquiry modal — triggered by the `#sponsor` hash route,
-   which is the default href for the hero's partner CTA. Posts to
-   the dashboard's public sponsor endpoint so inquiries land in the
-   chapter's Inbox tab instead of a disappearing mailto thread.
-
-   Why network-hosted instead of mailto: eboard leadership turns over
-   every year or two, and any email history tied to a graduating
-   officer's inbox leaves with them. A network-hosted inbox persists
-   across that turnover so the next eboard inherits the full history.
-
-   Falls back to an alert if no slug is resolvable (e.g., a fork of
-   the template deployed without linking to the dashboard). No silent
-   swallow — better for a visitor to see "couldn't send, email us at
-   …" than to click and get nothing.
-   ────────────────────────────────────────────────────────────────── */
-
-let sponsorModalState: {
-  slug: string;
-  chapterName: string;
-  fallbackEmail: string | null;
-} | null = null;
-
-function setupSponsorModal(
-  slug: string | null,
-  chapterName: string,
-  remote: RemoteConfig | null,
-) {
-  // Remove any previous modal DOM so preview-mode hot swaps don't
-  // leave stacked modals in the tree.
-  document.getElementById("sponsor-modal-root")?.remove();
-
-  if (!slug) {
-    sponsorModalState = null;
-    return;
-  }
-  sponsorModalState = {
-    slug,
-    chapterName,
-    fallbackEmail: remote?.social_links?.email ?? null,
-  };
-
-  const root = document.createElement("div");
-  root.id = "sponsor-modal-root";
-  root.className = "sponsor-modal-root";
-  root.hidden = true;
-  root.setAttribute("role", "dialog");
-  root.setAttribute("aria-modal", "true");
-  root.setAttribute("aria-labelledby", "sponsor-modal-title");
-  root.innerHTML = `
-    <div class="sponsor-modal__backdrop" data-close="true" aria-hidden="true"></div>
-    <div class="sponsor-modal__panel" role="document">
-      <button
-        type="button"
-        class="sponsor-modal__close"
-        aria-label="Close"
-        data-close="true"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"/>
-          <line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
-      </button>
-      <div class="sponsor-modal__head">
-        <div class="sponsor-modal__kicker">Partnership inquiry</div>
-        <h2 class="sponsor-modal__title" id="sponsor-modal-title">
-          Work with ${escapeHtml(chapterName)}
-        </h2>
-        <p class="sponsor-modal__desc">
-          Sponsor an event, bring a speaker, recruit our members, or propose
-          something else. Your note lands directly in the eboard's inbox —
-          they'll get back within a few days.
-        </p>
-      </div>
-      <form class="sponsor-modal__form" novalidate>
-        <div class="sponsor-field">
-          <label class="sponsor-field__label" for="sponsor-name">Your name *</label>
-          <input class="sponsor-field__input" id="sponsor-name" name="name" type="text" required maxlength="200" autocomplete="name" />
-        </div>
-        <div class="sponsor-field sponsor-field--row">
-          <div class="sponsor-field__col">
-            <label class="sponsor-field__label" for="sponsor-email">Email *</label>
-            <input class="sponsor-field__input" id="sponsor-email" name="email" type="email" required maxlength="320" autocomplete="email" />
-          </div>
-          <div class="sponsor-field__col">
-            <label class="sponsor-field__label" for="sponsor-company">Company / organization</label>
-            <input class="sponsor-field__input" id="sponsor-company" name="company" type="text" maxlength="200" autocomplete="organization" />
-          </div>
-        </div>
-        <div class="sponsor-field">
-          <label class="sponsor-field__label" for="sponsor-phone">Phone (optional)</label>
-          <input class="sponsor-field__input" id="sponsor-phone" name="phone" type="tel" maxlength="50" autocomplete="tel" placeholder="Optional — easier than email if it's time-sensitive" />
-        </div>
-        <div class="sponsor-field">
-          <label class="sponsor-field__label" for="sponsor-message">Message *</label>
-          <textarea class="sponsor-field__input sponsor-field__textarea" id="sponsor-message" name="message" required minlength="10" maxlength="5000" rows="5" placeholder="What would you like to partner on? The more detail, the faster we can reply."></textarea>
-        </div>
-        <!-- Honeypot — display:none on the CSS side, real users never touch
-             this, bots that auto-fill every field will. Server drops any
-             submission with content here. -->
-        <div class="sponsor-field__honeypot" aria-hidden="true">
-          <label>Website <input name="website" type="text" tabindex="-1" autocomplete="off" /></label>
-        </div>
-        <div class="sponsor-modal__status" role="status" aria-live="polite"></div>
-        <div class="sponsor-modal__actions">
-          <button type="button" class="btn btn--ghost" data-close="true">Cancel</button>
-          <button type="submit" class="btn btn--primary sponsor-modal__submit">
-            <span class="sponsor-modal__submit-label">Send inquiry</span>
-          </button>
-        </div>
-      </form>
-      <div class="sponsor-modal__success" hidden>
-        <div class="sponsor-modal__success-icon" aria-hidden="true">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12"/>
-          </svg>
-        </div>
-        <h3 class="sponsor-modal__success-title">Got it — thanks for reaching out.</h3>
-        <p class="sponsor-modal__success-desc">
-          The eboard has your note and typically replies within a few days.
-          If anything's urgent, feel free to email us directly.
-        </p>
-        <button type="button" class="btn btn--primary" data-close="true">Close</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(root);
-
-  const form = root.querySelector("form") as HTMLFormElement;
-  const statusEl = root.querySelector(".sponsor-modal__status") as HTMLElement;
-  const successEl = root.querySelector(".sponsor-modal__success") as HTMLElement;
-  const submitBtn = root.querySelector(".sponsor-modal__submit") as HTMLButtonElement;
-  const submitLabel = root.querySelector(".sponsor-modal__submit-label") as HTMLElement;
-
-  // Close handlers — delegate through the root so each [data-close]
-  // element (backdrop + X button + Cancel + success Close) wires up
-  // with one listener.
-  root.addEventListener("click", (e) => {
-    const target = e.target as HTMLElement | null;
-    if (target?.closest("[data-close]")) closeSponsorModal();
-  });
-
-  // Esc to close, focus-trap-lite within the modal while open.
-  root.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeSponsorModal();
-  });
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    statusEl.textContent = "";
-    statusEl.classList.remove("sponsor-modal__status--error");
-
-    const fd = new FormData(form);
-    const body = {
-      name: String(fd.get("name") ?? "").trim(),
-      email: String(fd.get("email") ?? "").trim(),
-      company: String(fd.get("company") ?? "").trim() || null,
-      phone: String(fd.get("phone") ?? "").trim() || null,
-      message: String(fd.get("message") ?? "").trim(),
-      website: String(fd.get("website") ?? ""),
-    };
-
-    if (!body.name || !body.email || !body.message) {
-      statusEl.textContent = "Please fill in the required fields.";
-      statusEl.classList.add("sponsor-modal__status--error");
-      return;
-    }
-    if (body.message.length < 10) {
-      statusEl.textContent = "Add a bit more detail — 10 characters minimum.";
-      statusEl.classList.add("sponsor-modal__status--error");
-      return;
-    }
-
-    submitBtn.disabled = true;
-    submitLabel.textContent = "Sending…";
-    try {
-      const res = await fetch(
-        `${DASHBOARD_ORIGIN}/api/public/sponsor/${encodeURIComponent(slug)}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        },
-      );
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        statusEl.textContent =
-          (data && typeof data.error === "string" && data.error) ||
-          "Couldn't send — please try again.";
-        statusEl.classList.add("sponsor-modal__status--error");
-        submitBtn.disabled = false;
-        submitLabel.textContent = "Send inquiry";
-        return;
-      }
-      // Swap to success state. Keep the modal open so the visitor
-      // reads the confirmation rather than a flash that vanishes.
-      form.hidden = true;
-      successEl.hidden = false;
-    } catch {
-      statusEl.textContent =
-        "Network error — please try again, or email the eboard directly.";
-      statusEl.classList.add("sponsor-modal__status--error");
-      submitBtn.disabled = false;
-      submitLabel.textContent = "Send inquiry";
-    }
-  });
-}
-
-function openSponsorModal() {
-  const root = document.getElementById("sponsor-modal-root");
-  if (!root || !sponsorModalState) {
-    // No modal available — fall back to mailto if the chapter has one
-    // configured, else quietly surface the #team page where the
-    // eboard emails live.
-    const email = sponsorModalState?.fallbackEmail;
-    if (email) {
-      window.location.href = `mailto:${email}?subject=Partnership inquiry`;
-    } else {
-      window.location.hash = "#officers";
-    }
-    return;
-  }
-  root.hidden = false;
-  document.body.classList.add("sponsor-modal-open");
-  const nameInput = root.querySelector("#sponsor-name") as HTMLInputElement | null;
-  // Defer focus so it fires after the browser paints the modal.
-  setTimeout(() => nameInput?.focus(), 30);
-}
-
-function closeSponsorModal() {
-  const root = document.getElementById("sponsor-modal-root");
-  if (!root) return;
-  root.hidden = true;
-  document.body.classList.remove("sponsor-modal-open");
-  // Reset form state so a second open starts fresh. Preserves the
-  // content the user typed only if the submit failed — but once
-  // they've closed the modal, assume they're starting over.
-  const form = root.querySelector("form") as HTMLFormElement | null;
-  const success = root.querySelector(".sponsor-modal__success") as HTMLElement | null;
-  const status = root.querySelector(".sponsor-modal__status") as HTMLElement | null;
-  const submitBtn = root.querySelector(".sponsor-modal__submit") as HTMLButtonElement | null;
-  const submitLabel = root.querySelector(".sponsor-modal__submit-label") as HTMLElement | null;
-  if (form && success && success.hidden === false) {
-    form.reset();
-    form.hidden = false;
-    success.hidden = true;
-  }
-  if (status) {
-    status.textContent = "";
-    status.classList.remove("sponsor-modal__status--error");
-  }
-  if (submitBtn && submitLabel) {
-    submitBtn.disabled = false;
-    submitLabel.textContent = "Send inquiry";
-  }
-
-  // Clear the hash so re-triggering the CTA re-opens, not no-ops.
-  if (window.location.hash === "#sponsor") {
-    history.replaceState(
-      null,
-      "",
-      window.location.pathname + window.location.search,
-    );
-  }
-}
-
-function wireSponsorHashRoute() {
-  function maybeOpen() {
-    if (window.location.hash === "#sponsor") openSponsorModal();
-  }
-  window.addEventListener("hashchange", maybeOpen);
-  // Also fire on initial load so a deep link to #sponsor opens the modal.
-  maybeOpen();
 }
 
 /**
@@ -1022,13 +783,7 @@ function pruneEmptySections(bundle: ChapterBundle | null) {
   const events = bundle?.events ?? [];
   const projects = bundle?.projects ?? [];
   const officers = bundle?.config?.officers ?? [];
-  const badges = bundle?.badges ?? [];
-  const merch = bundle?.merch ?? [];
   const about = (bundle?.config?.about ?? "").trim();
-  // A member on zero points is not a standing — see scoredRows. ML@IIT
-  // ships 20 rows of 0 against 100 members, which ranked is twenty tied
-  // firsts each printing a zero beside a real student's name.
-  const scored = scoredRows(bundle?.leaderboard ?? []).length;
 
   // Events and projects have no empty state anywhere: a chapter with
   // none of either simply has no band and no tab.
@@ -1036,30 +791,42 @@ function pruneEmptySections(bundle: ChapterBundle | null) {
   if (!projects.length) hideSection("projects");
 
   if (!officers.length) hideSection("officers");
-  if (!about) hideSection("about", "officers");
-  if (!scored) hideSection("leaderboard", "members");
-  // The badges section carries the three points-explainer cards as well
-  // as the wall, and the explainer earns its place whenever there are
-  // points OR badges to explain.
-  if (!badges.length && !scored) hideSection("badges", "members");
-  if (!merch.length) hideSection("merch", "members");
+  if (!about) hideSection("about", "about");
+
+  // leaderboard / badges / merch are deliberately absent from this
+  // list. They are Home-only now, and Home keeps its tab on `hero`
+  // whatever they do — so nothing here affects the nav, and deciding
+  // them early would cost the board its one honest empty state
+  // ("Points start showing up here once members check in at an
+  // event."), which a destination could not have shown but a home band
+  // can. renderBoardBands() drops each of the three bands on the
+  // render that found nothing.
 }
 
 /* ──────────────────────────────────────────────────────────────────
    THE LANDING PAGE
 
-   A front door: who this is, what is next, and a sample of each room
-   behind the nav. Every sample is rendered by the destination's own
-   renderer — renderFeatureCard, renderEventRow, renderProjectCard,
-   renderBoardRow, renderStartHereBand — so the sample and the room can
-   never disagree about what an event or a tie looks like.
+   A front door: who this is, the board, and a way into each room
+   behind the nav.
+
+   Two kinds of block live here now. The board, the badge wall and the
+   merch shelf are WHOLE — there is no Members destination behind them
+   any more, so nothing is being sampled and nothing is truncated.
+   Projects and Start here are still samples, and each is rendered by
+   the destination's own renderer (renderProjectCard,
+   renderStartHereBand) so the sample and the room can never disagree
+   about what a project card looks like.
+
+   The Events band is gone. It was the best-looking thing on the page
+   and that was the problem: three rows of feed sat between a visitor
+   and the club's own record, on the one screen where the record should
+   lead. Events is its own destination, the hero still says what is
+   next, and the Events door carries the title and the date.
    ────────────────────────────────────────────────────────────────── */
 
-/** Home bands sample three rows / three cards / five names. More than
- *  that is not a sample, it is the destination rendered twice. */
+/** The Projects band samples three cards. More than that is not a
+ *  sample, it is the destination rendered twice. */
 const BAND_ROWS = 3;
-const BAND_STANDINGS = 5;
-const STRIP_OFFICERS = 6;
 
 /** The band head: a quiet title on the left, a way into the room on the
  *  right. No .section__kicker anywhere on this page — six uppercase
@@ -1169,11 +936,16 @@ function renderDoors(
       name: "Events",
       href: "#events",
       n: events.length,
-      // A non-breaking space before the year: at 150px the unit wraps,
-      // and "59 events since / 2023" is a worse break than "59 events /
-      // since 2023".
       unit: events.length === 1 ? "event" : `events${year ? ` since ${year}` : ""}`,
-      line: lead ? lead.title : "",
+      // Title AND date, which this door did not carry before. The
+      // "What's on" band used to sit two screens down with the date on
+      // a feature card and a "Last time" label on a past one; with the
+      // band gone this door is the only thing on Home that says WHEN,
+      // and a bare title reads as upcoming even when it is the most
+      // recent night the chapter ran. The date settles that without a
+      // label. .door__line clamps to two lines, so a long title keeps
+      // the date.
+      line: lead ? `${lead.title} · ${monthDay(lead.date, lead.timezone)}` : "",
     });
   }
 
@@ -1188,13 +960,17 @@ function renderDoors(
     });
   }
 
-  if (live.has("officers") && officers.length) {
+  if (live.has("about") && officers.length) {
     const lead = officers[0];
     const role = (lead?.role ?? "").trim();
     doors.push({
-      key: "officers",
-      name: "Officers",
-      href: "#officers",
+      // The door is named for the room it opens, and the room is now
+      // About — but what is behind it that a visitor wants is the
+      // people, so the integer and the live line are still the
+      // officers'. "About / 13 officers / Brett Storoe, President".
+      key: "about",
+      name: "About",
+      href: "#about",
       n: officers.length,
       unit: officers.length === 1 ? "officer" : "officers",
       // An empty role renders nothing rather than a dangling comma:
@@ -1224,119 +1000,68 @@ function renderDoors(
   return printed;
 }
 
-/* ── 3 — What's on ───────────────────────────────────────────────── */
-
-function renderEventsBand(bundle: ChapterBundle, printed: Set<string>) {
-  const events = bundle.events ?? [];
-  if (!events.length) return;
-
-  const byId = new Map(events.map((e) => [e.id, e]));
-  // The first future event, or the most recent past one labelled for
-  // what it is. A chapter with nothing scheduled still has something to
-  // show; it just does not pretend the date is ahead.
-  const next = nextEvent(events);
-  const feature = next ?? latestPastEvent(events);
-  if (!feature) return;
-
-  // No object appears twice in one screen: whatever is in the feature
-  // slot is skipped in the rows under it.
-  const rows = pastEventsDescending(events)
-    .filter((e) => e.id !== feature.id)
-    .slice(0, BAND_ROWS);
-
-  // The hero strip or the door above already printed "59 events".
-  // Printing it again in
-  // the link a hundred pixels below is the same integer twice on one
-  // screen, so the number is dropped where the door carried it.
-  const link =
-    events.length >= 2
-      ? { label: printed.has("events") ? "All events" : `All ${plural(events.length, "event")}`, href: "#events" }
-      : { label: "Open the archive", href: "#events" };
-
-  fillBand(
-    "band-events",
-    bandHead("What's on", link) +
-      `<div class="rv">${renderFeatureCard(feature, byId, { pastLabel: !next })}</div>` +
-      (rows.length
-        ? `<div class="band-rows">${rows.map((e) => renderEventRow(e, window.location.pathname)).join("")}</div>`
-        : ""),
-  );
-}
-
-/* ── 4 — The people ──────────────────────────────────────────────── */
-
-function renderOfficerChip(o: Officer): string {
-  const avatar = o.image_url
-    ? `<img src="${escapeAttr(o.image_url)}" alt="" loading="lazy" />`
-    : escapeHtml(officerInitials(o.name));
-  // A blank role renders no element at all. ROAR's one officer has
-  // role: "", and a grey empty line under a name reads as a bug.
-  const role = (o.role ?? "").trim();
-  return `
-    <a class="officer-chip" href="#officers">
-      <span class="officer-chip__avatar">${avatar}</span>
-      <span class="officer-chip__name">${escapeHtml(o.name)}</span>
-      ${role ? `<span class="officer-chip__role">${escapeHtml(role)}</span>` : ""}
-    </a>`;
-}
+/* ── 3, 4, 5 — The board, and the recognition that hangs off it ──── */
 
 /**
- * Two blocks under one head: the officers' faces, and the top of the
- * board. They carry their own data-section so `?off=leaderboard` takes
- * the standings and leaves the strip — which means the head can belong
- * to either one, and is given to whichever survives first.
+ * The three recognition bands, in the order a visitor reads them: the
+ * standings, what there is to earn, and what the points buy.
+ *
+ * This is the whole board, not the top five. It used to be a sample
+ * inside a "The people" band shared with an officer strip, with a
+ * "Full leaderboard →" link to the Members tab. Both of those are
+ * gone: officers are people and live on About, and Members stopped
+ * being a destination because the board belongs on the front page. A
+ * sample with nowhere to link to is just a truncated board.
+ *
+ * Each block reports whether it had anything to say, and a band whose
+ * block was silent is removed rather than left as a head over nothing.
+ * `hosts` collects the ones that spoke so the closing sentence can be
+ * appended to whichever turned out to be last.
  */
-function renderPeopleBand(bundle: ChapterBundle) {
-  const band = document.getElementById("band-people");
-  const officersEl = document.getElementById("band-officers");
-  const standingsEl = document.getElementById("band-standings");
-  if (!band) return;
+function renderBoardBands(bundle: ChapterBundle) {
+  const hosts: HTMLElement[] = [];
 
-  const officers = bundle.config?.officers ?? [];
-  const rows = scoredRows(bundle.leaderboard ?? []);
-  const hasEvents = (bundle.events ?? []).length > 0;
-  let headUsed = false;
+  const boardHost = document.getElementById("board-host");
+  const state = boardHost ? renderBoard(boardHost, bundle) : "none";
+  if (state === "none") document.getElementById("band-board")?.remove();
+  // "note" is the one-line empty state ("Points start showing up here
+  // once members check in at an event."). It keeps the band, because
+  // it names the fix — but it is not the foot of a recognition story,
+  // so the closing sentence does not hang off it.
+  if (state === "board" && boardHost) hosts.push(boardHost);
 
-  if (officersEl) {
-    if (!officers.length) {
-      officersEl.remove();
-    } else {
-      const shown = officers.slice(0, STRIP_OFFICERS);
-      const rest = officers.length - shown.length;
-      officersEl.innerHTML =
-        bandHead("The people", { label: "Meet the officers", href: "#officers" }) +
-        `<div class="officer-strip">
-           ${shown.map(renderOfficerChip).join("")}
-           ${rest > 0 ? `<a class="officer-chip officer-chip--more" href="#officers">+${rest} more</a>` : ""}
-         </div>`;
-      headUsed = true;
+  // The explainer answers the question the board above it just raised,
+  // so it goes when there is nothing to explain. Its third card names a
+  // rewards shop by name, and 11 of the 12 chapters do not have one —
+  // a card describing a shop that does not exist is the template
+  // talking about itself.
+  const explainer = document.getElementById("points-explainer");
+  if (explainer) {
+    if (!hasRecognition(bundle)) explainer.remove();
+    else if (!(bundle.merch ?? []).length) {
+      explainer.querySelector('[data-needs="merch"]')?.remove();
     }
   }
 
-  if (standingsEl) {
-    if (rows.length) {
-      const ranked = rankByPoints(rows).slice(0, BAND_STANDINGS);
-      standingsEl.innerHTML =
-        (headUsed ? "" : bandHead("The people", { label: "Full leaderboard", href: "#members" })) +
-        ranked.map(renderBoardRow).join("") +
-        // Law 3: a link says there is more only when there is more.
-        (rows.length > BAND_STANDINGS
-          ? `<a class="band-head__link band-head__link--under" href="#members">Full leaderboard <span aria-hidden="true">→</span></a>`
-          : "");
-    } else if (hasEvents) {
-      // An empty state that names the fix, and the fix is true for a
-      // visitor to read. Without events there is nothing to check into,
-      // so the block is removed instead — an empty board on a chapter
-      // with no events is an accusation.
-      standingsEl.innerHTML =
-        (headUsed ? "" : bandHead("The people", { label: "Meet the officers", href: "#officers" })) +
-        `<p class="note">Points start showing up here once members check in at an event.</p>`;
-    } else {
-      standingsEl.remove();
-    }
+  const badgesHost = document.getElementById("badges-host");
+  const badges = badgesHost ? renderBadgeWall(badgesHost, bundle) : false;
+  if (badges && badgesHost) hosts.push(badgesHost);
+  // The band carries the explainer as well as the wall, so a chapter
+  // with points but no badges keeps it.
+  if (!badges && !document.getElementById("points-explainer")) {
+    document.getElementById("band-recognition")?.remove();
   }
 
-  if (!band.querySelector(".band-head")) band.remove();
+  const merchHost = document.getElementById("merch-host");
+  const merch = merchHost ? renderMerch(merchHost, bundle) : false;
+  if (merch && merchHost) hosts.push(merchHost);
+  else document.getElementById("band-merch")?.remove();
+
+  // One sentence closes the recognition story, under whichever of the
+  // three blocks turned out to be the last one standing. A chapter
+  // with no recognition at all gets no sentence and no band.
+  const last = hosts[hosts.length - 1];
+  if (last) renderNetworkLine(last);
 }
 
 /* ── 5 — What we've built ────────────────────────────────────────── */
@@ -1879,17 +1604,19 @@ const PAGE_HEADER_COPY: Record<
     title: "Learn",
     desc: "The applied-AI path every chapter in the network teaches.",
   },
-  officers: {
-    kicker: "Leadership",
-    title: "Officers",
-    // {acronym} is filled in by showPage from the live config — an
-    // acronym is the one thing in this map the chapter owns.
-    desc: "Who runs {acronym}, and how to reach us.",
+  about: {
+    kicker: "The club",
+    title: "About",
+    // Overridden per chapter by aboutHeaderDesc() — About is the one
+    // page whose blocks are both optional, so its line is the one
+    // line that cannot be written once. The fallback here is only
+    // reached if that resolver is ever unwired.
+    desc: "The students who run {acronym}, and how to reach them.",
   },
-  members: {
-    kicker: "Points & recognition",
-    title: "Members",
-    desc: "Points come from event check-ins, projects, and recognitions.",
+  sponsor: {
+    kicker: "Partners",
+    title: "Sponsor",
+    desc: "Back {acronym}'s events and projects through the network's involvement platform, or write to the eboard directly.",
   },
 };
 
@@ -1897,6 +1624,39 @@ const PAGE_HEADER_COPY: Record<
  *  Resolved once in init(); "us" is the wording that stays true when a
  *  fork has no acronym at all. */
 let chapterAcronym = "us";
+
+/**
+ * About's header line, which names only the blocks the page actually
+ * carries.
+ *
+ * Both of About's blocks are optional and each removes itself when the
+ * chapter has not filled it in (see views/about.ts), so this is the one
+ * header line in the map that cannot be written once. It matters today
+ * rather than in theory: `about` is "" on all twelve chapters (verified
+ * live, 2026-09-18), so the fixed line promised "What MAIC does" at the
+ * top of a page that was a roster and nothing else — the header is the
+ * first thing read on a page and it has to be true of the page under it.
+ *
+ * "how to reach them" is held to the same standard and checked against
+ * the cards, not against the roster existing: ROAR's one officer has
+ * no email and no LinkedIn, so its card is a monogram and a name and
+ * the offer of a contact was false there too.
+ *
+ * The neither-block case is not handled because it cannot arrive: with
+ * no About text and no officers the tab has no content and
+ * pagesWithContent() drops it (NTUA, verified).
+ */
+function aboutHeaderDesc(): string {
+  const cfg = viewCtx?.bundle.config;
+  const hasAbout = !!(cfg?.about ?? "").trim();
+  const officers = cfg?.officers ?? [];
+  const reach = officers.some(officerIsReachable) ? ", and how to reach them" : "";
+  if (hasAbout && officers.length) {
+    return `What {acronym} does, the students who run it${reach}.`;
+  }
+  if (hasAbout) return "What {acronym} does.";
+  return `The students who run {acronym}${reach}.`;
+}
 
 /** The context every view is handed. Set in init() once the bundle has
  *  resolved; null when there is no bundle at all (the demo site and a
@@ -1960,9 +1720,12 @@ function showPage(pageKey: string, pages: Page[]) {
         title: page.label,
         desc: "",
       };
+      // About's line is resolved per chapter: its two blocks are both
+      // optional, so the fixed line can promise a block that is not there.
+      const desc = page.key === "about" ? aboutHeaderDesc() : copy.desc;
       setText("page-header-kicker", copy.kicker);
       setText("page-header-title", copy.title);
-      setText("page-header-desc", copy.desc.replace("{acronym}", chapterAcronym));
+      setText("page-header-desc", desc.replace("{acronym}", chapterAcronym));
       header.hidden = false;
     }
   }
@@ -1986,14 +1749,30 @@ function showPage(pageKey: string, pages: Page[]) {
  * have to survive a reload and be shareable. Matching the whole hash
  * against the page keys sent all three to Home.
  *
- * An unknown key still falls through to the first page, so `#sponsor`
- * keeps landing on Home with the modal open.
+ * An unknown key still falls through to the first page, so a hash
+ * nothing owns lands on Home rather than on a blank document.
  */
 function getValidPageFromHash(pages: Page[]): string {
-  const key = window.location.hash.replace(/^#/, "").trim().split("/")[0];
+  const raw = window.location.hash.replace(/^#/, "").trim().split("/")[0];
+  const key = LEGACY_PAGE_KEYS[raw] ?? raw;
   if (pages.some((p) => p.key === key)) return key;
   return pages[0]?.key ?? "home";
 }
+
+/** Hashes that were page keys on a site these twelve chapters have
+ *  been linking to for months. `#officers` and `#team` were the
+ *  roster, which is on About now; `#members` and `#merch` were the
+ *  board and the shelf, which are on Home. An unknown hash already
+ *  falls through to the first page, so the last two are documentation
+ *  as much as routing — but a reader should not have to know about the
+ *  fallthrough to see that those links still land right. Four lines
+ *  here beats a dead link in somebody's Discord from last semester. */
+const LEGACY_PAGE_KEYS: Record<string, string> = {
+  officers: "about",
+  team: "about",
+  members: "home",
+  merch: "home",
+};
 
 function wirePageRouting(pages: Page[]) {
   renderPageNav(pages, getValidPageFromHash(pages));
@@ -2011,13 +1790,12 @@ function wirePageRouting(pages: Page[]) {
 
 function enableEditOverlays() {
   document.body.classList.add("preview-edit-mode");
-  // One pill per section KEY, not per element. The landing page now
-  // carries a window onto several destinations, so `events`,
-  // `projects`, `officers`, `leaderboard` and `learning_tree` each match
-  // two elements — and an officer looking at Customize would see the
-  // same "Events page" pill twice with no way to tell them apart. First
-  // in document order wins, which is the Home band: the page an officer
-  // is looking at while they edit.
+  // One pill per section KEY, not per element. The landing page
+  // carries a window onto two destinations, so `projects` and
+  // `learning_tree` each match two elements — and an officer looking
+  // at Customize would see the same "Projects page" pill twice with no
+  // way to tell them apart. First in document order wins, which is the
+  // Home band: the page an officer is looking at while they edit.
   const claimed = new Set<string>();
   document.querySelectorAll<HTMLElement>("[data-section]").forEach((section) => {
     const key = section.getAttribute("data-section");
@@ -2363,16 +2141,30 @@ async function init() {
     logoUrl,
     remote?.hub_acronym ?? config.hub_acronym ?? null,
   );
-  // Sponsor inquiry modal — mounted once; triggered via the
-  // `#sponsor` hash route which the hero's partner CTA points to.
-  // Always the configured chapter, never the preview slug: a diverted
-  // sponsor lead is the part of finding 6 that costs real money.
-  setupSponsorModal(
-    configuredSlug || null,
-    bundle?.chapter?.name ?? remote?.hub_name ?? config.hub_name,
-    remote,
+  // The sponsor page — a destination now, not a modal over Home. It is
+  // told which chapter it acts for here, and on a page anyone can load
+  // that is ALWAYS the configured chapter and never a ?slug= a link
+  // set: a diverted sponsor lead is the part of finding 6 that costs
+  // real money.
+  //
+  // Inside the dashboard's Customize iframe — which isDashboardPreview
+  // has already proven is the dashboard, not a link — the previewed
+  // chapter is used, so an officer previewing their site sees their own
+  // sponsor page rather than a tab that has quietly removed itself.
+  const sponsorSlug =
+    configuredSlug || (isPreview ? (bundle?.chapter?.slug ?? "") : "");
+  setSponsorChapter(
+    sponsorSlug
+      ? {
+          slug: sponsorSlug,
+          name: bundle?.chapter?.name ?? remote?.hub_name ?? config.hub_name,
+        }
+      : null,
   );
-  wireSponsorHashRoute();
+  // No chapter to post to and no chapter page to link at, so there is
+  // no Sponsor tab. That is a fork of this template that never linked
+  // itself to the dashboard; every hosted chapter has a slug.
+  if (!sponsorSlug) hideSection("sponsor");
 
   // Drop every destination whose data is empty, BEFORE the nav is built
   // from the DOM. A tab that opens on nothing is the render this whole
@@ -2433,20 +2225,20 @@ async function init() {
     };
 
     // Every integer on the landing page is printed exactly once. Three
-    // components can claim the same one — the hero strip, the door, the
-    // band head — and on MSOE all three did: "59 Events" in the
+    // components could claim the same one — the hero strip, the door,
+    // the band head — and on MSOE all three did: "59 Events" in the
     // masthead, "59 events since 2023" on the door 130px below it, and
     // "All 59 events →" a band further down, every pair inside one
     // 900px screen. The strip wins because it is the club's own claim
-    // about its scale; the door keeps its live line and the band head
-    // reads "All events →". On a chapter with no strip (ROAR, NTUA)
-    // nothing is suppressed and the doors carry the counts.
+    // about its scale; the door keeps its live line, and the Projects
+    // band head reads "All projects →". On a chapter with no strip
+    // (ROAR, NTUA) nothing is suppressed and the doors carry the
+    // counts.
     const printed = new Set([
       ...renderDoors(bundle, pages, lessons, heroPrinted),
       ...heroPrinted,
     ]);
-    renderEventsBand(bundle, printed);
-    renderPeopleBand(bundle);
+    renderBoardBands(bundle);
     renderProjectsBand(bundle, printed);
 
     // Views mount on tab entry and read this.
@@ -2457,8 +2249,8 @@ async function init() {
     // a synthesised empty one would be the template pretending to be a
     // chapter — which renderUnderConstruction exists to refuse.
     document.getElementById("doors-band")?.remove();
-    ["band-events", "band-people", "band-projects"].forEach((id) =>
-      document.getElementById(id)?.remove(),
+    ["band-board", "band-recognition", "band-merch", "band-projects"].forEach(
+      (id) => document.getElementById(id)?.remove(),
     );
   }
 

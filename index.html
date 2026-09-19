@@ -50,12 +50,19 @@
   <!-- ══════════════════════════════════════════════════════════════
        THE LANDING PAGE
 
-       A front door: who this is, what is next, and a sample of each
-       room behind the nav. Every block carries data-page="home"; the
-       ones that sample a destination also carry that destination's
-       data-section, so an officer switching "events" off in Customize
-       removes the Home band, the Events view and the Events tab in one
-       pass with no extra code.
+       A front door: who this is, the board, and a way into each room
+       behind the nav. The board is not a sample of a room — it has no
+       room any more — so it renders whole and it is the largest thing
+       on the page. Events used to have a band here and does not: it is
+       its own destination, and a feed of three rows in front of the
+       board was the thing standing between a visitor and the club's
+       own record.
+
+       Every block carries data-page="home"; the ones that also carry a
+       data-section share it with the destination, so an officer
+       switching "projects" off in Customize removes the Home band, the
+       Projects view and the Projects tab in one pass with no extra
+       code.
 
        Home has zero .section__kicker. Six uppercase eyebrows at even
        intervals down one page is the drumbeat; Home band heads use the
@@ -116,30 +123,95 @@
     </div>
   </section>
 
-  <!-- ══ 3 — Band: What's on → Events ══════════════════════════════
-       The next event as a wide feature card, and the three most recent
-       nights under it as rows. Filled by main.ts::renderEventsBand. -->
-  <section class="band" id="band-events" data-page="home" data-section="events"></section>
+  <!-- ══ 3 — Band: The board ═══════════════════════════════════════
+       The front page's centrepiece, and the whole board rather than a
+       sample of one: Events moved to its own destination and Members
+       stopped being a destination at all, so there is no "full
+       leaderboard →" room left to link to and nothing to truncate
+       towards. The bundle caps the board at 20 rows, so this is
+       bounded by construction.
 
-  <!-- ══ 4 — Band: The people → Officers + Members ═════════════════
-       Two blocks under one head. They carry their own data-section so
-       `?off=leaderboard` removes the standings and leaves the officer
-       strip — and so pagesWithContent can tell a chapter with officers
-       from one with a board. -->
-  <section class="band" id="band-people" data-page="home">
+       Officers are deliberately NOT here. A board is a score members
+       earn by turning up and an eboard is not competing for one; they
+       are shown as people on About.
+
+       views/members.ts::renderBoard fills #board-host and reports
+       whether it had rows, a one-line note, or nothing — main.ts drops
+       the band on nothing. .board-band caps the head at the board's own
+       720px so the title sits over the object it names. -->
+  <section class="band" id="band-board" data-page="home" data-section="leaderboard">
     <div class="section__inner">
-      <div id="band-officers" data-page="home" data-section="officers"></div>
-      <div class="standings" id="band-standings" data-page="home" data-section="leaderboard"></div>
+      <div class="board-band">
+        <div class="band-head rv">
+          <h2 class="band-head__title">The board</h2>
+        </div>
+        <div id="board-host"></div>
+      </div>
     </div>
   </section>
 
-  <!-- ══ 5 — Band: What we've built → Projects ═════════════════════
+  <!-- ══ 4 — Band: Recognition ═════════════════════════════════════
+       The three explainer cards answer the question the board above
+       just raised, then the wall shows what there is to earn.
+       views/members.ts::renderBadgeWall fills #badges-host.
+
+       The cards are markup rather than template strings because this
+       is the one block on the page whose copy is authored here and not
+       derived from the bundle. The third card is gated: it names a
+       rewards shop, and main.ts removes it on the 11 chapters that do
+       not have one. -->
+  <section class="band" id="band-recognition" data-page="home" data-section="badges">
+    <div class="section__inner">
+      <div class="points-explainer" id="points-explainer">
+        <div class="points-explainer__card">
+          <div class="points-explainer__icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </div>
+          <div class="points-explainer__title">Attend events</div>
+          <p class="points-explainer__desc">
+            Every workshop, speaker night, and hackathon awards points when you check in with the QR code. Show up, earn pts.
+          </p>
+        </div>
+        <div class="points-explainer__card">
+          <div class="points-explainer__icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
+          </div>
+          <div class="points-explainer__title">Earn badges</div>
+          <p class="points-explainer__desc">
+            Finish coursework, ship a project, win a competition — each unlocks a badge that lives next to your name on the leaderboard forever.
+          </p>
+        </div>
+        <div class="points-explainer__card" data-needs="merch">
+          <div class="points-explainer__icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          </div>
+          <div class="points-explainer__title">Redeem rewards</div>
+          <p class="points-explainer__desc">
+            Spend points on merch from the Rewards shop — T-shirts, stickers, workshop vouchers. Redeem in person at any meeting.
+          </p>
+        </div>
+      </div>
+
+      <div id="badges-host"></div>
+    </div>
+  </section>
+
+  <!-- ══ 5 — Band: Redeem → merch ══════════════════════════════════
+       Populated on 1 of the 12 chapters, so this band is usually
+       removed outright. views/members.ts::renderMerch fills it; the
+       one sentence that closes the recognition story is appended to
+       whichever of bands 3–5 turned out to be the last one. -->
+  <section class="band" id="band-merch" data-page="home" data-section="merch">
+    <div class="section__inner" id="merch-host"></div>
+  </section>
+
+  <!-- ══ 6 — Band: What we've built → Projects ═════════════════════
        Three cards from the newest year group, each with the byline —
        the students who built it. Omitted entirely when the chapter has
        no projects: no empty state, no "coming soon". -->
   <section class="band" id="band-projects" data-page="home" data-section="projects"></section>
 
-  <!-- ══ 6 — Band: Start here → Learn ══════════════════════════════
+  <!-- ══ 7 — Band: Start here → Learn ══════════════════════════════
        Six lessons from the network's base curriculum, with real
        thumbnails. This band is the floor: it is the one place a
        two-week-old chapter is indistinguishable from a three-year-old
@@ -149,7 +221,7 @@
     <div class="section__inner" id="band-learn-inner"></div>
   </section>
 
-  <!-- ══ 7 — Close: partner band ═══════════════════════════════════
+  <!-- ══ 8 — Close: partner band ═══════════════════════════════════
        main.ts::renderPageCtaBands populates it from PAGE_CTA_BANDS by
        data-page. No data-section: a hardcoded decoration, outside the
        eboard's section toggles. -->
@@ -160,10 +232,12 @@
 
        Every section below is `id="sec-" + its data-section value`.
        An element id that also reads as a router page key ("#events",
-       "#projects", "#officers", "#merch") makes the browser's own
-       fragment scrolling fire alongside the hash router on a tab
-       click — live today on #merch. The hero keeps id="hero": it is
-       not a page key and #hero is not a route.
+       "#projects", "#sponsor") would make the browser's own fragment
+       scrolling fire alongside the hash router on a tab click, which
+       is why every one of them is prefixed. The hero keeps id="hero":
+       it is not a page key and #hero is not a route. The Home band
+       hosts below (#board-host, #badges-host, #merch-host) are not
+       page keys either.
 
        The ten ids the dashboard's Customize tab detects this template
        by — nav-hub-name, nav-acronym, nav-logo-img, hero-university,
@@ -173,8 +247,8 @@
 
        Each destination section is empty markup: its view fills it on
        first entry to the tab (src/lib/view.ts). With ?events=all that
-       is 59 event rows, 41 project cards and 27 badge tiles which no
-       longer enter the DOM before first paint.
+       is 59 event rows and 41 project cards which no longer enter the
+       DOM before first paint.
        ══════════════════════════════════════════════════════════════ -->
 
   <!-- ══ Events — #events ══════════════════════════════════════════ -->
@@ -190,11 +264,16 @@
   <section class="page-cta-band" data-page="projects"></section>
 
   <!-- ══ Learn — #learn ════════════════════════════════════════════
-       views/learn.ts inserts a native .learn-index above the canvas;
-       the canvas itself, its lazy iframe and its 8-second fallback are
-       untouched. tree.html is a maintained pan-and-zoom app in the
-       content repo — re-implementing 96 nodes and 121 edges here would
-       be a second application that drifts. -->
+       The learning tree, and nothing else — no native index above it
+       and no CTA band under it. tree.html is a maintained pan-and-zoom
+       app in the content repo; re-implementing 96 nodes and 121 edges
+       here would be a second application that drifts.
+
+       views/learn.ts inserts .learn-list after the canvas — the same
+       path, as rows — and CSS shows one or the other: the canvas on a
+       pointer device, the rows on a phone (the embedded tree paints
+       nothing at 375px, measured) and whenever the canvas does not
+       load. The rows are the empty chapter's floor and stay. -->
   <section class="section section--learn" id="sec-learn" data-section="learning_tree" data-page="learn">
     <div class="section__inner">
       <div class="learn-tree-wrap">
@@ -219,84 +298,42 @@
     </div>
   </section>
 
-  <section class="page-cta-band" data-page="learn"></section>
-
-  <!-- ══ Officers — #officers ══════════════════════════════════════
-       Ben asked for this tab by name. The whole roster at full size in
-       API order (President first by role_order), with the chapter's own
-       About under it. views/officers.ts fills both. -->
-  <section class="section section--alt" id="sec-officers" data-section="officers" data-page="officers">
-    <div class="section__inner">
-      <div class="officers-grid" id="officers-grid" role="list"></div>
-    </div>
+  <!-- ══ About — #about ════════════════════════════════════════════
+       The club, then the people who run it. Officers are shown as
+       people here rather than as rows on a board: a leaderboard is a
+       score and an eboard is not competing for one. The chapter's own
+       About paragraph leads, because it is the answer to the question
+       the tab asks. views/about.ts fills both sections, and a chapter
+       with neither a paragraph nor an officer loses the tab —
+       pagesWithContent() drops a page whose sections are all gone. -->
+  <section class="section" id="sec-about" data-section="about" data-page="about">
+    <div class="section__inner section__inner--narrow" id="about-view"></div>
   </section>
 
-  <section class="section" id="sec-about" data-section="about" data-page="officers">
-    <div class="section__inner section__inner--narrow">
-      <div class="about-content" id="about-content"></div>
-    </div>
+  <section class="section section--alt" id="sec-officers" data-section="officers" data-page="about">
+    <div class="section__inner" id="officers-view"></div>
   </section>
 
-  <section class="page-cta-band" data-page="officers"></section>
+  <section class="page-cta-band" data-page="about"></section>
 
-  <!-- ══ Members — #members ════════════════════════════════════════
-       Earn points → get recognised → redeem is one story, so the board,
-       the badges and the merch shelf are one destination. A Merch tab
-       was empty on 11 of 12 chapters, and a tab that is usually empty
-       is worse than no tab. views/members.ts fills all three. -->
-  <section class="section" id="sec-leaderboard" data-section="leaderboard" data-page="members">
-    <div class="section__inner">
-      <div id="leaderboard-content"></div>
-    </div>
+  <!-- ══ Sponsor — #sponsor ════════════════════════════════════════
+       A hand-off, not a second sponsorship product. Tiers, prices and
+       everything they include already live on the involvement platform
+       at sponsors.all-ai-network.org/chapters/{slug}, which also holds
+       the organisers, the past partners and the project briefs. This
+       page is the chapter's own short pitch, the button through to
+       that, and the chapter's own inbox for anyone who would rather
+       just write — a genuinely different thing from the platform's
+       funnel, and the one the eboard reads.
+
+       #sponsor is now a route rather than a modal trigger, so every
+       "Become a partner" link already in the wild lands here.
+       views/sponsor.ts fills it, and removes it when no chapter slug
+       resolves: a partner form with nowhere to post is worse than no
+       page at all. -->
+  <section class="section" id="sec-sponsor" data-section="sponsor" data-page="sponsor">
+    <div class="section__inner section__inner--narrow" id="sponsor-view"></div>
   </section>
-
-  <section class="section section--alt" id="sec-badges" data-section="badges" data-page="members">
-    <div class="section__inner">
-      <!-- Three-column explainer above the badge wall: what the numbers
-           on the board actually mean. views/members.ts keeps these
-           cards verbatim and gates them on there being points or badges
-           to explain. -->
-      <div class="points-explainer">
-        <div class="points-explainer__card">
-          <div class="points-explainer__icon" aria-hidden="true">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          </div>
-          <div class="points-explainer__title">Attend events</div>
-          <p class="points-explainer__desc">
-            Every workshop, speaker night, and hackathon awards points when you check in with the QR code. Show up, earn pts.
-          </p>
-        </div>
-        <div class="points-explainer__card">
-          <div class="points-explainer__icon" aria-hidden="true">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
-          </div>
-          <div class="points-explainer__title">Earn badges</div>
-          <p class="points-explainer__desc">
-            Finish coursework, ship a project, win a competition — each unlocks a badge that lives next to your name on the leaderboard forever.
-          </p>
-        </div>
-        <div class="points-explainer__card">
-          <div class="points-explainer__icon" aria-hidden="true">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-          </div>
-          <div class="points-explainer__title">Redeem rewards</div>
-          <p class="points-explainer__desc">
-            Spend points on merch from the Rewards shop — T-shirts, stickers, workshop vouchers. Redeem in person at any meeting.
-          </p>
-        </div>
-      </div>
-
-      <div class="badges-grid" id="badges-grid" role="list"></div>
-    </div>
-  </section>
-
-  <section class="section" id="sec-merch" data-section="merch" data-page="members">
-    <div class="section__inner">
-      <div class="merch-grid" id="merch-grid" role="list"></div>
-    </div>
-  </section>
-
-  <section class="page-cta-band" data-page="members"></section>
 
   <!-- ══ Footer ════════════════════════════════════════════════════
        #footer-network-stats is populated by

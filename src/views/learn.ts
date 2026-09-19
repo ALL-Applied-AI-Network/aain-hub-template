@@ -7,9 +7,15 @@
       with no events, no officers and no projects still reads as a club:
       8 of the 12 live chapters have nothing else, and this is a real
       curriculum a visitor can start today.
-   2. The `learn` view fills the Learn destination: the seven curriculum
-      chapters as bands above the content repo's tree canvas, plus the
-      chapter's own authored lessons when it has any.
+   2. The `learn` view is the tree itself, full width, and nothing
+      else. The native index that used to sit above the canvas — "The
+      path", the seven curriculum bands, up to five lesson rows each —
+      is gone (Ben, 2026-09-18: "Learn page should just be learning
+      tree"). What the view still owns is the canvas's floor: the same
+      path as rows, shown in the two states where the canvas is not
+      the answer — a phone, where the embedded tree paints nothing,
+      and a canvas that did not load. See the note above the
+      destination for both measurements.
 
    Because both read the same two endpoints, the fetch is started once,
    eagerly, in parallel with the bundle — see startCurriculumFetch().
@@ -20,21 +26,16 @@
        → 34 base nodes, 34/34 with a thumbnail, difficulty and minutes
      /api/public/curriculum             35,083 B raw / 10,957 B gzipped
        → 7 ordered chapters covering all 34 nodes, plus a flat lessons[]
-     /api/public/learning-tree/msoe-ai-club
-                                       314,760 B raw / 83,707 B gzipped
-       → 96 nodes, 62 of them chapter-authored
-     /api/public/learning-tree/roar and /ntua-ai-club
-       → 34 nodes, 0 chapter-authored (the base tree, themed)
-     /api/public/learning-tree/{unknown slug} → 404
+     /api/public/learning-tree/{slug}   → the chapter's merged tree
 
    So the two network-wide calls together are ~16 KB gzipped — cheaper
-   than one event cover — and are eager. The per-chapter tree is 84 KB
-   gzipped on the one chapter that has authored lessons, so it is lazy
-   and only the destination asks for it.
+   than one event cover — and are eager. The per-chapter tree is no
+   longer fetched by this file at all: the canvas asks the content site
+   for it with &chapter={slug}, which is one request instead of two for
+   the same 84 KB.
 */
 
 import { isCaptureStill } from "../lib/capture";
-import { plural } from "../lib/format";
 import { escapeAttr, escapeHtml } from "../lib/html";
 import { renderInlineMarkdown } from "../lib/markdown";
 import { fetchJSON, safeHttpUrl } from "../lib/net";
@@ -106,10 +107,6 @@ const DASHBOARD_ORIGIN = "https://dashboard.all-ai-network.org";
 /** How many lessons the Home band shows. Six is what fits above the
  *  partner band on a 375 px phone without becoming a list to scroll. */
 const HOME_LESSONS = 6;
-
-/** How many lesson rows a curriculum band shows before the head's count
- *  carries the rest. Only two of the seven chapters exceed this. */
-const BAND_LESSONS = 5;
 
 /* ──────────────────────────────────────────────────────────────────
    The build-time floor
@@ -310,26 +307,20 @@ function thumbHtml(src: string): string {
  * One lesson row.
  *
  * It is an anchor to the lesson inside the full tree page, so it works
- * with no JavaScript, works on a phone where the canvas is hidden, and
- * survives a cmd-click into a new tab. When the canvas is on screen the
- * click handler intercepts it and moves the canvas instead — see
- * wireDeepLinks().
+ * with no JavaScript, works on a phone, and survives a cmd-click into a
+ * new tab. Nothing intercepts the click any more: the canvas and the
+ * rows are never on screen together, because the rows only exist where
+ * the canvas could not render.
  *
  * `href` is empty when the tree page is unreachable (no content_url).
  * Rather than render a dead control we render a plain div: the row
  * still carries the lesson, it just does not pretend to go anywhere.
  */
-function lessonRow(node: TreeLesson, topic: string, href: string, bandLevel = ""): string {
+function lessonRow(node: TreeLesson, href: string): string {
   const chips: string[] = [];
   // Chapter-authored lessons carry neither field — verified, 0 of
   // MSOE's 62 — so their rows carry no chips rather than a "null min".
-  //
-  // Inside a band the difficulty chip only earns its place when it
-  // disagrees with the band's own level: four "Beginner" chips under a
-  // heading that already says Beginner is the drumbeat, while the three
-  // beginner lessons inside "Build an AI application · Intermediate"
-  // are telling you something.
-  if (node.difficulty && node.difficulty.toLowerCase() !== bandLevel.toLowerCase()) {
+  if (node.difficulty) {
     chips.push(`<span class="chip">${escapeHtml(difficultyLabel(node.difficulty))}</span>`);
   }
   if (node.estimated_minutes && node.estimated_minutes > 0) {
@@ -358,8 +349,7 @@ function lessonRow(node: TreeLesson, topic: string, href: string, bandLevel = ""
     </div>`;
 
   if (!href) return `<div class="rec rec--node"${bare}>${inner}</div>`;
-  return `<a class="rec rec--node"${bare} href="${escapeAttr(href)}" target="_blank" rel="noopener"
-    data-learn-topic="${escapeAttr(topic)}" data-learn-node="${escapeAttr(node.id)}">${inner}</a>`;
+  return `<a class="rec rec--node"${bare} href="${escapeAttr(href)}" target="_blank" rel="noopener">${inner}</a>`;
 }
 
 /* ──────────────────────────────────────────────────────────────────
@@ -421,19 +411,14 @@ export async function renderStartHereBand(
       <a class="band-head__link" href="#learn">Open the learning tree →</a>
     </div>
     <div class="learn-rows">
-      ${lessons
-        .map((n) => {
-          const topic = topicOf(floor, n.id);
-          return lessonRow(n, topic, fullMapHref(topic, n.id));
-        })
-        .join("")}
+      ${lessons.map((n) => lessonRow(n, lessonHref(floor, n))).join("")}
     </div>`;
   target.dataset.learnReady = "1";
   return true;
 }
 
-/** Which curriculum chapter teaches this lesson — the topic a click on
- *  it should open the canvas at. "" when the curriculum call failed. */
+/** Which curriculum chapter teaches this lesson — the topic the tree
+ *  page should open at. "" when the curriculum call failed. */
 function topicOf(floor: CurriculumFloor, nodeId: string): string {
   for (const c of floor.chapters ?? []) {
     if (c.nodes.includes(nodeId)) return c.id;
@@ -441,15 +426,19 @@ function topicOf(floor: CurriculumFloor, nodeId: string): string {
   return "";
 }
 
+/** The tree page, opened at one lesson. */
+function lessonHref(floor: CurriculumFloor, node: TreeLesson): string {
+  return fullMapHref(topicOf(floor, node.id), node.id);
+}
+
 /* ──────────────────────────────────────────────────────────────────
    The tree page's URL
 
-   Both links out and the canvas itself are built from URLs that already
-   exist in the DOM, never from config: loadLearningTree() has already
-   pointed #tree-link at {content_url}/tree.html?chapter={slug}, and
-   activateLearningTree() sets the iframe's src from the same pair. That
-   keeps one owner for content_url and means a fork that changes it does
-   not have to change this file too.
+   Links out are built from a URL that already exists in the DOM, never
+   from config: loadLearningTree() has already pointed #tree-link at
+   {content_url}/tree.html?chapter={slug}. That keeps one owner for
+   content_url and means a fork that changes it does not have to change
+   this file too.
    ────────────────────────────────────────────────────────────────── */
 
 /** The full tree page for this chapter, or "" when the content site is
@@ -467,177 +456,60 @@ function fullMapHref(topic = "", node = ""): string {
   return url.href;
 }
 
-/**
- * Point the embedded canvas at a chapter of the curriculum.
- *
- * Reads the iframe's current src rather than rebuilding it, so whatever
- * activateLearningTree() put there — content_url, ?embed=1, the chapter
- * slug — is preserved exactly. An empty src means activateLearningTree()
- * has not run or there is no content_url; either way there is nothing to
- * steer and the index stands on its own.
- *
- * Only writes when the URL actually changes. Assigning the same src
- * would reload the canvas, and the canvas takes seconds to paint.
- */
-function syncTreeFrame(topic: string, node: string): void {
-  const frame = document.getElementById("learn-tree-frame") as HTMLIFrameElement | null;
-  if (!frame || !frame.src) return;
-  let url: URL;
-  try {
-    url = new URL(frame.src);
-  } catch {
-    return;
-  }
-  if (topic) url.searchParams.set("topic", topic);
-  else url.searchParams.delete("topic");
-  if (node) url.searchParams.set("node", node);
-  else url.searchParams.delete("node");
-  if (url.href === frame.src) return;
-  frame.src = url.href;
-}
-
 /* ──────────────────────────────────────────────────────────────────
-   The Learn destination
+   The Learn destination — the canvas, or the same path as rows
+
+   index.html ships this section as the canvas well and its lazy
+   iframe; main.ts owns the iframe's src and its 8-second load timer.
+   This view adds the two things that markup cannot carry: the link
+   out to the full map, and the curriculum as rows for the two states
+   where the canvas is not the answer.
+
+   MEASURED 2026-09-18, and the reason the rows exist at all: the
+   content site's tree.html renders nothing inside a 375px-wide frame.
+   It loads — the `load` event fires, so main.ts's timeout never trips
+   — and paints an empty canvas, verified over 18 seconds against
+   msoe-ai-club. Opened directly at the same width in its own tab it
+   draws fine, so this is the embed, not the page. A phone therefore
+   gets the rows, and "Open the full map ↗" hands it the canvas in the
+   tab where the canvas works.
+
+   The rows and the canvas never share the page. There is no index
+   above the canvas any more, which is also why nothing here
+   intercepts a click to steer it: a row is an anchor to the tree
+   page and that is all it is.
    ────────────────────────────────────────────────────────────────── */
 
-/**
- * The topic named by the URL, from `#learn/{chapterId}`.
- *
- * Reading this costs nothing and makes a shared link work the moment
- * the router learns to parse a sub-route — today getValidPageFromHash()
- * compares the whole hash against the page keys, so `#learn/python` on
- * a cold load lands on Home. See the note on wireDeepLinks() for why
- * this view never writes a sub-route with location.hash.
- */
-function topicFromHash(): string {
-  const hash = window.location.hash.replace(/^#/, "");
-  const [key, rest] = hash.split("/");
-  return key === "learn" && rest ? decodeURIComponent(rest) : "";
-}
-
-/** A curriculum chapter as a band: its head, then up to five of its
- *  lessons. The head is the click target for the whole chapter. */
-function curriculumBand(c: CurriculumChapter, floor: CurriculumFloor): string {
-  const lessons = c.nodes
-    .map((id) => floor.byId.get(id))
-    .filter((n): n is TreeLesson => Boolean(n));
-  if (!lessons.length) return "";
-
-  const href = fullMapHref(c.id);
-  const headInner = `
-    <span class="learn-band__name">${escapeHtml(c.title)}</span>
-    <span class="chip">${escapeHtml(c.level)}</span>
-    <span class="learn-band__n">${plural(lessons.length, "lesson")}</span>`;
-  const head = href
-    ? `<a class="learn-band__head" href="${escapeAttr(href)}" target="_blank" rel="noopener"
-         data-learn-topic="${escapeAttr(c.id)}">${headInner}</a>`
-    : `<div class="learn-band__head">${headInner}</div>`;
-
-  return `
-    <div class="learn-band" data-learn-band="${escapeAttr(c.id)}">
-      ${head}
-      ${lessons
-        .slice(0, BAND_LESSONS)
-        .map((n) => lessonRow(n, c.id, fullMapHref(c.id, n.id), c.level))
-        .join("")}
-    </div>`;
-}
-
-/** Order a chapter's own lessons the way the path above them reads:
- *  by where their parent lesson sits in the curriculum, then by the
- *  eboard's own sort_order within that parent, then by title. Both are
- *  fields the payload states — nothing here is inferred. */
-function orderAuthored(nodes: TreeLesson[], floor: CurriculumFloor): TreeLesson[] {
-  const pathIndex = new Map<string, number>();
-  floor.path.forEach((n, i) => pathIndex.set(n.id, i));
-  return [...nodes].sort((a, b) => {
-    const pa = pathIndex.get(a.parent_ref ?? "") ?? Number.MAX_SAFE_INTEGER;
-    const pb = pathIndex.get(b.parent_ref ?? "") ?? Number.MAX_SAFE_INTEGER;
-    if (pa !== pb) return pa - pb;
-    if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
-    return a.title.localeCompare(b.title);
-  });
-}
+/** Set on the section when the canvas is out, so the rows take the
+ *  page at every width. Paired with `.learn--no-canvas` in hub.css. */
+const NO_CANVAS = "learn--no-canvas";
 
 /**
- * Click handling for every band head and lesson row.
+ * Build the two children index.html does not ship: the rows'
+ * container, and the link to the full map under it.
  *
- * Each is a real anchor into the full tree page, so a phone (where the
- * canvas is not shown), a cmd-click and a JS failure all still reach
- * the lesson. When the canvas is on screen we intercept a plain click
- * and steer it instead, which is the faster answer and keeps the
- * visitor on the chapter's own site.
- *
- * The URL is kept truthful with replaceState rather than by assigning
- * location.hash. A hash assignment fires hashchange, and the router's
- * getValidPageFromHash() matches the whole hash against the page keys —
- * so `#learn/python` would resolve to no page and bounce the visitor to
- * Home. replaceState changes the address bar without firing it, so the
- * URL is shareable now and becomes a working deep link the moment the
- * router splits a sub-route off. See the request in the report.
+ * Built here rather than in the markup because both depend on
+ * something only this file knows — the rows on a fetch, the link on
+ * whether there is a content site to link to at all. Returns the row
+ * container, or null when the section has no canvas well to sit
+ * beside (a fork that stripped it).
  */
-function wireDeepLinks(root: HTMLElement): void {
-  root.addEventListener("click", (ev) => {
-    const e = ev as MouseEvent;
-    // Leave every "open in a new tab" gesture alone.
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-    const target = e.target as HTMLElement | null;
-    const hit = target?.closest<HTMLElement>("[data-learn-topic]");
-    if (!hit) return;
-
-    const frame = document.getElementById("learn-tree-frame") as HTMLIFrameElement | null;
-    // No canvas to steer (no content_url, or the fallback took over, or
-    // the phone layout hides it) — let the anchor do its job.
-    if (!frame || !frame.src || frame.hidden || !frame.offsetParent) return;
-
-    e.preventDefault();
-    const topic = hit.dataset.learnTopic ?? "";
-    const node = hit.dataset.learnNode ?? "";
-    setActiveTopic(root, topic);
-    syncTreeFrame(topic, node);
-  });
-}
-
-/** Mark which band the canvas is showing, and keep the address bar
- *  honest about it. */
-function setActiveTopic(root: HTMLElement, topic: string): void {
-  root.querySelectorAll<HTMLElement>("[data-learn-band]").forEach((b) => {
-    b.classList.toggle("learn-band--active", b.dataset.learnBand === topic);
-  });
-  const link = document.getElementById("learn-full-map") as HTMLAnchorElement | null;
-  if (link) {
-    const href = fullMapHref(topic);
-    if (href) link.href = href;
-  }
-  try {
-    const url = new URL(window.location.href);
-    url.hash = topic ? `learn/${encodeURIComponent(topic)}` : "learn";
-    window.history.replaceState(null, "", url.href);
-  } catch {
-    // A browser that refuses the state change loses only the address
-    // bar; the canvas and the index are already correct.
-  }
-}
-
-/** Make room for the index above the canvas and the map link below it.
- *  index.html ships the section with only the canvas in it, so the
- *  destination builds its own containers rather than depending on
- *  markup this file does not own. */
 function ensureContainers(section: HTMLElement): HTMLElement | null {
-  const inner = section.querySelector<HTMLElement>(".section__inner");
   const wrap = section.querySelector<HTMLElement>(".learn-tree-wrap");
-  if (!inner) return null;
+  if (!wrap) return null;
 
-  const existing = document.getElementById("learn-index");
-  const index = existing ?? document.createElement("div");
+  const existing = document.getElementById("learn-list");
+  const list = existing ?? document.createElement("div");
   if (!existing) {
-    index.id = "learn-index";
-    index.className = "learn-index";
-    inner.insertBefore(index, wrap ?? inner.firstChild);
+    list.id = "learn-list";
+    list.className = "learn-list";
+    wrap.insertAdjacentElement("afterend", list);
   }
 
+  // No content site means no map to open, and a link that goes
+  // nowhere is worse than no link — the same rule the rows follow.
   const href = fullMapHref();
-  if (wrap && href && !document.getElementById("learn-full-map")) {
+  if (href && !document.getElementById("learn-full-map")) {
     const p = document.createElement("p");
     p.className = "section__footer";
     const a = document.createElement("a");
@@ -648,93 +520,71 @@ function ensureContainers(section: HTMLElement): HTMLElement | null {
     a.href = href;
     a.textContent = "Open the full map ↗";
     p.appendChild(a);
-    wrap.insertAdjacentElement("afterend", p);
+    list.insertAdjacentElement("afterend", p);
   }
 
-  return index;
+  return list;
 }
 
 /**
- * The chapter's own lessons, fetched lazily and appended when they
- * arrive. 84 KB gzipped on MSOE and identical to the base tree on the
- * other eleven chapters, so this never blocks the index and never runs
- * at boot.
+ * The whole path as rows, rendered whether or not it is the visible
+ * half of the page.
+ *
+ * Unconditional because the two states that reveal it arrive at
+ * different times and neither is worth a second decision: the phone
+ * one is a media query this file would have to guess a breakpoint to
+ * read, and the failure one lands eight seconds after the tab opens,
+ * which is eight seconds of blank if the rows wait for it. The cost
+ * on a desktop that never shows them is ~34 anchors of markup and no
+ * pixels — their thumbnails are lazy and a display:none container
+ * never fetches them.
+ *
+ * The two calls behind this are already in flight; they start at boot
+ * for Home's "Start here" band. floor.path is never empty — a
+ * half-failed fetch still leaves the six frozen lessons — so there is
+ * always something real to render.
  */
-async function appendAuthored(
-  index: HTMLElement,
-  floor: CurriculumFloor,
-  slug: string,
-): Promise<void> {
-  if (!slug) return;
-  const tree = await fetchJSON<TreeResponse>(
-    `${DASHBOARD_ORIGIN}/api/public/learning-tree/${encodeURIComponent(slug)}`,
-  );
-  const authored = (tree?.nodes ?? []).filter((n) => n.source !== "base");
-  if (!authored.length) return; // 11 of 12 chapters: no zone, no empty state.
-
-  const name = tree?.chapter?.name?.trim() || "this chapter";
-  // Zone heads and bands are siblings inside .learn-index so that its
-  // own `display: flex; gap: 0.6rem` spaces the whole destination. The
-  // one inline value is the air above a second zone head, which the
-  // stylesheet has no rule for because this is the only place two zones
-  // ever meet.
-  index.insertAdjacentHTML(
-    "beforeend",
-    `<div class="group__head" style="margin-top:1.75rem">
-      <span class="group__title">From ${escapeHtml(name)}</span>
-      <span class="group__n">${plural(authored.length, "lesson")} they wrote</span>
-    </div>
+async function fillLearnList(target: HTMLElement): Promise<void> {
+  const floor = await startCurriculumFetch();
+  if (!floor.path.length) return;
+  target.innerHTML = `
     <div class="learn-rows">
-      ${orderAuthored(authored, floor)
-        .map((n) => {
-          // An authored lesson hangs off a base one, so it opens the
-          // canvas at whichever chapter of the path teaches its parent.
-          const topic = topicOf(floor, n.parent_ref ?? "");
-          return lessonRow(n, topic, fullMapHref(topic, n.id));
-        })
-        .join("")}
-    </div>`,
-  );
+      ${floor.path.map((n) => lessonRow(n, lessonHref(floor, n))).join("")}
+    </div>`;
+  target.dataset.learnReady = "1";
+}
+
+/**
+ * Notice when the canvas is out, and hand the page to the rows.
+ *
+ * main.ts hides the iframe in both of its failure paths — no
+ * content_url at boot, and a load that has not fired after eight
+ * seconds — so `hidden` on the frame is the one signal that covers
+ * both, and reading it here leaves both timers where they belong.
+ *
+ * Installed synchronously: showPage() mounts this view and then calls
+ * activateLearningTree(), so it is watching before the timer that
+ * trips it starts.
+ */
+function watchCanvas(section: HTMLElement): void {
+  const frame = document.getElementById("learn-tree-frame");
+  if (!frame || frame.hidden) {
+    // No canvas in the markup, or main.ts already gave up on it.
+    section.classList.add(NO_CANVAS);
+    return;
+  }
+  const obs = new MutationObserver(() => {
+    if (!frame.hidden) return;
+    obs.disconnect(); // main.ts never un-hides it again.
+    section.classList.add(NO_CANVAS);
+  });
+  obs.observe(frame, { attributes: true, attributeFilter: ["hidden"] });
 }
 
 registerView("learn", (ctx: ViewCtx) => {
-  void mountLearn(ctx);
-});
-
-async function mountLearn(ctx: ViewCtx): Promise<void> {
   const section = ctx.el("sec-learn");
   if (!section) return;
-  const index = ensureContainers(section);
-  if (!index) return;
-
-  const floor = await startCurriculumFetch();
-  if (!floor.chapters?.length) {
-    // No order means no index. The canvas below is the whole
-    // destination, which is what shipped before this view existed —
-    // a worse page, not a broken one.
-    index.remove();
-    return;
-  }
-
-  index.innerHTML = `
-    <div class="group__head">
-      <span class="group__title">The path</span>
-      <span class="group__n">${plural(floor.path.length, "lesson")}</span>
-    </div>
-    ${floor.chapters.map((c) => curriculumBand(c, floor)).join("")}`;
-  index.dataset.learnReady = "1";
-
-  wireDeepLinks(index);
-
-  // A topic named by the URL wins. This runs after showPage() has
-  // returned — every path into here has awaited at least one promise —
-  // so activateLearningTree() has already set the canvas's src and this
-  // steers it rather than being overwritten by it.
-  const wanted = topicFromHash();
-  if (wanted && floor.chapters.some((c) => c.id === wanted)) {
-    setActiveTopic(index, wanted);
-    syncTreeFrame(wanted, "");
-  }
-
-  await appendAuthored(index, floor, ctx.slug);
-}
+  watchCanvas(section);
+  const list = ensureContainers(section);
+  if (list) void fillLearnList(list);
+});

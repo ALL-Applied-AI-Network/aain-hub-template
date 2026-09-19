@@ -1,9 +1,11 @@
 /* Small rendering primitives shared by more than one surface.
 
-   Moved out of main.ts unchanged. A medal, a badge icon and an
-   empty-state card each appear on both the landing page and a
-   destination, so they live here rather than in whichever view happened
-   to need them first.
+   A badge icon and an empty-state card each appear on more than one
+   surface, so they live here rather than in whichever view happened to
+   need them first. The three MEDAL_SVGS went with the medals: the
+   board marks its leaders with a rule and a coloured rank instead,
+   because a medal has to be suppressed on a shared rank and MSOE's
+   board opens 88, 88, 83.
 
    `renderCard` deliberately stayed in main.ts: it reads the baked
    `config.content_url` to resolve thumbnails, and only the learning-tree
@@ -11,15 +13,6 @@
 */
 
 import { escapeAttr, escapeHtml } from "./html";
-
-/** SVG medal icons — the emoji versions read as "playful" rather than
- *  "grand". These are flat SVGs styled with CSS per rank. */
-export const MEDAL_SVGS: Record<number, string> = {
-  1: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/><path d="m10.5 15 1.5 1.5L14 14"/></svg>`,
-  2: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/></svg>`,
-  3: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/></svg>`,
-};
-
 
 const BUILT_IN_ICONS: Record<string, string> = {
   trophy:

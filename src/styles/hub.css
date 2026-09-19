@@ -800,18 +800,11 @@ html:not(.js-rv) .term-line::after { transform: scaleX(1); }
 }
 .band-head__link:hover { color: var(--color-primary); }
 
-/* Same link, under a list instead of beside a heading
-   ("Full leaderboard →" below the top five). */
-.band-head__link--under {
-  display: inline-block;
-  margin-top: 1rem;
-}
-
-/* A run of .rec rows under the band's lead object — the three recent
-   nights below the feature card, the six lessons below the "Start here"
-   head. .rec + .rec owns the spacing inside the run; this is only the
-   gap between the run and whatever it sits under. */
-.band-rows,
+/* A run of .rec rows under the band's lead object — the six lessons
+   below the "Start here" head. .rec + .rec owns the spacing inside the
+   run; this is only the gap between the run and whatever it sits
+   under. (.band-rows went with the "What's on" band: Events is its own
+   destination now and Home has no feed.) */
 .learn-rows {
   margin-top: 1rem;
 }
@@ -821,15 +814,16 @@ html:not(.js-rv) .term-line::after { transform: scaleX(1); }
   .band-head { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
 }
 
-/* ── .doors — four destinations, each carrying the club's own integer
-   and a live line out of the bundle. Replaces the four pillar cards,
-   which said the same four things on all twelve sites.
+/* ── .doors — up to four destinations (Events, Projects, About,
+   Learn), each carrying the club's own integer and a live line out of
+   the bundle. Replaces the four pillar cards, which said the same four
+   things on all twelve sites.
 
    A door whose destination is not in pagesWithContent() is not
    rendered, a count of 1 drops the numeral (never headline a one) and
    fewer than two doors omits the strip, so this only ever has to lay
    out 2–4 cards. Two columns at 375px; one below 340px, where a
-   150px card cannot hold "Officers" and a name. */
+   150px card cannot hold "About" and an officer's name and role. */
 .doors {
   display: grid;
   /* auto-FIT, not auto-fill: the count is 2, 3 or 4 and never more, so
@@ -1468,44 +1462,10 @@ a.rec:hover { color: var(--text-primary); }
 }
 .rec__pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-/* ── Leaderboard row — same metrics, its own lead cell. Replaces the
-   .leaderboard-row family and the podium outright: dense rank, no
-   bars (a bar fill is a progress bar), no tier gradients (ranks 1 and
-   2 are tied at 88 points on MSOE today, so gold/silver is a lie the
-   data does not support). */
-.rec--lb { --rec-lead: 44px; }
-.rec__rank {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-family: "JetBrains Mono", monospace;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-tertiary);
-  font-variant-numeric: tabular-nums;
-}
-.rec__medal { width: 16px; height: 16px; flex: 0 0 auto; }
-/* The medal SVGs ship without width/height attributes, so the span has
-   to be what sizes them. */
-.rec__medal svg { width: 100%; height: 100%; display: block; }
-.rec__pts {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--color-primary);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.rec__pts-unit {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--text-tertiary);
-  margin-left: 0.25rem;
-}
-
-/* The board is the one list where a name can be a link — the row is
-   not, because the row's subject is the member, not a page. */
-.rec__name-link { color: inherit; }
-.rec__name-link:hover { color: var(--color-primary); }
+/* The leaderboard used to be a .rec variant. It is now its own .board
+   family (search for "══ The board"): the standings are the landing
+   page's centrepiece and a row of the archive is not, so sharing a
+   shell held the board down to the archive's density. */
 
 @media (max-width: 640px) {
   /* The lead column still follows --rec-lead: a node row narrows to a
@@ -1557,10 +1517,6 @@ a.rec:hover { color: var(--text-primary); }
     line-clamp: 2;
     -webkit-box-orient: vertical;
   }
-  /* Points keep their own column. Dropped to row 2 they sit under the
-     rank and read as a second rank. */
-  .rec--lb .rec__main { grid-template-columns: var(--rec-lead, 44px) minmax(0, 1fr) auto; }
-  .rec--lb .rec__pts { grid-column: auto; justify-self: end; margin-top: 0; }
 }
 
 /* ══ .chip — one chip, every context ═════════════════════════════
@@ -1924,15 +1880,207 @@ html:not(.js-rv) .group__rule { transform: scaleY(1); }
   margin: 0 auto;
 }
 
-/* ══ Leaderboard ═══════════════════════════════════════════════ */
+/* ══ The board ═════════════════════════════════════════════════
+   The standings, and the largest single object on the landing page.
 
-/* ── .standings — the board itself. Rows are .rec--lb; this owns the
-   caption above them ("Top 20 of 596 members.") and nothing else, so
-   the same block serves the five-row sample on Home and the full
-   board on Members. */
-.standings > .muted {
+   It is ONE framed surface with hairline-separated rows, not a stack
+   of floating cards. The cards cost ~10px of gap twenty times over
+   and made the eye re-enter on every row, which is why the old board
+   read as a list of chips rather than as a board. Framed, the rank
+   column becomes a column and the points become a column, and that
+   is the whole gain: you can read down it.
+
+   The measure is capped at 720px and centred. A leaderboard spanning
+   1200px cannot be read — the eye loses the line between a name on
+   the left and its number on the right — so at 1440 the board gets
+   taller and more present, never wider. Biggest by area, not by span.
+
+   What it deliberately does NOT have: a bar behind the points (that
+   is a progress bar, and it invents a claim about the distance
+   between two students), a percentage of the leader, a ring, a
+   count-up, or a medal. Medals were the old board's only distinction
+   and they were suppressed on any shared rank — which on MSOE, whose
+   board opens 88, 88, 83, meant no mark anywhere and a top that
+   looked like a middle. The leaders now get a 2px primary edge and a
+   primary rank numeral, a treatment that names a group instead of a
+   winner and so survives the tie intact. */
+
+/* The board band's head sits over the board, not over the page. The
+   frame is capped and centred below, and a .band-head laid out across
+   the section's full 1280px would hang "The board" off to the left of
+   the object it names. */
+.board-band {
+  max-width: 720px;
+  margin-inline: auto;
+}
+
+.board {
+  max-width: 720px;
+  margin-inline: auto;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+/* One grid, shared by the header and every row, so the three columns
+   are the same three columns all the way down. Rank and points are
+   right-aligned against fixed tracks: rank 9 and rank 10 share a ones
+   column, and 88 sits under 120. */
+.board__head,
+.board__row {
+  display: grid;
+  grid-template-columns: 3.25rem minmax(0, 1fr) 4.5rem;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1.15rem;
+}
+
+/* The header band. It labels the numbers, which is what lets the rows
+   drop the repeated "pts" suffix — twenty units only made the numeric
+   column ragged. It is aria-hidden and the units live on in each row
+   as visually-hidden text, so a screen reader still hears "88 pts". */
+.board__head {
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+  background: var(--bg-subtle);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+.board__h--rank,
+.board__h--pts {
+  text-align: right;
+}
+
+/* The search sits inside the frame: it is part of the object, and a
+   board you can search should say so on its face. */
+.board__search {
+  padding: 0.75rem 1.15rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.board__rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+/* Separators are border-top, never border-bottom: filtering hides
+   rows outright, and a top border means whichever row is visible
+   first sits under a single clean line while the last one sits on the
+   frame edge. The first row drops its border only when nothing
+   precedes the list inside the frame. */
+.board__row {
+  border-top: 1px solid var(--border);
+  transition: background 0.15s;
+}
+.board__rows:first-child > .board__row:first-child {
+  border-top: 0;
+}
+.board__row:hover {
+  background: var(--bg-surface-2);
+}
+
+.board__rank {
+  text-align: right;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The leaders. Every member on rank 1, however many share it. */
+.board__row--lead {
+  background: rgba(var(--color-primary-rgb), 0.05);
+  box-shadow: inset 2px 0 0 var(--color-primary);
+}
+.board__row--lead:hover {
+  background: rgba(var(--color-primary-rgb), 0.09);
+}
+.board__row--lead .board__rank {
+  color: var(--color-primary);
+}
+
+.board__who {
+  min-width: 0;
+}
+.board__name {
   display: block;
-  margin-bottom: 0.9rem;
+  font-size: 0.975rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.board__marks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+/* The points are the claim the board makes, so they are the loudest
+   thing in the row — by size and contrast, in --text-primary. The
+   chapter's colour is spent on the leaders instead: twenty primary
+   numerals is a wall of red on ROAR and marks nothing. */
+.board__pts {
+  text-align: right;
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.board__empty {
+  margin: 0;
+  padding: 1.5rem 1.15rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+.board__empty[hidden] {
+  display: none;
+}
+
+/* "Top 20 of 595 members." — the board is a cap, and it reads as a
+   footnote under the board rather than as a preamble above it. */
+.board__foot {
+  margin: 0;
+  padding: 0.7rem 1.15rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg-subtle);
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+}
+
+/* At 390px the marks wrap to a second line on any member with a badge
+   and a check-in count, and twenty rows of that is a very long board.
+   The metrics tighten rather than the content: a row that wraps is
+   still every true thing about that member. */
+@media (max-width: 640px) {
+  .board__head,
+  .board__row {
+    grid-template-columns: 2.25rem minmax(0, 1fr) 3.25rem;
+    gap: 0.65rem;
+    padding: 0.65rem 0.8rem;
+  }
+  .board__search,
+  .board__empty,
+  .board__foot {
+    padding-left: 0.8rem;
+    padding-right: 0.8rem;
+  }
+  .board__rank { font-size: 0.875rem; }
+  .board__name { font-size: 0.925rem; }
+  .board__marks { gap: 0.3rem; margin-top: 0.3rem; }
+  .board__pts { font-size: 1rem; }
+  .board__marks .member-badge { width: 20px; height: 20px; }
+  .board__marks .member-badge--named { width: auto; }
 }
 
 /* ── .block-head — a sub-block's head INSIDE a destination section
@@ -1956,16 +2104,16 @@ html:not(.js-rv) .group__rule { transform: scaleY(1); }
   color: var(--text-secondary);
 }
 
-/* ── .lb-search — "Find your name", over the rows that shipped.
-   font-size is 16px exactly: anything smaller and iOS zooms the page
-   on focus, which on a filtered list looks like the page broke. */
+/* ── .lb-search — "Find your name", inside the board's frame and over
+   every row from the first. font-size is 16px exactly: anything
+   smaller and iOS zooms the page on focus, which on a filtered list
+   looks like the page broke. */
 .lb-search {
+  display: block;
   width: 100%;
-  max-width: 360px;
-  margin-bottom: 1.25rem;
-  padding: 0.7rem 0.95rem;
+  padding: 0.55rem 0.8rem;
   border-radius: var(--radius-md);
-  background: var(--bg-surface);
+  background: var(--bg-subtle);
   border: 1px solid var(--border);
   color: var(--text-primary);
   font-family: inherit;
@@ -1976,9 +2124,6 @@ html:not(.js-rv) .group__rule { transform: scaleY(1); }
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.18);
-}
-@media (max-width: 640px) {
-  .lb-search { max-width: none; }
 }
 
 /* ── .note — one sentence where a block would have been empty, and
@@ -1995,17 +2140,13 @@ html:not(.js-rv) .group__rule { transform: scaleY(1); }
   border-radius: var(--radius-lg);
 }
 
-/* ── Member badges (inline chips next to a leaderboard name) ───
-   Up to three earned badges beside the member's name in a
-   .rec--lb row, so the board is varied between members instead of
-   being a pure numeric column. */
-
-.member-badges {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  flex-shrink: 0;
-}
+/* ── Member badges — the marks under a name on the board.
+   The first one is named in full and the rest stay as icons. A row of
+   identical tinted squares said "this member has badges" without ever
+   saying which, and three of MSOE's 27 icons resolve to the same
+   trophy SVG — so the marks read as the board's decoration rather
+   than as that member's record. One name makes them hers; twenty rows
+   of three full badge names would be a text wall. */
 
 .member-badge {
   display: inline-flex;
@@ -2036,6 +2177,25 @@ html:not(.js-rv) .group__rule { transform: scaleY(1); }
   height: 16px;
   object-fit: contain;
   border-radius: 3px;
+}
+
+.member-badge--named {
+  width: auto;
+  gap: 0.3rem;
+  padding: 0 0.5rem 0 0.35rem;
+  min-width: 0;
+}
+.member-badge__name {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 15rem;
+}
+@media (max-width: 640px) {
+  .member-badge__name { max-width: 8.5rem; }
 }
 
 .member-badge--more {
@@ -2746,68 +2906,6 @@ a.project-card:hover {
 }
 .officer-card__contact:hover { color: var(--color-primary); }
 
-/* ══ .officer-chip — the compact officer, in the Home people band ══
-   Six faces and a "+7 more" tile, in API order, which role_order has
-   already made President-first. Scroll-snaps on a phone and wraps
-   above 720px: six 148px tiles is two rows on a laptop and one long
-   swipe on a phone, and neither is a grid that needs a breakpoint. */
-.officer-strip {
-  display: flex;
-  gap: 0.75rem;
-  overflow-x: auto;
-  padding-bottom: 0.5rem;
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
-}
-.officer-strip::-webkit-scrollbar { display: none; }
-
-@media (min-width: 721px) {
-  .officer-strip { flex-wrap: wrap; overflow: visible; }
-}
-
-.officer-chip {
-  flex: none;
-  width: 148px;
-  scroll-snap-align: start;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 1rem 0.75rem;
-  text-align: center;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  transition: border-color 0.15s;
-}
-.officer-chip:hover { border-color: var(--border-strong); }
-
-.officer-chip__avatar {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  overflow: hidden;
-  background: var(--bg-elevated);
-  display: grid;
-  place-items: center;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--text-secondary);
-}
-.officer-chip__avatar img { width: 100%; height: 100%; object-fit: cover; }
-
-.officer-chip__name { font-size: 0.875rem; font-weight: 600; line-height: 1.3; }
-.officer-chip__role { font-size: 0.75rem; color: var(--text-tertiary); }
-.officer-chip__role:empty { display: none; }
-
-.officer-chip--more {
-  justify-content: center;
-  border-style: dashed;
-  color: var(--color-primary);
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
 /* ══ CDN content cards (learning / workshops / playbooks) ═════ */
 
 .content-grid {
@@ -3042,92 +3140,51 @@ a.project-card:hover {
   border: 0;
 }
 
-/* ══ Learn page — the index, then the canvas ══════════════════════
+/* ══ Learn page — the canvas, or the same path as rows ═══════════
+   Learn is the tree and nothing else (Ben, 2026-09-18). The native
+   index that used to sit above the canvas — seven curriculum bands,
+   five lesson rows each — is gone, and with it .learn-index and the
+   whole .learn-band family.
+
    The iframe stays: content/tree.html is a maintained, tuned pan-and-
    zoom canvas, and reimplementing 96 nodes and 121 edges here would
-   be a second application of the same thing. What is new is the
-   .learn-index above it — the seven curriculum chapters as readable
-   bands, so the page says what the curriculum IS before it asks you
-   to drive a canvas.
+   be a second application of the same thing.
 
-   The index has to stand on its own. A band click that moves nothing
-   means the ?topic= contract between hub and content has drifted (the
-   safeNodeId incident), and the page must still be worth reading. */
+   Two renderings of one curriculum, never both at once. The canvas is
+   the page wherever it can be driven; `.learn-list` is the same path
+   as rows and takes the page in the two states where the canvas is
+   not the answer — a phone, and a canvas that did not come up. Which
+   one shows is decided here; views/learn.ts always fills the rows, so
+   the switch is a class away and never a fetch away. */
 
-/* The canvas below wants the full width, so the vertical rhythm comes
-   from .page-header above rather than from the section — but the side
-   gutter has to stay. Without it the zone heads ("The path", "From
-   MSOE AI Club") sat flush against the viewport edge at 390px while
-   the bands under them carried their own padding, which read as a
-   broken row rather than a head. */
+/* Full bleed. The canvas is the page now, so the section gives up its
+   gutter and the 1280px measure both — nothing else here wants them,
+   and .learn-list brings its own back. */
 .section--learn {
-  padding: 0 1.5rem;
+  padding: 0 0 1rem;
 }
-@media (max-width: 640px) {
-  .section--learn { padding: 0 1.25rem; }
+.section--learn .section__inner {
+  max-width: none;
 }
-
-.learn-index {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  margin-bottom: 2rem;
-}
-
-.learn-band {
-  padding: 1rem 1.15rem;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  transition: border-color 0.15s, background 0.15s;
-}
-.learn-band:hover {
-  border-color: var(--border-strong);
-  background: var(--bg-surface-2);
-}
-/* Same inset as .nav__tab--active and .filter-chip--active: this is
-   the selected one of a set, one more level down. */
-.learn-band--active {
-  box-shadow: inset 0 0 0 1px rgba(var(--color-primary-rgb), 0.28);
-}
-
-.learn-band__head {
-  display: flex;
-  align-items: baseline;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.6rem;
-}
-.learn-band__name {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.learn-band__n {
-  font-size: 0.78rem;
-  color: var(--text-tertiary);
-  font-variant-numeric: tabular-nums;
-}
-/* Lessons this chapter wrote, as opposed to the network's 34. */
-.learn-band__own { color: var(--color-primary); }
 
 .learn-tree-wrap {
   position: relative;
-  /* Nav (~64px) + page header (~140px) ≈ 210px, plus the footer
-     needs breathing room — min-height keeps the tree usable on any
-     viewport without a second scrollbar. */
-  min-height: min(900px, calc(100vh - 200px));
+  /* MEASURED at 1440x900 on the Learn tab: sticky nav 64px + page
+     header 213px = 277px above the canvas, and "Open the full map ↗"
+     wants ~56px below it. The canvas takes what is left and no more.
+     Leaving that strip is the point, not an accident: a pan-and-zoom
+     surface claims every pointer inside its own box, so the page
+     needs somewhere outside the canvas to be scrolled from — once the
+     header has scrolled away that is only the 64px nav, and this
+     gives back ~300px of page under the canvas. A chapter whose
+     header desc wraps to a third line loses the link below the fold
+     at rest and keeps everything else; that is the right way round. */
+  height: min(880px, calc(100vh - 360px));
+  min-height: 420px;
   background: var(--bg-surface);
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   overflow: hidden;
-}
-
-/* A pan-and-zoom canvas inside a scrolling page is a trap on a touch
-   screen — every drag is ambiguous. On a phone the index above IS the
-   Learn page, and "Open the full map ↗" hands the canvas its own tab. */
-@media (max-width: 640px) {
-  .learn-tree-wrap { display: none; }
 }
 
 .learn-tree-frame {
@@ -3142,6 +3199,12 @@ a.project-card:hover {
 
 .learn-tree-frame[hidden] { display: none; }
 
+/* main.ts's own failure card, inside the well. It is styled but
+   effectively never seen on a chapter site: every path that reveals
+   it also hides the frame, and views/learn.ts answers that by hiding
+   this whole well and showing the rows, which say more. The rules
+   stay because the element ships in index.html and main.ts still
+   reveals it on a build where no view mounts (the demo site). */
 .learn-tree-fallback {
   position: absolute;
   inset: 0;
@@ -3151,6 +3214,42 @@ a.project-card:hover {
 }
 
 .learn-tree-fallback[hidden] { display: none; }
+
+/* The same path as rows. Hidden wherever the canvas is showing,
+   because two renderings of one curriculum on one page is the index
+   we just deleted. Narrower than the canvas on purpose: these are
+   titles and summaries, and a 2560px-wide row is not a row. */
+.learn-list {
+  display: none;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 0;
+}
+
+/* MEASURED 2026-09-18: content/tree.html renders NOTHING inside a
+   375px-wide iframe. It loads — the load event fires, so main.ts's
+   8-second timeout never trips — and paints an empty canvas, checked
+   over 18 seconds against msoe-ai-club; opened directly at the same
+   width in its own tab it draws fine. So a phone that got the canvas
+   would get a blank page. It gets the rows, and the link under them
+   opens the map in the tab where the map works. (A pan-and-zoom
+   surface inside a scrolling page is a trap on a touch screen
+   anyway — every drag is ambiguous.) */
+@media (max-width: 640px) {
+  .learn-tree-wrap { display: none; }
+  .learn-list {
+    display: block;
+    padding: 1.5rem 1.25rem 0;
+  }
+}
+
+/* The canvas did not come up: no content site at all, or eight
+   seconds with no load. main.ts hides the frame in both cases,
+   views/learn.ts reads that and sets this, and the rows take the page
+   at every width — so the chapter with nothing else still has its
+   whole curriculum here rather than an apology. */
+.learn--no-canvas .learn-tree-wrap { display: none; }
+.learn--no-canvas .learn-list { display: block; }
 
 /* ══ Page header band — non-home pages ═════════════════════════════
    Compact intro band shown at the top of Learn / Projects / Team /
@@ -3574,119 +3673,52 @@ a.project-card:hover {
   }
 }
 
-/* ══ Sponsor inquiry modal ═══════════════════════════════════════
-   Opened via the `#sponsor` hash route which the hero's "Become a
-   partner" CTA defaults to. Submits to the dashboard's public
-   sponsor endpoint so inquiries land in the chapter's Inbox tab.
-   The whole thing is injected by main.ts::setupSponsorModal — so
-   this CSS is hydrate-only, nothing lives in index.html. */
+/* ══ Sponsor page — the hand-off ═════════════════════════════════
+   This was a modal over Home until Sponsor became a destination. The
+   fields below are that modal's, unchanged: the form moved into a
+   page, it was not rebuilt. What went with the dialog is everything
+   only a dialog needs — the backdrop, the panel, the close button, the
+   pop, and the scroll lock on <body>.
 
-.sponsor-modal-root {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  display: grid;
-  place-items: center;
-  padding: 1rem;
+   The page is two doors and says which is which: the primary button
+   leaves for the involvement platform, which owns tiers and prices,
+   and the form under the rule posts to this chapter's own inbox. */
+
+.sponsor-page__handoff {
+  padding-bottom: 2.25rem;
+  margin-bottom: 2.25rem;
+  border-bottom: 1px solid var(--border);
 }
 
-.sponsor-modal-root[hidden] {
-  display: none;
+/* The chapter's own integers, each dropped below 2 — a sponsor is not
+   buying a reach of one. */
+.sponsor-page__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
 }
 
-.sponsor-modal__backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(6, 6, 9, 0.7);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  animation: sponsor-modal-fade-in 0.18s ease;
+.sponsor-page__cta {
+  margin-top: 1.5rem;
 }
 
-.sponsor-modal__panel {
-  position: relative;
-  width: min(560px, 100%);
-  max-height: calc(100vh - 2rem);
-  overflow-y: auto;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl, 20px);
-  padding: 2.25rem 2rem 2rem;
-  box-shadow:
-    0 30px 60px -20px rgba(0, 0, 0, 0.6),
-    0 12px 30px -10px rgba(var(--color-primary-rgb), 0.25);
-  animation: sponsor-modal-pop 0.22s cubic-bezier(0.3, 1, 0.4, 1);
+/* A chapter with no tagline and nothing to count yet opens on the
+   button itself, and a button that starts 1.5rem down from nothing
+   reads as a gap where something failed to load. */
+.sponsor-page__handoff > :first-child {
+  margin-top: 0;
 }
 
-@keyframes sponsor-modal-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes sponsor-modal-pop {
-  from { opacity: 0; transform: translateY(8px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-body.sponsor-modal-open {
-  overflow: hidden;
-}
-
-.sponsor-modal__close {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-}
-
-.sponsor-modal__close:hover {
-  background: var(--bg-subtle);
-  border-color: var(--border);
-  color: var(--text-primary);
-}
-
-.sponsor-modal__head {
-  margin-bottom: 1.5rem;
-  padding-right: 2rem; /* keep the title clear of the close button */
-}
-
-.sponsor-modal__kicker {
-  display: inline-block;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+.sponsor-page__note {
+  margin-top: 0.9rem;
+  max-width: 520px;
+  font-size: 0.85rem;
+  line-height: 1.6;
   color: var(--text-tertiary);
-  margin-bottom: 0.5rem;
 }
 
-.sponsor-modal__title {
-  margin: 0 0 0.5rem;
-  font-size: clamp(1.25rem, 2vw, 1.55rem);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--text-primary);
-  line-height: 1.2;
-}
-
-.sponsor-modal__desc {
-  margin: 0;
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  line-height: 1.55;
-}
-
-.sponsor-modal__form {
+.sponsor-form {
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -3762,37 +3794,37 @@ body.sponsor-modal-open {
   overflow: hidden;
 }
 
-.sponsor-modal__status {
+.sponsor-form__status {
   min-height: 1.1rem;
   font-size: 0.85rem;
   color: var(--text-secondary);
 }
 
-.sponsor-modal__status--error {
+.sponsor-form__status--error {
   color: #f87171;
 }
 
-.sponsor-modal__actions {
+.sponsor-form__actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 0.6rem;
   margin-top: 0.25rem;
   flex-wrap: wrap;
 }
 
-.sponsor-modal__actions .btn {
+.sponsor-form__actions .btn {
   min-width: 120px;
   justify-content: center;
 }
 
-.sponsor-modal__submit[disabled] {
+.sponsor-form__submit[disabled] {
   opacity: 0.7;
   cursor: progress;
 }
 
 /* ── Success view ──────────────────────────────── */
 
-.sponsor-modal__success {
+.sponsor-form__success {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3801,11 +3833,11 @@ body.sponsor-modal-open {
   padding: 1.5rem 1rem 0.5rem;
 }
 
-.sponsor-modal__success[hidden] {
+.sponsor-form__success[hidden] {
   display: none;
 }
 
-.sponsor-modal__success-icon {
+.sponsor-form__success-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3817,7 +3849,7 @@ body.sponsor-modal-open {
   border: 1px solid rgba(16, 185, 129, 0.35);
 }
 
-.sponsor-modal__success-title {
+.sponsor-form__success-title {
   margin: 0;
   font-size: 1.1rem;
   font-weight: 700;
@@ -3825,18 +3857,12 @@ body.sponsor-modal-open {
   letter-spacing: -0.015em;
 }
 
-.sponsor-modal__success-desc {
+.sponsor-form__success-desc {
   margin: 0 0 0.5rem;
   max-width: 380px;
   font-size: 0.85rem;
   color: var(--text-secondary);
   line-height: 1.55;
-}
-
-@media (max-width: 560px) {
-  .sponsor-modal__panel {
-    padding: 2rem 1.25rem 1.5rem;
-  }
 }
 
 /* ── Under-construction holding page ──────────────────────────────────
@@ -4043,9 +4069,9 @@ body.is-ready .hero__stats { animation-delay: 0.24s; }
 @keyframes filter-step { from { opacity: 0.4; } to { opacity: 1; } }
 
 /* ── Reduced motion. Everything above is decoration, so all of it
-   goes; nothing on this page depends on motion to be legible. This
-   also finally gates the sponsor modal's pop, which has been
-   unconditional since it shipped. */
+   goes; nothing on this page depends on motion to be legible. The
+   sponsor modal's ungated pop used to be the one thing this block was
+   written to catch; the modal is a page now and there is no pop. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

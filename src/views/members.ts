@@ -1,65 +1,88 @@
-/* The Members destination — #members.
+/* The board — the chapter's standings, and the recognition that hangs
+   off them.
 
-   One story, in order: earn points → get recognised → redeem. The
-   standings, how the points work, every badge the chapter awards, and
-   the merch those points buy. Merch used to be its own tab and was
-   empty on 11 of the 12 chapters; a tab that is usually empty is worse
-   than no tab.
+   This used to be the Members destination. It is now three render
+   functions the landing page composes, because the board is the front
+   page: a visitor should see who is doing the work before they see
+   anything else this club says about itself. Officers are not on it —
+   they are people, not competitors, and they live on About.
 
-   The counting laws this page is built on:
+   Nothing here mounts itself. `renderBoard`, `renderBadgeWall` and
+   `renderMerch` each fill a host element the caller owns and report
+   whether they had anything to say, so the composer can drop a band
+   rather than print an empty one.
+
+   The counting laws the board is built on:
 
    - Dense ranking off points, computed here. The API hands back rank 1
      and rank 2 for MSOE's two members who both have 88 points; equal
      scores share a rank and the next distinct score skips past it, so
-     that tie reads 1, 1, 3. A medal only renders where a rank is held
-     by exactly one member, because a shared gold is not a gold.
+     that tie reads 1, 1, 3.
+   - No medals, at all. The old board put an SVG medal on a rank only
+     when that rank was held by one member, which meant the richest
+     chapter in the network — whose board opens 88, 88, 83 — got no
+     mark on its leaders at all, and the top of the board looked like
+     the middle of it. The leaders are marked by a rule and a coloured
+     rank instead, which is a treatment a tie cannot break: both
+     88-point members are rank 1 and both are marked, and neither is
+     claimed as the winner.
    - Never print a zero. events_attended is 0 for most of MSOE's top 20
      (the check-in rows predate the import), and "0 events" next to 88
      points reads as broken data — so the line is dropped, not zeroed.
-     Same for a badge that nobody has earned and a merch item with no
-     points price.
-   - 20 rows is the whole public board. The bundle's leaderboard query
-     has no consent filter, so this view asks for no more than what
-     already ships and the search box sits over those 20.
-
-   Mounts at most once, on first entry to the tab (see lib/view.ts). */
+     Same for a badge nobody has earned and a merch item with no price.
+   - No bar, no percentage of the leader, no count-up. The points are
+     the claim; a bar behind them is a second, made-up claim about the
+     distance between two students.
+   - 20 rows is the whole public board (the bundle's leaderboard query
+     has no consent filter, so this renders exactly what already
+     ships). The board is therefore bounded, and it renders whole:
+     there is no "show more", because the board IS the page's
+     centrepiece and truncating it would also give the search box rows
+     it could not find.
+*/
 
 import type {
   BadgeRow,
+  Bundle,
   LeaderboardBadge,
   LeaderboardRow,
   MerchRow,
 } from "../lib/bundle";
 import { plural } from "../lib/format";
 import { escapeAttr, escapeHtml } from "../lib/html";
-import { MEDAL_SVGS, renderBadgeIcon } from "../lib/primitives";
-import { registerView, type ViewCtx } from "../lib/view";
+import { renderBadgeIcon } from "../lib/primitives";
 
 /** Where a member manages the profile their points travel on. */
 const PROFILE_URL = "https://dashboard.all-ai-network.org/me/profile";
 
-/** Board rows at which the search box earns its place. The public
- *  board is capped at 20 by the API, so this is "the board is full" —
- *  at that size a member scanning for their own name is scrolling. */
-const SEARCH_AT = 20;
+/** Board rows at which the search box earns its place. Below this the
+ *  whole board is on one screen and a search box is furniture; at or
+ *  above it a member scanning for their own name is scrolling. It sits
+ *  inside the board frame and filters from the very first row. */
+const SEARCH_AT = 8;
 
-/** Badge icons shown next to a name before the +N chip takes over. */
+/** Rows a board needs before "the leaders" is a meaningful group. On a
+ *  two-row board, marking the top row marks half the board. */
+const LEAD_AT = 3;
+
+/** The other half of the leader rule. WSU's whole board is seven
+ *  members tied on the same score (verified live, 2026-09-18), so rank
+ *  1 there is everybody — and a mark every row carries marks nothing.
+ *  The leaders are highlighted only when they are a strict minority of
+ *  the board, which is the only case where the mark says anything. */
+function leadersAreAMinority(atRankOne: number, total: number): boolean {
+  return atRankOne < total - atRankOne;
+}
+
+/** The column header earns its place once the board is long enough to
+ *  be scanned rather than read. Two rows do not need labelling. */
+const HEADER_AT = LEAD_AT;
+
+/** Badge marks beside a name: one carries its full name, the rest are
+ *  icons, and past this the remainder collapses into a +N. */
 const MAX_ROW_BADGES = 4;
 
 /* ── Building blocks ─────────────────────────────────────────────── */
-
-/**
- * Drop the kicker + H2 head from a destination section. The
- * .page-header band is the only head on a destination; today
- * #sec-badges prints "POINTS & RECOGNITION / How it all works" under a
- * band that just said "Points & recognition / Members".
- */
-function dropSectionHead(section: HTMLElement | null): void {
-  if (!section) return;
-  section
-    .querySelectorAll(".section__head, .section__kicker, .section__title")
-    .forEach((el) => el.remove());
-}
 
 /** A sub-block's head: what this block is, and at most one line. */
 function blockHead(title: string, desc?: string): string {
@@ -73,23 +96,33 @@ function blockHead(title: string, desc?: string): string {
 
 /**
  * Badge icons are emoji, an uploaded URL, or one of five built-in
- * names, mixed inside one chapter. The emoji branch now lives in
- * renderBadgeIcon itself (src/lib/primitives.ts), so the landing page's
- * badge chips get it without importing from a view.
- *
- * Kept as a named export because this module's own rows call it and
- * because the name says what the call is for.
+ * names, mixed inside one chapter. The emoji branch lives in
+ * renderBadgeIcon itself (src/lib/primitives.ts) so every surface gets
+ * it; this stays as a named export because the name says what the call
+ * is for and other modules already reach for it.
  */
 export function badgeIcon(icon: string): string {
   return renderBadgeIcon((icon ?? "").trim());
 }
 
-/** The compact badge strip beside a name on the board. */
+/**
+ * The badge marks beside a name.
+ *
+ * The first badge is named in full. That is the whole point of the
+ * change: three of MSOE's 27 badge icons resolve to the same trophy
+ * SVG, so a row of tinted squares said "this member has badges"
+ * without ever saying which — the marks read as the board's
+ * decoration rather than as that member's record. One name makes them
+ * hers. The rest stay as icons, because twenty rows of three full
+ * badge names is a text wall.
+ */
 function renderRowBadges(badges: LeaderboardBadge[] | undefined): string {
   if (!badges?.length) return "";
-  const shown = badges.slice(0, MAX_ROW_BADGES);
-  const overflow = badges.length - shown.length;
-  const chips = shown
+  const [first, ...rest] = badges.slice(0, MAX_ROW_BADGES);
+  const overflow = badges.length - 1 - rest.length;
+
+  const named = `<span class="member-badge member-badge--named" title="${escapeAttr(first.name)}">${badgeIcon(first.icon)}<span class="member-badge__name">${escapeHtml(first.name)}</span></span>`;
+  const marks = rest
     .map(
       (b) =>
         `<span class="member-badge" title="${escapeAttr(b.name)}" aria-label="${escapeAttr(b.name)}">${badgeIcon(b.icon)}</span>`,
@@ -99,40 +132,32 @@ function renderRowBadges(badges: LeaderboardBadge[] | undefined): string {
     overflow > 0
       ? `<span class="member-badge member-badge--more" title="${overflow} more" aria-label="${overflow} more">+${overflow}</span>`
       : "";
-  return `<div class="member-badges" aria-label="earned badges">${chips}${more}</div>`;
+  return `${named}${marks}${more}`;
 }
 
-/* ── Standings ───────────────────────────────────────────────────── */
+/* ── Ranking ─────────────────────────────────────────────────────── */
 
 export interface RankedRow {
   row: LeaderboardRow;
+  /** Dense rank: equal points share a rank, the next distinct score
+   *  skips past it. 88, 88, 83 → 1, 1, 3. */
   rank: number;
-  /** True when this rank is held by exactly one member. A medal on a
-   *  shared rank claims a winner the points do not support. */
-  sole: boolean;
-  /** True when this row is on a podium that actually exists: rank 1, 2
-   *  or 3, and every rank at or above it held by one member.
-   *
-   *  `sole` alone is not enough. MSOE's board opens 88, 88, 83, so
-   *  rank 1 is shared and rank 3 is not — and the board rendered a
-   *  lone bronze at the top with no gold or silver above it, which
-   *  reads as a bug rather than as a tie. A podium is built downward
-   *  from first place and stops at the first tie. */
-  podium: boolean;
+  /** True when more than one member holds this rank. Nothing on the
+   *  board may claim a sole winner while this is true. */
+  tied: boolean;
+  /** True for every member on the board's top rank, tie or not. This
+   *  is the only distinction the board draws, and it survives a tie
+   *  because it names a group rather than a winner. */
+  lead: boolean;
 }
 
 /**
- * Rank by points, ties sharing a rank and the next distinct score
- * skipping past them (88, 88, 83 → 1, 1, 3). The rank the API sends is
- * a row number, not a ranking: MSOE's two 88-point members come back as
- * 1 and 2, which is the podium's "Gold / Silver" lie in the data.
+ * Rank by points, ties sharing a rank. The rank the API sends is a row
+ * number, not a ranking: MSOE's two 88-point members come back as 1 and
+ * 2, which is a gold-and-silver lie sitting in the data.
  *
  * The sort is defensive — the API already orders by points desc — and
  * is stable, so members on equal points keep the order they arrived in.
- *
- * Exported with renderBoardRow and scoredRows so the landing page's
- * five-row standings band ranks and renders identically to this page's
- * full board — the same tie has to read the same way in both places.
  */
 export function rankByPoints(rows: LeaderboardRow[]): RankedRow[] {
   const sorted = [...rows].sort((a, b) => b.points - a.points);
@@ -145,17 +170,17 @@ export function rankByPoints(rows: LeaderboardRow[]): RankedRow[] {
   const held = new Map<number, number>();
   for (const r of ranks) held.set(r, (held.get(r) ?? 0) + 1);
 
-  // How far down the podium is unambiguous: 1, then 2, then 3, stopping
-  // at the first rank that is shared or missing. On MSOE (88, 88, 83)
-  // that is 0 — no medals at all, rather than a bronze on its own.
-  let podiumDepth = 0;
-  while (podiumDepth < 3 && held.get(podiumDepth + 1) === 1) podiumDepth++;
+  // Leading a field of two marks half the board, and leading a board
+  // where everyone is tied marks all of it. Neither says anything.
+  const markLead =
+    sorted.length >= LEAD_AT &&
+    leadersAreAMinority(held.get(1) ?? 0, sorted.length);
 
   return sorted.map((row, i) => ({
     row,
     rank: ranks[i],
-    sole: held.get(ranks[i]) === 1,
-    podium: ranks[i] <= podiumDepth,
+    tied: (held.get(ranks[i]) ?? 0) > 1,
+    lead: markLead && ranks[i] === 1,
   }));
 }
 
@@ -170,6 +195,18 @@ export function scoredRows(rows: LeaderboardRow[]): LeaderboardRow[] {
   return rows.filter((r) => r.points >= 1);
 }
 
+/** True when the chapter has anything to recognise — points on the
+ *  board, badges it awards, or merch those points buy. Exported so the
+ *  composer can decide whether "how points work" is worth explaining
+ *  before it asks for any of the three blocks. */
+export function hasRecognition(bundle: Bundle): boolean {
+  return (
+    scoredRows(bundle.leaderboard ?? []).length > 0 ||
+    (bundle.badges ?? []).length > 0 ||
+    (bundle.merch ?? []).length > 0
+  );
+}
+
 /** Case- and accent-insensitive form of a name, for the search box. */
 function fold(s: string): string {
   return s
@@ -179,47 +216,57 @@ function fold(s: string): string {
     .trim();
 }
 
-export function renderBoardRow({ row, rank, podium }: RankedRow): string {
-  const medal = podium ? (MEDAL_SVGS[rank] ?? "") : "";
-  const medalHtml = medal
-    ? `<span class="rec__medal" aria-hidden="true">${medal}</span>`
-    : "";
+/* ── The board ───────────────────────────────────────────────────── */
+
+/**
+ * One row.
+ *
+ * Three columns, and they are the same three on every row: a rank
+ * gutter, the member, the points. The rank and the points are both
+ * tabular and both right-aligned against a fixed track, so rank 9 and
+ * rank 10 sit on the same ones column and 88 lines up under 120 — a
+ * ranked list you cannot read down is a list, not a board.
+ *
+ * The unit ("pts") is in the DOM but visually hidden: the column
+ * header says Points, so printing the unit twenty times only makes the
+ * numbers ragged, while a screen reader still hears "88 pts".
+ */
+export function renderBoardRow({ row, rank, lead }: RankedRow): string {
   const events =
     row.events_attended >= 1
       ? `<span class="chip">${escapeHtml(plural(row.events_attended, "event"))}</span>`
       : "";
-  const meta =
-    renderRowBadges(row.badges) || events
-      ? `<div class="rec__meta">${renderRowBadges(row.badges)}${events}</div>`
-      : "";
+  const marks = renderRowBadges(row.badges);
+  const meta = marks || events ? `<div class="board__marks">${marks}${events}</div>` : "";
   return `
-    <div class="rec rec--lb" data-lb-row data-name="${escapeAttr(fold(row.name))}">
-      <div class="rec__main">
-        <div class="rec__rank">${medalHtml}${rank}</div>
-        <div class="rec__body">
-          <div class="rec__title">${escapeHtml(row.name)}</div>
-          ${meta}
-        </div>
-        <div class="rec__pts">${row.points.toLocaleString()}<span class="rec__pts-unit">${row.points === 1 ? "pt" : "pts"}</span></div>
-      </div>
-    </div>
+    <li class="board__row${lead ? " board__row--lead" : ""}" data-lb-row data-name="${escapeAttr(fold(row.name))}">
+      <span class="board__rank"><span class="visually-hidden">Rank </span>${rank}</span>
+      <span class="board__who">
+        <span class="board__name">${escapeHtml(row.name)}</span>
+        ${meta}
+      </span>
+      <span class="board__pts">${row.points.toLocaleString()}<span class="visually-hidden"> ${row.points === 1 ? "pt" : "pts"}</span></span>
+    </li>
   `;
 }
 
 /**
  * Wire the search box over the rows already on the page. Filtering sets
- * style.display rather than the hidden attribute: `.rec { display:
- * block }` is an author rule and beats the UA's `[hidden] { display:
- * none }` at the same specificity, so a hidden .rec would stay visible.
+ * style.display rather than the hidden attribute: `.board__row {
+ * display: grid }` is an author rule and beats the UA's `[hidden] {
+ * display: none }` at the same specificity, so a hidden row would stay
+ * visible.
+ *
+ * The filter runs once on wiring as well as on input, because a
+ * restored form value (back button, bfcache) arrives without an event
+ * and would otherwise show the full board under a typed query.
  */
 function wireSearch(scope: HTMLElement, total: number): void {
   const input = scope.querySelector<HTMLInputElement>(".lb-search");
   const note = scope.querySelector<HTMLElement>("[data-lb-empty]");
   if (!input || !note) return;
-  const rows = Array.from(
-    scope.querySelectorAll<HTMLElement>("[data-lb-row]"),
-  );
-  input.addEventListener("input", () => {
+  const rows = Array.from(scope.querySelectorAll<HTMLElement>("[data-lb-row]"));
+  const apply = () => {
     const q = fold(input.value);
     let hits = 0;
     for (const row of rows) {
@@ -228,50 +275,83 @@ function wireSearch(scope: HTMLElement, total: number): void {
       if (match) hits++;
     }
     note.hidden = hits > 0;
-  });
+  };
   note.textContent = `No member by that name in the top ${total}.`;
+  input.addEventListener("input", apply);
+  apply();
 }
 
-function renderStandings(ctx: ViewCtx): void {
-  const container = ctx.el("leaderboard-content");
-  if (!container) return;
+/** What `renderBoard` put in the host, so the composer knows whether
+ *  the band around it has earned its place. */
+export type BoardState = "board" | "note" | "none";
 
-  const rows = scoredRows(ctx.bundle.leaderboard ?? []);
+/**
+ * Fill `host` with the standings.
+ *
+ * Returns "board" when real rows rendered, "note" when the chapter has
+ * events but nobody has scored yet (one sentence that names the fix,
+ * and the fix is true for a visitor to read), and "none" when there is
+ * nothing honest to say — a board with nobody on it, on a club that
+ * has never run an event, is an accusation rather than a record. On
+ * "none" the host is left empty and the caller should drop the band.
+ */
+export function renderBoard(host: HTMLElement, bundle: Bundle): BoardState {
+  const rows = scoredRows(bundle.leaderboard ?? []);
+
   if (!rows.length) {
-    // A board with nobody on it says nothing true about the chapter.
-    // The Members tab only exists when one of its blocks has data, so
-    // nobody lands on the hole this leaves.
-    ctx.el("sec-leaderboard")?.remove();
-    return;
+    if ((bundle.events ?? []).length > 0) {
+      host.innerHTML = `<p class="note">Points start showing up here once members check in at an event.</p>`;
+      return "note";
+    }
+    host.innerHTML = "";
+    return "none";
   }
 
-  dropSectionHead(ctx.el("sec-leaderboard"));
+  const ranked = rankByPoints(rows);
 
   // "Top 20 of 595 members." — the board is a cap, and saying so is
   // more honest than letting 20 names look like the whole chapter.
   // Omitted when the board is everyone, and at one row, where the
   // sentence would be counting to one.
-  const total = ctx.bundle.chapter?.member_count ?? 0;
+  const total = bundle.chapter?.member_count ?? 0;
   const caption =
     rows.length >= 2 && total > rows.length
       ? `Top ${rows.length} of ${plural(total, "member")}.`
       : "";
 
+  // The search lives inside the frame rather than floating above it:
+  // it is part of the object, and a board you can search says so on
+  // its face.
   const search =
     rows.length >= SEARCH_AT
-      ? `<input type="search" class="lb-search" placeholder="Find your name" aria-label="Find your name" autocomplete="off" spellcheck="false" />`
+      ? `<div class="board__search">
+           <input type="search" class="lb-search" placeholder="Find your name" aria-label="Find your name" autocomplete="off" spellcheck="false" />
+         </div>`
       : "";
 
-  container.innerHTML = `
-    ${blockHead("Standings", caption || undefined)}
-    ${search}
-    ${rankByPoints(rows).map(renderBoardRow).join("")}
-    <p class="note" data-lb-empty hidden></p>
+  const header =
+    rows.length >= HEADER_AT
+      ? `<div class="board__head" aria-hidden="true">
+           <span class="board__h board__h--rank">Rank</span>
+           <span class="board__h">Member</span>
+           <span class="board__h board__h--pts">Points</span>
+         </div>`
+      : "";
+
+  host.innerHTML = `
+    <div class="board">
+      ${search}
+      ${header}
+      <ol class="board__rows">${ranked.map(renderBoardRow).join("")}</ol>
+      <p class="board__empty" data-lb-empty hidden></p>
+      ${caption ? `<p class="board__foot">${escapeHtml(caption)}</p>` : ""}
+    </div>
   `;
-  if (search) wireSearch(container, rows.length);
+  if (search) wireSearch(host, rows.length);
+  return "board";
 }
 
-/* ── How points work · badges ────────────────────────────────────── */
+/* ── Badges ──────────────────────────────────────────────────────── */
 
 function renderBadgeTile(b: BadgeRow): string {
   return `
@@ -287,59 +367,28 @@ function renderBadgeTile(b: BadgeRow): string {
 }
 
 /**
- * The badges section carries two blocks: the three points-explainer
- * cards (authored in index.html, kept verbatim) and the badge wall.
- * The explainer earns its place whenever there are points or badges to
- * explain; with neither, it is the template describing a system this
- * chapter does not run yet.
+ * Every badge the chapter awards, most-awarded first. Returns false
+ * and leaves the host empty when there are none.
+ *
+ * A chapter's taxonomy is its own, so MSOE's near-duplicate names
+ * ("2023 ROSIE Finalist" and "ROSIE Competition Finalist 2023") both
+ * ship rather than being merged.
  */
-function renderBadges(ctx: ViewCtx): void {
-  const section = ctx.el("sec-badges");
-  const grid = ctx.el("badges-grid");
-  if (!section) return;
-
-  const badges = ctx.bundle.badges ?? [];
-  const hasPoints = scoredRows(ctx.bundle.leaderboard ?? []).length > 0;
-
-  dropSectionHead(section);
-
-  const explainer = section.querySelector<HTMLElement>(".points-explainer");
-  if (explainer) {
-    if (!badges.length && !hasPoints) {
-      explainer.remove();
-    } else if (
-      !explainer.previousElementSibling?.classList.contains("block-head")
-    ) {
-      explainer.insertAdjacentHTML("beforebegin", blockHead("How points work"));
-    }
-  }
-
+export function renderBadgeWall(host: HTMLElement, bundle: Bundle): boolean {
+  const badges = bundle.badges ?? [];
   if (!badges.length) {
-    // Drop the wall and the sub-head that announces it; the explainer
-    // above it may still have earned its place.
-    const head = grid?.previousElementSibling;
-    if (head?.classList.contains("section__subhead")) head.remove();
-    grid?.remove();
-  } else if (grid) {
-    // index.html's bare <h3> becomes the same block head every other
-    // block on this page uses.
-    const head = grid.previousElementSibling;
-    if (head?.classList.contains("section__subhead")) head.remove();
-    if (!grid.previousElementSibling?.classList.contains("block-head")) {
-      grid.insertAdjacentHTML("beforebegin", blockHead("Every badge we award"));
-    }
-    // Most-awarded first: a chapter's taxonomy is its own, so
-    // near-duplicate names ("2023 ROSIE Finalist" and "ROSIE
-    // Competition Finalist 2023") both ship rather than being merged.
-    grid.innerHTML = [...badges]
-      .sort((a, b) => b.award_count - a.award_count)
-      .map(renderBadgeTile)
-      .join("");
+    host.innerHTML = "";
+    return false;
   }
-
-  if (!section.querySelector(".points-explainer, .badges-grid")) {
-    section.remove();
-  }
+  const tiles = [...badges]
+    .sort((a, b) => b.award_count - a.award_count)
+    .map(renderBadgeTile)
+    .join("");
+  host.innerHTML = `
+    ${blockHead("Every badge we award")}
+    <div class="badges-grid" role="list">${tiles}</div>
+  `;
+  return true;
 }
 
 /* ── Redeem ──────────────────────────────────────────────────────── */
@@ -419,31 +468,26 @@ function renderMerchCard(m: MerchRow): string {
   `;
 }
 
-function renderMerch(ctx: ViewCtx): void {
-  const grid = ctx.el("merch-grid");
-  if (!grid) return;
-
-  const items = ctx.bundle.merch ?? [];
+/**
+ * What the points buy. Returns false and leaves the host empty when
+ * the chapter sells nothing — merch is populated on 1 of the 12
+ * chapters, so this is the usual answer.
+ */
+export function renderMerch(host: HTMLElement, bundle: Bundle): boolean {
+  const items = bundle.merch ?? [];
   if (!items.length) {
-    ctx.el("sec-merch")?.remove();
-    return;
+    host.innerHTML = "";
+    return false;
   }
 
-  dropSectionHead(ctx.el("sec-merch"));
-  if (!grid.previousElementSibling?.classList.contains("block-head")) {
-    grid.insertAdjacentHTML(
-      "beforebegin",
-      blockHead(
-        "Redeem your points",
-        "Earn points at events, redeem in person at any meeting.",
-      ),
-    );
-  }
-  grid.innerHTML = items.map(renderMerchCard).join("");
+  host.innerHTML = `
+    ${blockHead("Redeem your points", "Earn points at events, redeem in person at any meeting.")}
+    <div class="merch-grid" role="list">${items.map(renderMerchCard).join("")}</div>
+  `;
 
   // One delegated listener for every card's thumbnail strip, matching
   // the sponsor modal's delegation style.
-  grid.addEventListener("click", (e) => {
+  host.addEventListener("click", (e) => {
     const thumb = (e.target as HTMLElement | null)?.closest<HTMLButtonElement>(
       "[data-merch-thumb]",
     );
@@ -461,33 +505,21 @@ function renderMerch(ctx: ViewCtx): void {
         t.setAttribute("aria-pressed", String(active));
       });
   });
+  return true;
 }
 
 /* ── The network line ────────────────────────────────────────────── */
 
 /**
- * One sentence, at the foot of whichever block ends this page. It
- * replaces the callout deleted above: same claim, no percentage, no
- * hiring anecdote, no footnote.
+ * One sentence, at the foot of the recognition story. It replaces the
+ * ~100-line "living résumé" callout that used to sit on every
+ * chapter's front page: same claim, no percentage, no named hiring
+ * anecdote, no methodology footnote.
  */
-function renderNetworkLine(ctx: ViewCtx): void {
-  // Last block standing wins, in page order. Sections with no data have
-  // already removed themselves by the time this runs.
-  const host = ["sec-merch", "sec-badges", "sec-leaderboard"]
-    .map((id) => ctx.el(id))
-    .find((s): s is HTMLElement => Boolean(s?.isConnected));
-  const inner = host?.querySelector(".section__inner");
-  if (!inner || inner.querySelector(".members-network")) return;
-
-  inner.insertAdjacentHTML(
+export function renderNetworkLine(host: HTMLElement): void {
+  if (host.querySelector(".members-network")) return;
+  host.insertAdjacentHTML(
     "beforeend",
     `<p class="members-network">Every check-in and project here also lands on your ALL Applied AI Network profile, which travels with you between chapters. <a class="link--arrow" href="${PROFILE_URL}" target="_blank" rel="noopener">Manage your profile</a></p>`,
   );
 }
-
-registerView("members", (ctx) => {
-  renderStandings(ctx);
-  renderBadges(ctx);
-  renderMerch(ctx);
-  renderNetworkLine(ctx);
-});

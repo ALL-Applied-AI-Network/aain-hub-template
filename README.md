@@ -233,7 +233,7 @@ The embedded page validates that the chapter hosts or co-hosts the event. It res
 
 ### Officers
 
-Add your leadership team. Each officer gets an avatar (initials if no image provided), name, and role. Remove the array to hide the Leadership section.
+Add your leadership team. Each officer gets an avatar (initials if no image provided), name, and role. They render on the **About** page, alongside your club's own About text — not beside the leaderboard, which is a score members earn and an eboard is not competing for. Remove the array and, if you also have no About text, the About tab disappears with it.
 
 ### Features
 
