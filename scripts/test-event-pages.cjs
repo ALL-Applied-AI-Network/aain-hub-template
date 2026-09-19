@@ -18,24 +18,22 @@ function load(relative, additions = {}) {
   return context.exports;
 }
 
-// Run the actual card-rendering functions without booting the full website.
+// Run the actual card renderer without booting the full website.
+//
+// renderEventCard, renderPhaseRow, zoneParts, renderRichMarkdown and
+// safeHttpUrl used to be function declarations inside src/main.ts, and
+// this lifted them out of it by name. They now live in src/lib/*, which
+// is better for the site and better here: load() follows the real
+// import graph, so this exercises the module that ships rather than a
+// re-transpiled subset of it that could drift from the original.
+//
+// `window` is the only global the module reaches for (the card links to
+// ?event= on the current path); load() passes additions to the module
+// it is asked for, and every recursive require resolves from disk.
 function loadEventRenderer() {
-  const filename = path.resolve(__dirname, "../src/main.ts");
-  const source = ts.createSourceFile(filename, fs.readFileSync(filename, "utf8"), ts.ScriptTarget.ES2022, true);
-  const names = new Set(["zoneParts", "renderEventCard", "renderPhaseRow", "renderRichMarkdown", "safeHttpUrl"]);
-  const declarations = source.statements.filter(node => ts.isFunctionDeclaration(node) && names.has(node.name?.text));
-  assert.equal(declarations.length, names.size);
-  const output = ts.transpileModule(declarations.map(node => node.getText(source)).join("\n"), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
-  }).outputText;
-  const context = {
-    ...load("src/lib/html.ts"),
-    eventPageHref: load("src/event-page.ts").eventPageHref,
+  return load("src/lib/events.ts", {
     window: { location: { pathname: "/club/" } },
-    URL,
-  };
-  vm.runInNewContext(output, context, { filename });
-  return context.renderEventCard;
+  }).renderEventCard;
 }
 
 async function main() {

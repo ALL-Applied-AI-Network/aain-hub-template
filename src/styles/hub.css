@@ -149,11 +149,14 @@ code {
   border-radius: 4px;
 }
 
+/* Rule A — one accent, applied flat. A primary→accent gradient paints
+   the chapter's own acronym in the TEMPLATE's purple on every chapter
+   that never changed its theme, and runs red-to-mud on ROAR (#Ff0000 →
+   #777777). Nothing that prints this chapter's name, its numbers or a
+   button is allowed to leave --color-primary any more; see .hero__glow
+   for the short list of what --color-accent still does. */
 .nav__logo {
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--color-primary);
   font-weight: 900;
   font-size: 1.05rem;
   letter-spacing: 0.02em;
@@ -228,7 +231,9 @@ code {
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
   }
   .nav__links--open .nav__link {
-    padding: 0.6rem 0.75rem;
+    /* 0.7rem + a 0.875rem line box clears 44px — six rows in a drawer
+       on a phone is the whole nav, so each one has to be tappable. */
+    padding: 0.7rem 0.75rem;
     border-radius: 6px;
   }
   .nav__links--open .nav__link:hover {
@@ -247,22 +252,23 @@ code {
   font-size: 0.9375rem;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.12s, background 0.15s, border-color 0.15s;
+  transition: background 0.15s, border-color 0.15s;
   text-decoration: none;
   border: 1px solid transparent;
   font-family: inherit;
   line-height: 1;
 }
 
+/* Rule A again, and no hover lift: the button is the chapter's colour,
+   flat. The gradient was the template's purple on nine of twelve sites. */
 .btn--primary {
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  background: var(--color-primary);
   color: white;
   box-shadow: 0 4px 20px rgba(var(--color-primary-rgb), 0.3);
 }
 .btn--primary:hover {
-  transform: translateY(-1px);
   color: white;
-  box-shadow: 0 6px 24px rgba(var(--color-primary-rgb), 0.4);
+  background: color-mix(in srgb, var(--color-primary) 88%, white);
 }
 
 .btn--ghost {
@@ -300,21 +306,40 @@ code {
 
 /* ══ Hero ══════════════════════════════════════════════════════ */
 
+/* A masthead you scroll past, not a screen you have to get through.
+   `min-height: 84vh` is what made it a screen, so it goes — changing
+   the padding alone leaves the floor in place. Target is ≈460px on a
+   desktop and ≈400px on a phone.
+
+   Bottom padding is 3.75rem, not the 2rem the rest of the box would
+   suggest: .hero__attribution is absolutely positioned at bottom: 2rem
+   and measures ≈32px (0.75rem/1.55 text + 0.35rem padding + 1px
+   border), so 2rem + the pill is the floor. Anything less and the pill
+   lands on the stat strip the moment 84vh stops padding the box out
+   for us. */
 .hero {
   position: relative;
-  min-height: 84vh;
+  min-height: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: clamp(2.75rem, 7vh, 5rem) 1.5rem 2.5rem;
+  padding: clamp(1.5rem, 3.5vh, 2.75rem) 1.5rem 3.75rem;
   overflow: hidden;
 }
 
-/* Layered ambient decoration: multiple radial gradients that feel
-   like a mesh + a subtle dot grid overlay so the hero reads as more
-   than just a solid block. The mesh animates slowly for a "breathing"
-   feel without being distracting. */
+/* Layered ambient decoration: radial gradients that feel like a mesh,
+   plus a subtle dot grid so the hero reads as more than a solid block.
+   Drawn once and left alone — it used to run a 14s infinite alternate
+   that scaled and faded a 70px-blurred radial, which is a looping glow
+   and a drifting gradient in the same declaration.
+
+   Rule A does not ban --color-accent; it bans spending it where the
+   chapter's identity or its numbers are printed. What is left of it is
+   this wash, the body and page-header washes, the mesh's accent nodes,
+   the brain mark, .btn--ghost-accent, and the tint that marks a node
+   the chapter wrote rather than one the network did. Not one of those
+   is a name, a numeral or a button. */
 .hero__glow {
   position: absolute;
   top: -20%;
@@ -329,12 +354,6 @@ code {
   pointer-events: none;
   z-index: 0;
   filter: blur(70px);
-  animation: hero-breathe 14s ease-in-out infinite alternate;
-}
-
-@keyframes hero-breathe {
-  0%   { transform: translateX(-50%) scale(1); opacity: 0.85; }
-  100% { transform: translateX(-50%) scale(1.08); opacity: 1; }
 }
 
 /* Dot-grid pattern overlay — faint, just enough to give the hero
@@ -357,9 +376,10 @@ code {
 }
 
 /* ── Hero neural-network mesh ─────────────────────────────────────
-   Populated by main.ts::renderHeroNetwork. Nodes pulse between full
-   and low opacity at staggered intervals; edges slowly fade in/out.
-   Both inherit currentColor, which means the whole pattern recolors
+   Populated by main.ts::renderHeroNetwork, and drawn STATIC. The nodes
+   used to pulse on a 5s infinite alternate and the edges to fade on a
+   6s one; the opacities those keyframes swept through are declared
+   here instead, at roughly their midpoints. The mesh still recolors
    the moment the eboard changes their theme in Customize. */
 
 .hero__network {
@@ -383,20 +403,10 @@ code {
 .hero-net-line {
   stroke: var(--color-primary);
   opacity: 0.18;
-  animation: hero-net-line 6s ease-in-out infinite alternate;
-  transform-origin: center;
-}
-
-@keyframes hero-net-line {
-  0%   { opacity: 0.10; }
-  50%  { opacity: 0.26; }
-  100% { opacity: 0.14; }
 }
 
 .hero-net-node {
-  animation: hero-net-node 5s ease-in-out infinite alternate;
-  transform-origin: center;
-  transform-box: fill-box;
+  opacity: 0.6;
 }
 
 .hero-net-node--primary {
@@ -407,22 +417,6 @@ code {
 .hero-net-node--accent {
   fill: var(--color-accent);
   filter: drop-shadow(0 0 6px rgba(var(--color-accent-rgb), 0.5));
-}
-
-@keyframes hero-net-node {
-  0%   { opacity: 0.35; transform: scale(0.8); }
-  50%  { opacity: 0.85; transform: scale(1.1); }
-  100% { opacity: 0.55; transform: scale(0.95); }
-}
-
-/* Honor reduced-motion — the mesh still renders, just stops
-   animating. */
-@media (prefers-reduced-motion: reduce) {
-  .hero__glow,
-  .hero-net-line,
-  .hero-net-node {
-    animation: none;
-  }
 }
 
 .hero__inner {
@@ -446,7 +440,7 @@ code {
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 0.35rem 0.85rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .hero__title {
@@ -458,7 +452,16 @@ code {
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  margin-bottom: 1.25rem;
+  margin-bottom: 0.9rem;
+  text-wrap: balance;
+}
+
+/* Long-name guard, set from the content and not the viewport:
+   renderIdentity adds this past 22 characters. "Rose Organization for
+   AI Readiness" is 34, and at the default clamp its first word alone
+   fills a phone. */
+.hero__title--long {
+  font-size: clamp(1.9rem, 5vw, 3.1rem);
 }
 
 .hero__subtitle {
@@ -478,32 +481,52 @@ code {
   flex-wrap: wrap;
 }
 
+/* The subtitle is config.tagline or nothing — there is no description
+   fallback any more, so the element ships empty on MSOE and ROAR and
+   its 2rem bottom margin would be a hole. */
+.hero__subtitle:empty {
+  display: none;
+}
+
 /* Collapse the row entirely when no CTAs are rendered — otherwise the
    ~2rem margin between subtitle and stats strip reads as broken. */
 .hero__actions:empty {
   display: none;
 }
 
+/* Two 48%-wide buttons side by side wrap their labels below ~420px.
+   One per line, full width, is a bigger target and reads cleanly. */
+@media (max-width: 420px) {
+  .hero__actions { flex-direction: column; align-items: stretch; }
+  .hero__actions .btn { width: 100%; justify-content: center; }
+}
+
+/* renderStats drops every entry below 1 and hides the whole strip when
+   fewer than two survive, so the column count is set from what is left
+   rather than fixed at three — ROAR would otherwise print `0 · 1 · 0`,
+   which reads as a broken deploy. 1px dividers replace the 2.5rem void
+   that used to separate three numbers that belong together. */
 .hero__stats {
   position: relative;
   z-index: 1;
-  margin-top: 5rem;
+  margin-top: 1.5rem;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2.5rem;
-  max-width: 720px;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 0;
+  max-width: 560px;
   width: 100%;
-  padding: 1.75rem 1rem;
+  padding: 1.25rem 0.5rem;
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
 }
 
+.hero__stats:empty { display: none; }
+
 @media (max-width: 640px) {
   .hero__stats {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    margin-top: 3rem;
-    padding: 1.25rem 0.5rem;
+    margin-top: 1.25rem;
+    padding: 1rem 0.25rem;
   }
 }
 
@@ -513,16 +536,27 @@ code {
   align-items: center;
   text-align: center;
   gap: 0.25rem;
+  padding: 0 1rem;
 }
 
+.hero__stat + .hero__stat {
+  border-left: 1px solid var(--border);
+}
+
+@media (max-width: 640px) {
+  .hero__stat { padding: 0 0.5rem; }
+}
+
+/* Rule A: the club's own integers are the loudest claim the page makes,
+   so they are the club's own colour — flat, not a gradient into a hue
+   they never chose. Smaller than before because there are now four
+   doors carrying the same numbers twenty lines further down. */
 .hero__stat-num {
-  font-size: clamp(1.65rem, 3vw, 2.25rem);
+  font-size: clamp(1.5rem, 2.4vw, 1.9rem);
   font-weight: 800;
   letter-spacing: -0.02em;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--color-primary);
+  -webkit-text-fill-color: currentColor;
   font-variant-numeric: tabular-nums;
 }
 
@@ -533,6 +567,61 @@ code {
   font-weight: 500;
   color: var(--text-tertiary);
 }
+
+/* ══ .term-line — the one large-ish claim on the landing page ═════
+   Sits under the CTAs. Every clause is the chapter's own data, joined
+   with " · ", and any zero part is omitted upstream:
+
+     MSOE   Fall 2026 · 3 events this term · Next: Oct 8
+     ROAR   Fall 2026 · 1 event this term
+     NTUA   Fall 2026
+
+   The 2px rule under it is motion 3 — drawn once, left-anchored, never
+   again. The :not(.js-rv) fallback is load-bearing: with JS off, or
+   under reduced motion, the rule has to be there already. */
+.term-line {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.9rem;
+  /* The air above the line is margin, not padding, because the rule is
+     positioned against this box's padding edge. As padding-top it put
+     the rule 1.5rem ABOVE the text, where it read as a stray underline
+     hanging off the CTA button rather than a line drawn under the one
+     fact the masthead claims. */
+  margin-top: 1.75rem;
+  padding-bottom: 0.7rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+.term-line:empty { display: none; }
+.term-line__name {
+  color: var(--text-primary);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.term-line__sep { color: var(--text-tertiary); }
+.term-line__n { font-variant-numeric: tabular-nums; }
+
+.term-line::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--color-primary);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.js-rv .term-line.is-in::after {
+  transform: scaleX(1);
+  transition: transform 0.42s ease-out;
+}
+html:not(.js-rv) .term-line::after { transform: scaleX(1); }
 
 .hero__attribution {
   position: absolute;
@@ -561,6 +650,21 @@ code {
   border-radius: 50%;
   background: var(--color-primary);
   box-shadow: 0 0 8px var(--color-primary);
+}
+
+/* On a phone the pill wraps to two lines, and two absolutely
+   positioned lines at bottom: 2rem land on top of the stat strip now
+   that the hero is only as tall as its contents. In the flow it is the
+   last row of a centred column and cannot collide with anything, so
+   the hero also stops reserving a gutter it no longer needs. */
+@media (max-width: 640px) {
+  .hero { padding-bottom: 1.5rem; }
+  .hero__attribution {
+    position: static;
+    transform: none;
+    margin-top: 1.25rem;
+    max-width: 100%;
+  }
 }
 
 /* ══ Sections ══════════════════════════════════════════════════ */
@@ -646,6 +750,169 @@ code {
   text-align: center;
 }
 
+/* ══ Landing page — bands and doors ══════════════════════════════
+   The home page has no .section__kicker anywhere. Six uppercase
+   0.72rem eyebrows at even intervals down one page is the drumbeat;
+   kickers survive only in .page-header, where they are a locative.
+
+   A .band is a .section with a quieter head and a hairline instead of
+   the .section--alt tint, because Home is now four samples in a row
+   rather than four separate destinations stacked. It carries
+   position: relative for the same reason .section does — the preview
+   .edit-pill is absolutely positioned against its section. */
+
+.band {
+  position: relative;
+  padding: 3rem 1.5rem;
+}
+.band + .band { border-top: 1px solid var(--border); }
+
+.band-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.band-head__title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.band-head__n {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  margin-left: 0.5rem;
+}
+
+.band-head__link {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.band-head__link:hover { color: var(--color-primary); }
+
+/* Same link, under a list instead of beside a heading
+   ("Full leaderboard →" below the top five). */
+.band-head__link--under {
+  display: inline-block;
+  margin-top: 1rem;
+}
+
+/* A run of .rec rows under the band's lead object — the three recent
+   nights below the feature card, the six lessons below the "Start here"
+   head. .rec + .rec owns the spacing inside the run; this is only the
+   gap between the run and whatever it sits under. */
+.band-rows,
+.learn-rows {
+  margin-top: 1rem;
+}
+
+@media (max-width: 640px) {
+  .band { padding: 2.25rem 1.25rem; }
+  .band-head { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+}
+
+/* ── .doors — four destinations, each carrying the club's own integer
+   and a live line out of the bundle. Replaces the four pillar cards,
+   which said the same four things on all twelve sites.
+
+   A door whose destination is not in pagesWithContent() is not
+   rendered, a count of 1 drops the numeral (never headline a one) and
+   fewer than two doors omits the strip, so this only ever has to lay
+   out 2–4 cards. Two columns at 375px; one below 340px, where a
+   150px card cannot hold "Officers" and a name. */
+.doors {
+  display: grid;
+  /* auto-FIT, not auto-fill: the count is 2, 3 or 4 and never more, so
+     an auto-fill track that no door lands in is 250px of dead space to
+     the right of MSOE's four — which reads as a card that failed to
+     render. Fitting divides the row between however many there are. */
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 1rem;
+}
+@media (max-width: 640px) {
+  .doors { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; }
+}
+@media (max-width: 340px) {
+  .doors { grid-template-columns: 1fr; }
+}
+
+.door {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1.15rem 1.15rem 1.25rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+.door:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-surface-2);
+  color: inherit;
+}
+
+.door__name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.door__name::after {
+  content: "→";
+  color: var(--text-tertiary);
+  transition: transform 0.15s, color 0.15s;
+}
+.door:hover .door__name::after {
+  transform: translateX(2px);
+  color: var(--color-primary);
+}
+
+.door__n {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-primary);
+}
+.door__unit {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  margin-left: 0.35rem;
+}
+
+/* The live line sits on the card's floor, not under whatever came
+   before it. A door that defers its numeral to the hero strip is two
+   rows shorter than its neighbours, and left top-aligned the four
+   cards read as four different components rather than one row. */
+.door__line {
+  margin-top: auto;
+  padding-top: 0.35rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* ══ About ═════════════════════════════════════════════════════ */
 
 .about-content {
@@ -670,14 +937,6 @@ code {
   border-bottom: 1px solid rgba(var(--color-primary-rgb), 0.4);
 }
 
-/* ══ Events grid ═══════════════════════════════════════════════ */
-
-.events-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1rem;
-}
-
 .event-card {
   /* Outer card shell — single column when no cover image, full-bleed
      header strip when one is set. The .event-card__inner takes over
@@ -688,14 +947,60 @@ code {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s, background 0.15s;
   overflow: hidden;
 }
 
+/* Border and surface say "clickable" without moving the page. Every
+   hover rule on this site already changed border-color alongside the
+   lift, so the lift was never the thing doing the work. */
 .event-card:hover {
   border-color: var(--border-strong);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  background: var(--bg-surface-2);
+}
+
+/* ── .event-card--feature — a modifier, not a second renderer.
+   renderEventCard already handles covers, multi-day chips, format
+   chips, tree chips, Maps pills, virtual pills, co-host credit,
+   points, the phase timeline and the "listed" suppression; the
+   feature slot only changes the box it is drawn in.
+
+   Two columns with the cover on the right from 760px — below that it
+   is the ordinary stacked card, because a 16:9 cover beside a title
+   at 375px is two unreadable columns. Rules must sit after .event-card
+   itself: `display: grid` and `display: flex` tie on specificity. */
+.event-card--feature { border-radius: var(--radius-xl); }
+
+@media (min-width: 760px) {
+  .event-card--feature {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  }
+  .event-card--feature .event-card__cover {
+    order: 2;
+    height: 100%;
+    aspect-ratio: auto;
+  }
+  .event-card--feature .event-card__cover img {
+    height: 100%;
+    object-fit: cover;
+  }
+  .event-card--feature .event-card__inner {
+    order: 1;
+    padding: 1.75rem;
+  }
+  .event-card--feature .event-card__title { font-size: 1.35rem; }
+}
+
+/* "Last time" — the label the feature slot carries when the chapter
+   has no future event and the most recent past one is standing in. */
+.event-card__past {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
 }
 
 /* Cover image header — 16:9 aspect, full-width. Matches the
@@ -726,7 +1031,9 @@ code {
   width: 54px;
   text-align: center;
   padding: 0.35rem 0;
-  background: linear-gradient(180deg, rgba(var(--color-primary-rgb), 0.12), rgba(var(--color-accent-rgb), 0.08));
+  /* Rule A — a flat tint of the chapter's colour, not a fade into the
+     template's purple. */
+  background: rgba(var(--color-primary-rgb), 0.12);
   border: 1px solid rgba(var(--color-primary-rgb), 0.25);
   border-radius: 10px;
 }
@@ -862,8 +1169,12 @@ code {
 }
 .event-card__details:hover { color: var(--text-primary); }
 
-/* A shared event page inside the chapter's normal navigation. */
-.is-event-page [data-page][hidden] { display: none !important; }
+/* A shared event page inside the chapter's normal navigation.
+   `hidden` alone is a UA rule at specificity 0,1,0 and loses to
+   `.hero { display: flex }`, so anything that hides a view with the
+   attribute needs this. Unscoped (it used to be under .is-event-page)
+   because the flyer takeover is no longer the only caller. */
+[data-page][hidden] { display: none !important; }
 .event-page { min-height: 70vh; }
 .event-page__toolbar {
   max-width: 1280px;
@@ -1014,6 +1325,416 @@ code {
   font-size: 0.72rem;
   color: var(--text-tertiary);
   font-family: "JetBrains Mono", monospace;
+}
+
+/* ══ .rec — ONE record row ═══════════════════════════════════════
+   The events feed, the curriculum index and the leaderboard are the
+   same object: fixed-width lead cell, ellipsised title, meta line,
+   right-hand mark. One family, per the shared-DataTable rule — three
+   near-identical row families is how a stylesheet gets to 4,000 lines.
+
+   Extends the card shell idiom of .event-card / .card: same surface,
+   same border, same hover treatment, a smaller radius because it
+   stacks. --rec-lead is the width of the lead cell; each variant sets
+   it once and the grid follows. */
+
+.rec {
+  display: block;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  transition: border-color 0.15s, background 0.15s;
+}
+.rec + .rec { margin-top: 0.5rem; }
+.rec:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-surface-2);
+}
+a.rec:hover { color: var(--text-primary); }
+
+.rec__main {
+  display: grid;
+  grid-template-columns: var(--rec-lead, 56px) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+}
+
+.rec__body { min-width: 0; }
+
+.rec__title {
+  font-size: 0.975rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rec__sub {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-top: 0.15rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.rec__meta {
+  display: flex;
+  flex-wrap: wrap;
+  /* Badge squares and text chips share this line on a board row, so
+     they sit on one centre rather than one baseline. */
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.45rem;
+}
+
+/* The trailing cell. The grid has three columns, so a row that carries
+   both a thumbnail and a "View →" puts them in one cell together. */
+.rec__end {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.rec__go {
+  color: var(--text-tertiary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.rec:hover .rec__go { color: var(--color-primary); }
+
+/* ── Date tile — lead cell of an event row. A primary tint means the
+   event has not happened yet; that is the only state the feed shows,
+   because every other fact about an event lives on the flyer. */
+.rec__date {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  line-height: 1;
+}
+.rec__date-month {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.rec__date-day {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.1rem;
+}
+.rec--future .rec__date {
+  background: rgba(var(--color-primary-rgb), 0.12);
+  border-color: rgba(var(--color-primary-rgb), 0.28);
+}
+.rec--future .rec__date-day { color: var(--color-primary); }
+
+/* ── Thumb variants. .rec__thumb is the curriculum node's lead cell;
+   .rec__pic is the event row's trailing artwork, and it is simply
+   absent when image_url is null — seven grey boxes down a feed of
+   fifty-nine is noise, not layout. */
+.rec--node { --rec-lead: 64px; }
+.rec__thumb {
+  width: 64px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border);
+}
+.rec__pic {
+  width: 104px;
+  height: 68px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+.rec__pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ── Leaderboard row — same metrics, its own lead cell. Replaces the
+   .leaderboard-row family and the podium outright: dense rank, no
+   bars (a bar fill is a progress bar), no tier gradients (ranks 1 and
+   2 are tied at 88 points on MSOE today, so gold/silver is a lie the
+   data does not support). */
+.rec--lb { --rec-lead: 44px; }
+.rec__rank {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.rec__medal { width: 16px; height: 16px; flex: 0 0 auto; }
+/* The medal SVGs ship without width/height attributes, so the span has
+   to be what sizes them. */
+.rec__medal svg { width: 100%; height: 100%; display: block; }
+.rec__pts {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.rec__pts-unit {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  margin-left: 0.25rem;
+}
+
+/* The board is the one list where a name can be a link — the row is
+   not, because the row's subject is the member, not a page. */
+.rec__name-link { color: inherit; }
+.rec__name-link:hover { color: var(--color-primary); }
+
+@media (max-width: 640px) {
+  /* The lead column still follows --rec-lead: a node row narrows to a
+     52px thumb here, and a hardcoded 44px track would let that image
+     hang out of its own cell. */
+  .rec__main {
+    grid-template-columns: var(--rec-lead, 44px) minmax(0, 1fr) auto;
+    gap: 0.75rem;
+    padding: 0.8rem;
+  }
+  /* The trail keeps its own column and its own centre line. Dropped to
+     row 2 it became a bare left-aligned "→" under the chips with 40px
+     of dead air above it — 34 of them down the Learn index, 58 down the
+     archive. It reads as debris, and it cost more height than the
+     column it was saving. Only the word goes; the arrow stays as the
+     affordance, because a phone has no hover to reveal one. */
+  .rec__end {
+    grid-column: 3;
+    justify-self: end;
+    align-self: center;
+    margin-top: 0;
+    gap: 0.6rem;
+  }
+  .rec__go {
+    grid-column: 3;
+    justify-self: end;
+    align-self: center;
+    margin-top: 0;
+  }
+  .rec__go-label { display: none; }
+  .rec__date { width: 44px; height: 44px; }
+  .rec__date-day { font-size: 1.05rem; }
+  .rec--node { --rec-lead: 52px; }
+  .rec__thumb { width: 52px; height: 36px; }
+  .rec__pic, .rec__sub { display: none; }
+  /* A venue name is the widest thing in the meta line: with it, an
+     archive row measures ~188px instead of ~60px, because the name
+     wraps to a line of its own. The full address is on the flyer,
+     where it is a Maps link rather than a label. */
+  /* Scoped to .rec__meta on purpose: `.chip { display: inline-flex }`
+     is declared after this media block, so a bare `.rec__where` rule
+     ties on specificity and loses on order. */
+  .rec__meta .rec__where { display: none; }
+  /* Two lines of title beat an ellipsis at 280px of usable width. */
+  .rec__title {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  /* Points keep their own column. Dropped to row 2 they sit under the
+     rank and read as a second rank. */
+  .rec--lb .rec__main { grid-template-columns: var(--rec-lead, 44px) minmax(0, 1fr) auto; }
+  .rec--lb .rec__pts { grid-column: auto; justify-self: end; margin-top: 0; }
+}
+
+/* ══ .chip — one chip, every context ═════════════════════════════
+   Extends .event-card__pill's pill geometry; that class stays for the
+   card's own pills, which carry icons and truncate a venue name. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+a.chip:hover {
+  color: var(--color-primary);
+  border-color: rgba(var(--color-primary-rgb), 0.4);
+}
+/* "Details coming soon" — an event published as `listed`, where the
+   chapter has announced the date and nothing else yet. */
+.chip--soon { border-style: dashed; color: var(--text-tertiary); }
+.chip--num {
+  font-family: "JetBrains Mono", monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ══ .filter-chips — the nav tab, one level down ══════════════════
+   .filter-chip--active reuses .nav__tab--active's exact inset shadow
+   on purpose: a filter is the same kind of control as a tab, so it
+   should be the same object at a smaller size.
+
+   The only x-scrolling element on the site, and only on a phone. */
+.filter-chips {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.25rem;
+}
+.filter-chips::-webkit-scrollbar { display: none; }
+
+.filter-chip {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  min-height: 40px;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.filter-chip:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+.filter-chip--active {
+  color: var(--text-primary);
+  background: rgba(var(--color-primary-rgb), 0.12);
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px rgba(var(--color-primary-rgb), 0.28);
+}
+.filter-chip__n {
+  margin-left: 0.35rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.filter-chip--active .filter-chip__n { color: var(--color-primary); }
+
+@media (max-width: 640px) {
+  /* Full-bleed to the 1.25rem section gutter, with a mask on the right
+     edge so a cut-off chip reads as "there is more", not as clipping. */
+  .filter-chips {
+    margin-left: -1.25rem;
+    margin-right: -1.25rem;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+    -webkit-mask-image: linear-gradient(90deg, black 92%, transparent);
+            mask-image: linear-gradient(90deg, black 92%, transparent);
+  }
+}
+
+/* ══ .group — a titled run of records with a drawn spine ══════════
+   One per year in the events archive. The 1px rule down the date-tile
+   centreline is motion 4: it draws itself once as you reach the group
+   and never again. */
+.group + .group { margin-top: 2.75rem; }
+
+.group__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding-bottom: 0.6rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.group__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.group__n {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.group__list { position: relative; --rule-x: 28px; }
+.group__rule {
+  position: absolute;
+  left: var(--rule-x);
+  top: 12px;
+  bottom: 12px;
+  width: 1px;
+  background: var(--border);
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.group.in .group__rule { transform: scaleY(1); }
+/* No observer, no JS: the spine is simply there. */
+html:not(.js-rv) .group__rule { transform: scaleY(1); }
+
+@media (max-width: 640px) {
+  .group__list { --rule-x: 22px; }
+}
+
+/* ══ .events-view__block — "Coming up", then "The archive" ════════
+   Two stacked blocks with nothing between them: "The archive" landed
+   on the bottom border of the feature card above it and read as that
+   card's caption. The head needs to belong to what is under it. */
+.events-view__block + .events-view__block { margin-top: 3rem; }
+
+@media (max-width: 640px) {
+  .events-view__block + .events-view__block { margin-top: 2.25rem; }
+}
+
+/* ══ .feed-more — one step, not an infinite scroll ════════════════
+   The archive renders 40 rows and reveals the rest in a single press.
+   A feed that loads as you scroll has no end, and this one does. */
+.feed-more {
+  display: block;
+  width: 100%;
+  margin-top: 1.75rem;
+  padding: 0.85rem;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.feed-more:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
 }
 
 /* ══ Phase timeline ════════════════════════════════════════════
@@ -1205,326 +1926,85 @@ code {
 
 /* ══ Leaderboard ═══════════════════════════════════════════════ */
 
-.leaderboard {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  /* Tier gradients shared across podium + medal icons */
-  --gold: linear-gradient(135deg, #fef3c7, #f59e0b 55%, #b45309);
-  --silver: linear-gradient(135deg, #f3f4f6, #9ca3af 55%, #4b5563);
-  --bronze: linear-gradient(135deg, #fed7aa, #ea580c 55%, #7c2d12);
+/* ── .standings — the board itself. Rows are .rec--lb; this owns the
+   caption above them ("Top 20 of 596 members.") and nothing else, so
+   the same block serves the five-row sample on Home and the full
+   board on Members. */
+.standings > .muted {
+  display: block;
+  margin-bottom: 0.9rem;
 }
 
-.podium {
-  display: grid;
-  grid-template-columns: 1fr 1.25fr 1fr;
-  gap: 1.25rem;
-  align-items: end;
-  max-width: 880px;
-  margin: 0 auto;
+/* ── .block-head — a sub-block's head INSIDE a destination section
+   ("Standings", "How points work", "Every badge we award", "Redeem
+   your points"). The .page-header band is the page's only title, so
+   these are sub-heads: an h3 and at most one line, never a kicker. */
+.block-head {
+  margin-bottom: 1.25rem;
+}
+.block-head .section__subhead {
+  margin-bottom: 0.35rem;
 }
 
-@media (max-width: 640px) {
-  .podium {
-    grid-template-columns: 1fr;
-    gap: 0.85rem;
-  }
+/* ── One sentence at the foot of Members, replacing the ~100-line
+   "Living résumé" callout: same claim, no percentage, no named hiring
+   story, no methodology footnote. */
+.members-network {
+  margin-top: 2.5rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
 }
 
-/* Podium card — giant translucent rank digit behind the content,
-   colored top stripe per tier, XP in the primary→accent gradient so
-   it reads as "earned." Height varies by rank so #1 literally
-   stands taller. */
-.podium-card {
-  position: relative;
-  padding: 2rem 1.4rem 1.5rem;
-  background: linear-gradient(180deg, var(--bg-surface), var(--bg-base));
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.45rem;
-  overflow: hidden;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.podium-card::before {
-  content: "";
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  background: var(--tier-gradient, var(--silver));
-  z-index: 2;
-}
-
-.podium-card > * {
-  position: relative;
-  z-index: 1;
-}
-
-/* Oversized rank numeral behind everything — "watermark" style. */
-.podium-card__rank {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 11rem;
-  font-weight: 900;
-  line-height: 1;
-  letter-spacing: -0.05em;
-  background: var(--tier-gradient, var(--silver));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  opacity: 0.1;
-  font-variant-numeric: tabular-nums;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.podium-card__medal {
-  width: 42px;
-  height: 42px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--tier-color, #9ca3af);
-  filter: drop-shadow(0 2px 8px color-mix(in srgb, var(--tier-color, #9ca3af) 35%, transparent));
-}
-.podium-card__medal svg {
+/* ── .lb-search — "Find your name", over the rows that shipped.
+   font-size is 16px exactly: anything smaller and iOS zooms the page
+   on focus, which on a filtered list looks like the page broke. */
+.lb-search {
   width: 100%;
-  height: 100%;
-}
-
-.podium-card__tier {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  background: var(--tier-gradient, var(--silver));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.podium-card__name {
-  font-weight: 700;
-  font-size: 1rem;
-  color: var(--text-primary);
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  letter-spacing: -0.01em;
-}
-
-.podium-card__xp {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.35rem;
-  margin-top: 0.2rem;
-}
-
-.podium-card__xp-num {
-  font-size: 2.1rem;
-  font-weight: 900;
-  letter-spacing: -0.035em;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-
-.podium-card__xp-unit {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-}
-
-.podium-card__events {
-  font-size: 0.74rem;
-  color: var(--text-tertiary);
-}
-
-.podium-card__bar {
-  width: 75%;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 999px;
-  margin-top: 0.5rem;
-  overflow: hidden;
-}
-
-.podium-card__bar-fill {
-  height: 100%;
-  background: var(--tier-gradient, var(--silver));
-  border-radius: 999px;
-  transition: width 0.6s ease-out;
-}
-
-.podium-card__glow { display: none; }
-
-/* Tier variants — assign gradients + colors, plus tune padding/
-   height so #1 visually towers over 2 and 3. */
-.podium-card--rank-1 {
-  --tier-gradient: var(--gold);
-  --tier-color: #f59e0b;
-  padding: 2.75rem 1.4rem 2rem;
-  border-color: rgba(245, 158, 11, 0.35);
-  box-shadow:
-    0 14px 44px rgba(245, 158, 11, 0.14),
-    inset 0 0 0 1px rgba(245, 158, 11, 0.28);
-}
-.podium-card--rank-1::after {
-  content: "";
-  position: absolute;
-  inset: -50%;
-  background: radial-gradient(ellipse at center, rgba(245, 158, 11, 0.22), transparent 60%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.podium-card--rank-2 {
-  --tier-gradient: var(--silver);
-  --tier-color: #9ca3af;
-  border-color: rgba(156, 163, 175, 0.3);
-}
-
-.podium-card--rank-3 {
-  --tier-gradient: var(--bronze);
-  --tier-color: #ea580c;
-  border-color: rgba(234, 88, 12, 0.3);
-}
-
-/* Desktop-only vertical offsets — a single shifted card on mobile
-   reads as a render bug, so keep flush below 640px. */
-@media (min-width: 641px) {
-  .podium-card--rank-1 { transform: translateY(-20px); }
-  .podium-card--rank-3 { transform: translateY(14px); }
-}
-
-/* The list below the podium — each row gets a micro XP bar so the
-   gap between members is visually legible, not just a number in a
-   right column. */
-.leaderboard-list {
+  max-width: 360px;
+  margin-bottom: 1.25rem;
+  padding: 0.7rem 0.95rem;
+  border-radius: var(--radius-md);
   background: var(--bg-surface);
   border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 16px;
+}
+.lb-search::placeholder { color: var(--text-tertiary); }
+.lb-search:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.18);
+}
+@media (max-width: 640px) {
+  .lb-search { max-width: none; }
+}
+
+/* ── .note — one sentence where a block would have been empty, and
+   only where the sentence names a fix a visitor can act on ("Points
+   start showing up here once members check in at an event."). A
+   section with nothing to say is removed, not emptied. */
+.note {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  padding: 1.25rem;
+  background: var(--bg-surface);
+  border: 1px dashed var(--border);
   border-radius: var(--radius-lg);
-  overflow: hidden;
 }
 
-.leaderboard-row {
-  display: grid;
-  grid-template-columns: 52px 1fr auto;
-  gap: 1.1rem;
-  align-items: center;
-  padding: 0.9rem 1.25rem;
-  border-bottom: 1px solid var(--border);
-  transition: background 0.12s;
-}
-
-.leaderboard-row:hover { background: rgba(255, 255, 255, 0.02); }
-.leaderboard-row:last-child { border-bottom: none; }
-
-.leaderboard-row__rank {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 0.9rem;
-  color: var(--text-tertiary);
-  font-weight: 700;
-  text-align: right;
-}
-
-.leaderboard-row__body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  min-width: 0;
-}
-
-.leaderboard-row__name {
-  font-weight: 600;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  letter-spacing: -0.005em;
-}
-
-.leaderboard-row__bar {
-  width: 100%;
-  height: 3px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.leaderboard-row__bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
-  border-radius: 999px;
-  transition: width 0.6s ease-out;
-}
-
-.leaderboard-row__meta {
-  font-size: 0.72rem;
-  color: var(--text-tertiary);
-}
-
-.leaderboard-row__points {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.3rem;
-  font-weight: 800;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-  font-size: 1.15rem;
-  letter-spacing: -0.02em;
-}
-
-.leaderboard-row__points-unit {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-}
-
-/* ── Member badges (inline chips next to leaderboard names) ─────
-   Small, colored badge tiles shown inline with each member's name
-   on both the podium and the list. Makes the leaderboard visually
-   varied between members instead of being a pure numeric column. */
-
-.leaderboard-row__name-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  min-width: 0;
-}
-
-.leaderboard-row__name-row .leaderboard-row__name {
-  flex: 0 1 auto;
-}
+/* ── Member badges (inline chips next to a leaderboard name) ───
+   Up to three earned badges beside the member's name in a
+   .rec--lb row, so the board is varied between members instead of
+   being a pure numeric column. */
 
 .member-badges {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
   flex-shrink: 0;
-}
-
-.podium-card .member-badges {
-  margin-top: 0.15rem;
-  justify-content: center;
 }
 
 .member-badge {
@@ -1538,12 +2018,11 @@ code {
   border: 1px solid rgba(var(--color-primary-rgb), 0.25);
   color: var(--color-primary);
   flex-shrink: 0;
-  transition: transform 0.15s, background 0.15s;
+  transition: background 0.15s;
   cursor: default;
 }
 
 .member-badge:hover {
-  transform: translateY(-1px);
   background: rgba(var(--color-primary-rgb), 0.18);
 }
 
@@ -1572,7 +2051,10 @@ code {
   border-color: var(--border);
 }
 
-/* ── Points & Recognition explainer (home page, above badges) ─── */
+/* ── "How points work" — three cards on the Members page, above the
+   badge grid. Rendered only when the chapter has points or badges:
+   explaining a points system with no points in it is the template
+   talking about itself. */
 
 .points-explainer {
   display: grid;
@@ -1627,273 +2109,6 @@ code {
   margin: 0 0 1.2rem;
 }
 
-/* ── Network profile callout (Beyond your chapter) ──────────────
-   Sits inside the "How it all works" / badges section, after the
-   badges grid. Surfaces the value of being part of the wider ALL
-   network for chapter members. Visually distinct enough to stand
-   out as a "wait, this connects to something bigger" moment. */
-.network-profile-callout {
-  margin-top: 2.5rem;
-  padding: 1.75rem 1.85rem;
-  background: linear-gradient(
-    135deg,
-    rgba(var(--color-primary-rgb), 0.08),
-    rgba(var(--color-accent-rgb, var(--color-primary-rgb)), 0.05)
-  );
-  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
-  border-radius: var(--radius-lg);
-}
-
-.network-profile-callout__head {
-  margin-bottom: 1.4rem;
-}
-
-.network-profile-callout__badge {
-  display: inline-block;
-  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
-  font-size: 0.7rem;
-  font-weight: 500;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--color-primary);
-  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
-  background: rgba(var(--color-primary-rgb), 0.08);
-  border-radius: 4px;
-  padding: 0.25rem 0.6rem;
-  margin-bottom: 0.85rem;
-}
-
-.network-profile-callout__title {
-  font-size: clamp(1.15rem, 2.5vw, 1.4rem);
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--text-primary);
-  margin: 0 0 0.7rem;
-  line-height: 1.3;
-}
-
-.network-profile-callout__desc {
-  font-size: 0.95rem;
-  line-height: 1.65;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-.network-profile-callout__fnref {
-  color: var(--color-primary);
-  font-weight: 600;
-  margin-left: 0.1em;
-}
-
-.network-profile-callout__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 0.85rem;
-  margin-bottom: 1.1rem;
-}
-
-.network-profile-callout__item {
-  padding: 1rem 1.1rem;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md, 8px);
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.network-profile-callout__item-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 7px;
-  background: rgba(var(--color-primary-rgb), 0.1);
-  color: var(--color-primary);
-}
-
-.network-profile-callout__item-title {
-  font-size: 0.92rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.005em;
-}
-
-.network-profile-callout__item-desc {
-  font-size: 0.82rem;
-  line-height: 1.55;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-/* Italics inside the body copy ("talent visibility") — pick up the
-   primary accent so the toggle name reads as a UI label, not just
-   emphasis. Members glancing at the paragraph spot the term they
-   need to look for in their dashboard settings. */
-.network-profile-callout__desc em {
-  font-style: normal;
-  color: var(--color-primary);
-  font-weight: 600;
-}
-
-/* ── "Where this leads" outcomes block ─────────────────────────
-   Concrete proof points (named cohort + network-wide salary delta)
-   sandwiched between the 3-card grid and the CTA row. Inherits
-   chapter theming via --color-primary, so each fork recolors with
-   the eboard's brand. The two outcome cards sit side-by-side at
-   ≥620px and stack on narrower viewports — the grid's auto-fit /
-   minmax handles that without a media query. Headline + cards +
-   single-line behavior CTA at the bottom; no second button so we
-   don't compete with the existing "Manage your profile" link. */
-.network-profile-callout__outcomes {
-  margin-bottom: 1.25rem;
-  padding: 1.25rem 1.35rem 1.35rem;
-  background: rgba(var(--color-primary-rgb), 0.05);
-  border: 1px solid rgba(var(--color-primary-rgb), 0.18);
-  border-radius: var(--radius-md, 8px);
-}
-
-.network-profile-callout__outcomes-title {
-  font-size: 0.95rem;
-  font-weight: 700;
-  letter-spacing: -0.005em;
-  color: var(--text-primary);
-  margin: 0 0 0.85rem;
-}
-
-.network-profile-callout__outcome-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 0.85rem;
-  margin-bottom: 0.95rem;
-}
-
-.network-profile-callout__outcome-card {
-  padding: 1rem 1.1rem;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md, 8px);
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-
-.network-profile-callout__outcome-eyebrow {
-  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
-  font-size: 0.7rem;
-  font-weight: 500;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--color-primary);
-}
-
-.network-profile-callout__outcome-stat {
-  font-size: 0.95rem;
-  line-height: 1.45;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.network-profile-callout__outcome-stat strong {
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.network-profile-callout__outcome-desc {
-  font-size: 0.82rem;
-  line-height: 1.55;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-.network-profile-callout__outcome-desc strong {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-/* Behavior CTA pinned to the bottom of the outcomes block — text-only,
-   no button. The icon nods at the QR check-in mechanism without
-   needing to spell it out twice in the copy. */
-.network-profile-callout__outcomes-cta {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-.network-profile-callout__outcomes-cta-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  flex-shrink: 0;
-  border-radius: 5px;
-  background: rgba(var(--color-primary-rgb), 0.1);
-  color: var(--color-primary);
-}
-
-/* CTA row — pairs the dashboard link with a short reassurance line
-   so the call-to-action carries the opt-in promise inline. Stacks on
-   narrow viewports via flex-wrap. Sits between the three-card grid
-   and the methodology footnote. */
-.network-profile-callout__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 1rem;
-  margin-bottom: 1.1rem;
-}
-
-.network-profile-callout__cta {
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--color-primary);
-  text-decoration: none;
-  border-bottom: 1px solid rgba(var(--color-primary-rgb), 0.4);
-  padding-bottom: 1px;
-  transition: border-bottom-color 0.15s;
-}
-.network-profile-callout__cta:hover {
-  border-bottom-color: var(--color-primary);
-}
-
-.network-profile-callout__cta-note {
-  font-size: 0.78rem;
-  color: var(--text-tertiary, rgba(255, 255, 255, 0.55));
-  line-height: 1.4;
-}
-
-.network-profile-callout__footnote {
-  font-size: 0.78rem;
-  line-height: 1.55;
-  color: var(--text-tertiary, rgba(255, 255, 255, 0.5));
-  margin: 0;
-  padding-top: 0.75rem;
-  border-top: 1px dashed rgba(var(--color-primary-rgb), 0.18);
-}
-
-.network-profile-callout__footnote sup {
-  color: var(--color-primary);
-  font-weight: 600;
-  margin-right: 0.2em;
-}
-
-.network-profile-callout__footnote a {
-  color: var(--color-primary);
-  text-decoration: none;
-  border-bottom: 1px solid rgba(var(--color-primary-rgb), 0.3);
-}
-.network-profile-callout__footnote a:hover {
-  border-bottom-color: var(--color-primary);
-}
-
 /* ══ Badges grid ═══════════════════════════════════════════════ */
 
 .badges-grid {
@@ -1901,6 +2116,23 @@ code {
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 0.85rem;
 }
+
+/* MSOE awards 27 badges. One tile per row is 27 screens, so the grid
+   goes three-up on a phone and the description drops out — the icon
+   and the name are the badge. */
+@media (max-width: 640px) {
+  .badges-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 0.6rem; }
+  .badge-card { flex-direction: column; align-items: center; text-align: center; gap: 0.5rem; padding: 0.85rem 0.5rem; }
+  .badge-card__desc { display: none; }
+  .badge-card__name { font-size: 0.8rem; }
+}
+
+/* An emoji badge icon renders as text. Three of MSOE's 27 icons are
+   "🏆", "graduation" and "crown"; all three used to fall through to
+   the same trophy SVG, so three different badges looked identical. */
+.badge-card__icon--emoji { font-size: 1.35rem; line-height: 1; }
+/* The same emoji inside a leaderboard row's 24px badge square. */
+.member-badge .badge-card__icon--emoji { font-size: 1rem; }
 
 .badge-card {
   display: flex;
@@ -1986,12 +2218,12 @@ code {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: border-color 0.15s, transform 0.15s;
+  transition: border-color 0.15s, background 0.15s;
 }
 
 .merch-card:hover {
   border-color: var(--border-strong);
-  transform: translateY(-2px);
+  background: var(--bg-surface-2);
 }
 
 .merch-card__photo {
@@ -2120,14 +2352,23 @@ code {
 
 /* ══ Projects grid — chapter showcase ═════════════════════════
    Taller than merch cards (these are showcase items, not shop
-   listings). Hover lifts the whole card; if a link_url is set,
-   the card IS the link and gets a subtle primary-color border
-   animation on hover. */
+   listings). There is no project detail page and link_url is unset on
+   all 41 of MSOE's projects, so the card IS the whole record and has
+   to be complete on its face — which is why the byline and the file
+   chips matter more here than anywhere else on the site. */
 
 .projects-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1.1rem;
+}
+
+/* One column below 640px is what auto-fill already resolves to there.
+   Saying it explicitly is what keeps a 320px minimum track from being
+   wider than the 280px a 320px phone leaves inside the gutter, which
+   is a horizontal scrollbar on the whole page. */
+@media (max-width: 640px) {
+  .projects-grid { grid-template-columns: 1fr; }
 }
 
 .project-card {
@@ -2138,7 +2379,7 @@ code {
   border-radius: var(--radius-lg);
   overflow: hidden;
   color: var(--text-primary);
-  transition: border-color 0.15s, transform 0.15s, box-shadow 0.2s;
+  transition: border-color 0.15s, background 0.15s;
 }
 
 a.project-card {
@@ -2148,8 +2389,7 @@ a.project-card {
 
 .project-card:hover {
   border-color: var(--border-strong);
-  transform: translateY(-3px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  background: var(--bg-surface-2);
   color: var(--text-primary);
 }
 
@@ -2160,8 +2400,9 @@ a.project-card:hover {
 .project-card__photo {
   position: relative;
   aspect-ratio: 16 / 10;
+  /* Rule A — a flat tint of the chapter's colour. */
   background:
-    linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.12), rgba(var(--color-accent-rgb), 0.12)),
+    linear-gradient(0deg, rgba(var(--color-primary-rgb), 0.1), rgba(var(--color-primary-rgb), 0.1)),
     var(--bg-elevated);
   overflow: hidden;
   display: flex;
@@ -2173,11 +2414,6 @@ a.project-card:hover {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s ease;
-}
-
-.project-card:hover .project-card__photo img {
-  transform: scale(1.04);
 }
 
 .project-card__photo-placeholder {
@@ -2220,6 +2456,21 @@ a.project-card:hover {
   letter-spacing: -0.01em;
 }
 
+/* ── .project-card__byline — who built it. The largest unused field
+   in the bundle: 120 credited students across MSOE's 41 projects,
+   rendered nowhere until now. student_id is deliberately absent from
+   the payload, so the names are text, not links. */
+.project-card__byline {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  line-height: 1.45;
+  margin: 0.15rem 0 0.5rem;
+}
+
+/* Four lines, then More/Less. The median description is 386 characters
+   and the longest is 1,101, so three lines cut most of them mid-
+   sentence. Opening one is instant — reading is not an animation, and
+   animating height inside an auto-fill grid reflows the whole page. */
 .project-card__desc {
   font-size: 0.84rem;
   color: var(--text-secondary);
@@ -2227,11 +2478,30 @@ a.project-card:hover {
   margin: 0;
   flex: 1;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+.project-card--open .project-card__desc {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+}
+
+.project-card__expand {
+  align-self: flex-start;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.project-card__expand:hover { color: var(--color-primary); }
 
 .project-card__link {
   display: inline-flex;
@@ -2301,13 +2571,12 @@ a.project-card:hover {
   border-radius: 8px;
   text-decoration: none;
   color: inherit;
-  transition: border-color 0.15s, transform 0.15s, background 0.15s;
+  transition: border-color 0.15s, background 0.15s;
 }
 
 .project-card__file-link:hover {
   border-color: var(--border-strong, var(--border));
   background: var(--bg-hover, rgba(127, 127, 127, 0.04));
-  transform: translateX(1px);
 }
 
 .project-card__file-icon {
@@ -2387,81 +2656,6 @@ a.project-card:hover {
   gap: 1rem;
 }
 
-/* ══ Socials — latest posts from the club's linked accounts ═══ */
-
-.socials-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 1rem;
-}
-
-.social-card {
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  transition: border-color 0.15s, transform 0.15s;
-}
-.social-card:hover {
-  border-color: var(--border-strong);
-  transform: translateY(-2px);
-}
-.social-card__media img {
-  width: 100%;
-  height: 160px;
-  object-fit: cover;
-  display: block;
-}
-.social-card__body {
-  padding: 0.9rem 1rem 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  flex: 1;
-}
-.social-card__meta {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  font-size: 0.72rem;
-  color: var(--text-tertiary);
-}
-.social-card__platform {
-  font-weight: 700;
-  font-size: 0.62rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 0.12rem 0.5rem;
-  border-radius: 999px;
-}
-.social-card__platform--linkedin {
-  background: rgba(59, 130, 246, 0.14);
-  color: #60a5fa;
-}
-.social-card__platform--instagram {
-  background: rgba(236, 72, 153, 0.14);
-  color: #f472b6;
-}
-.social-card__text {
-  margin: 0;
-  font-size: 0.83rem;
-  line-height: 1.55;
-  color: var(--text-secondary);
-  white-space: pre-line;
-}
-.social-card__link {
-  margin-top: auto;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--color-primary);
-  text-decoration: none;
-}
-a.social-card__link:hover {
-  text-decoration: underline;
-}
-
 .officer-card {
   display: flex;
   flex-direction: column;
@@ -2472,19 +2666,20 @@ a.social-card__link:hover {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  transition: border-color 0.15s, transform 0.15s;
+  transition: border-color 0.15s, background 0.15s;
 }
 
 .officer-card:hover {
   border-color: var(--border-strong);
-  transform: translateY(-2px);
+  background: var(--bg-surface-2);
 }
 
 .officer-card__avatar {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.15), rgba(var(--color-accent-rgb), 0.15));
+  /* Rule A — a flat tint behind the monogram. */
+  background: rgba(var(--color-primary-rgb), 0.12);
   border: 1px solid var(--border-strong);
   display: inline-flex;
   align-items: center;
@@ -2517,6 +2712,11 @@ a.social-card__link:hover {
   font-weight: 500;
 }
 
+/* ROAR's one officer has role: "". A blank line of grey under a name
+   reads as a rendering bug, so the element is not emitted at all —
+   this rule is the belt to that braces. */
+.officer-card__role:empty { display: none; }
+
 .officer-card__links {
   display: flex;
   align-items: center;
@@ -2536,6 +2736,78 @@ a.social-card__link:hover {
   color: var(--color-primary);
 }
 
+/* The named affordance under an officer, rather than a bare icon:
+   email is filled in for every MSOE officer and linkedin for none, so
+   "Email →" is the one that actually reaches somebody. */
+.officer-card__contact {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.officer-card__contact:hover { color: var(--color-primary); }
+
+/* ══ .officer-chip — the compact officer, in the Home people band ══
+   Six faces and a "+7 more" tile, in API order, which role_order has
+   already made President-first. Scroll-snaps on a phone and wraps
+   above 720px: six 148px tiles is two rows on a laptop and one long
+   swipe on a phone, and neither is a grid that needs a breakpoint. */
+.officer-strip {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.officer-strip::-webkit-scrollbar { display: none; }
+
+@media (min-width: 721px) {
+  .officer-strip { flex-wrap: wrap; overflow: visible; }
+}
+
+.officer-chip {
+  flex: none;
+  width: 148px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 0.75rem;
+  text-align: center;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition: border-color 0.15s;
+}
+.officer-chip:hover { border-color: var(--border-strong); }
+
+.officer-chip__avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--bg-elevated);
+  display: grid;
+  place-items: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.officer-chip__avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.officer-chip__name { font-size: 0.875rem; font-weight: 600; line-height: 1.3; }
+.officer-chip__role { font-size: 0.75rem; color: var(--text-tertiary); }
+.officer-chip__role:empty { display: none; }
+
+.officer-chip--more {
+  justify-content: center;
+  border-style: dashed;
+  color: var(--color-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
 /* ══ CDN content cards (learning / workshops / playbooks) ═════ */
 
 .content-grid {
@@ -2552,13 +2824,12 @@ a.social-card__link:hover {
   border-radius: var(--radius-lg);
   overflow: hidden;
   color: var(--text-primary);
-  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s, background 0.15s;
 }
 
 .card:hover {
   border-color: var(--border-strong);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  background: var(--bg-surface-2);
   color: var(--text-primary);
 }
 
@@ -2720,12 +2991,11 @@ a.social-card__link:hover {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   color: var(--text-secondary);
-  transition: border-color 0.15s, color 0.15s, transform 0.15s;
+  transition: border-color 0.15s, color 0.15s;
 }
 .footer-social:hover {
   color: var(--color-primary);
   border-color: var(--color-primary);
-  transform: translateY(-1px);
 }
 
 .footer__aain {
@@ -2750,6 +3020,14 @@ a.social-card__link:hover {
   color: var(--text-tertiary);
 }
 
+/* Its own line. Inline inside a tertiary sentence it broke mid-phrase
+   ("…across the network See the / network →"), which reads as two
+   sentences colliding rather than a link. */
+.footer__sub a {
+  display: block;
+  margin-top: 0.3rem;
+}
+
 /* ══ Utility ══════════════════════════════════════════════════ */
 
 .visually-hidden {
@@ -2764,15 +3042,74 @@ a.social-card__link:hover {
   border: 0;
 }
 
-/* ══ Learn page — full-height embedded tree visualization ══════════
-   The Learn page iframes the content repo's /tree.html so every hub
-   site inherits the canonical tree viz without reimplementing it.
-   Wrapper sizes the iframe to fill the remaining viewport below the
-   sticky nav + page header. */
+/* ══ Learn page — the index, then the canvas ══════════════════════
+   The iframe stays: content/tree.html is a maintained, tuned pan-and-
+   zoom canvas, and reimplementing 96 nodes and 121 edges here would
+   be a second application of the same thing. What is new is the
+   .learn-index above it — the seven curriculum chapters as readable
+   bands, so the page says what the curriculum IS before it asks you
+   to drive a canvas.
 
+   The index has to stand on its own. A band click that moves nothing
+   means the ?topic= contract between hub and content has drifted (the
+   safeNodeId incident), and the page must still be worth reading. */
+
+/* The canvas below wants the full width, so the vertical rhythm comes
+   from .page-header above rather than from the section — but the side
+   gutter has to stay. Without it the zone heads ("The path", "From
+   MSOE AI Club") sat flush against the viewport edge at 390px while
+   the bands under them carried their own padding, which read as a
+   broken row rather than a head. */
 .section--learn {
-  padding: 0;
+  padding: 0 1.5rem;
 }
+@media (max-width: 640px) {
+  .section--learn { padding: 0 1.25rem; }
+}
+
+.learn-index {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 2rem;
+}
+
+.learn-band {
+  padding: 1rem 1.15rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition: border-color 0.15s, background 0.15s;
+}
+.learn-band:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-surface-2);
+}
+/* Same inset as .nav__tab--active and .filter-chip--active: this is
+   the selected one of a set, one more level down. */
+.learn-band--active {
+  box-shadow: inset 0 0 0 1px rgba(var(--color-primary-rgb), 0.28);
+}
+
+.learn-band__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+.learn-band__name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.learn-band__n {
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+/* Lessons this chapter wrote, as opposed to the network's 34. */
+.learn-band__own { color: var(--color-primary); }
 
 .learn-tree-wrap {
   position: relative;
@@ -2784,6 +3121,13 @@ a.social-card__link:hover {
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   overflow: hidden;
+}
+
+/* A pan-and-zoom canvas inside a scrolling page is a trap on a touch
+   screen — every drag is ambiguous. On a phone the index above IS the
+   Learn page, and "Open the full map ↗" hands the canvas its own tab. */
+@media (max-width: 640px) {
+  .learn-tree-wrap { display: none; }
 }
 
 .learn-tree-frame {
@@ -2989,13 +3333,12 @@ a.social-card__link:hover {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   color: var(--text-primary);
-  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s, background 0.15s;
 }
 
 .learning-node:hover {
   border-color: var(--border-strong);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  background: var(--bg-surface-2);
   color: var(--text-primary);
 }
 
@@ -3121,107 +3464,6 @@ a.social-card__link:hover {
 .hero .edit-pill {
   z-index: 50;
   top: 1.5rem;
-}
-
-/* ══ "What we do" pillars — 4-up home page explainer ══════════════
-   Sits directly under the hero. Four tap-through tiles that each
-   point at a section on the home page (events, projects, learn,
-   badges) so a visitor landing cold can jump to whichever pillar
-   matches their interest. Reuses the same visual language as the
-   points-explainer cards below for consistency. */
-
-.section--pillars {
-  /* Slightly tighter vertical padding than default sections — the
-     pillars are intentionally light-touch, so they don't warrant
-     the full 5rem breathing room. */
-  padding-top: 4rem;
-  padding-bottom: 4rem;
-}
-
-.pillars-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 0.85rem;
-}
-
-.pillar-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
-  padding: 1.4rem 1.4rem 1.5rem;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  text-decoration: none;
-  color: inherit;
-  transition: transform 0.15s ease, border-color 0.15s ease,
-    background 0.15s ease, box-shadow 0.15s ease;
-  overflow: hidden;
-}
-
-/* Hairline top edge that picks up the theme gradient — a tiny visual
-   tie back to the --color-primary/--color-accent pair without tinting
-   the whole card. Keeps the grid feeling cohesive across tiles. */
-.pillar-card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 12%;
-  right: 12%;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(var(--color-primary-rgb), 0.55),
-    rgba(var(--color-accent-rgb), 0.55),
-    transparent
-  );
-  opacity: 0.45;
-  transition: opacity 0.15s ease;
-}
-
-.pillar-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(var(--color-primary-rgb), 0.35);
-  background: rgba(var(--color-primary-rgb), 0.04);
-  box-shadow: 0 10px 32px -12px rgba(var(--color-primary-rgb), 0.25);
-}
-
-.pillar-card:hover::before {
-  opacity: 0.95;
-}
-
-.pillar-card__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  background: rgba(var(--color-primary-rgb), 0.1);
-  border: 1px solid rgba(var(--color-primary-rgb), 0.25);
-  color: var(--color-primary);
-  flex-shrink: 0;
-}
-
-.pillar-card__icon svg {
-  width: 22px;
-  height: 22px;
-}
-
-.pillar-card__title {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.01em;
-}
-
-.pillar-card__desc {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  line-height: 1.55;
-  margin: 0;
 }
 
 /* ══ Per-page CTA bands ═══════════════════════════════════════════
@@ -3628,11 +3870,7 @@ body.is-holding {
   height: 56px;
   margin: 0 auto 1.75rem;
   border-radius: 16px;
-  background: linear-gradient(
-    135deg,
-    var(--color-primary) 0%,
-    var(--color-accent) 100%
-  );
+  background: var(--color-primary);
   opacity: 0.9;
 }
 
@@ -3669,22 +3907,22 @@ body.is-holding {
   z-index: 1;
 }
 .hero__mark .bmark {
-  width: clamp(104px, 15vh, 140px);
+  width: clamp(88px, 11vh, 116px);
   height: auto;
   opacity: 0.95;
 }
 /* An uploaded logo takes the brain's slot, at the same footprint so the
    hero copy below doesn't shift between chapters with and without one. */
 .hero__mark .hero__logo {
-  width: clamp(104px, 15vh, 140px);
-  height: clamp(104px, 15vh, 140px);
+  width: clamp(88px, 11vh, 116px);
+  height: clamp(88px, 11vh, 116px);
   object-fit: contain;
 }
 @media (max-width: 800px) {
-  .hero__mark .bmark { width: clamp(96px, 16vh, 132px); }
+  .hero__mark .bmark { width: clamp(64px, 9.5vh, 92px); }
   .hero__mark .hero__logo {
-    width: clamp(96px, 16vh, 132px);
-    height: clamp(96px, 16vh, 132px);
+    width: clamp(64px, 9.5vh, 92px);
+    height: clamp(64px, 9.5vh, 92px);
   }
 }
 
@@ -3736,3 +3974,143 @@ body.is-holding {
   opacity: 1;
   transform: none;
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   Motion — five, and nothing here loops, counts, lifts or drifts.
+
+     1  Boot assembly   body.is-ready, once, in reading order
+     2  Band reveal     .rv / .rv-group, one per band, never per card
+     3  The term rule   .term-line::after (with the .term-line block)
+     4  The group rule  .group__rule      (with the .group block)
+     5  Filter change   .is-filtering, a single opacity step
+
+   The three classes are alternatives set by src/lib/capture.ts, and
+   the DEFAULT — none of them — is fully visible. That is the whole
+   safety property: reduced motion, a JS failure and a stylesheet that
+   loads before the module all land on the same readable page, and
+   only html.js-rv is ever allowed to start something hidden.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── Motion 2. One reveal per band: .rv on the head and on the first
+   row, or .rv-group on a wrapper whose children arrive together. A
+   stagger down 41 project cards is choreography for its own sake. */
+.js-rv .rv,
+.js-rv .rv-group > * {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.js-rv .rv.in,
+.js-rv .rv-group.in > * {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Motion 1. The hero is blanked while the bundle is in flight,
+   because the markup ships another club's name and the FOUC shows it.
+   .is-ready is added in init()'s `finally` — an unguarded blank hero
+   is worse than the FOUC it fixes. */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.is-booting .hero__inner > *,
+.is-booting .hero__stats,
+.is-booting .term-line {
+  opacity: 0;
+}
+
+body.is-ready .hero__eyebrow,
+body.is-ready .hero__title,
+body.is-ready .hero__subtitle,
+body.is-ready .hero__actions,
+body.is-ready .term-line,
+body.is-ready .hero__stats {
+  animation: rise 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+body.is-ready .hero__title { animation-delay: 0.06s; }
+body.is-ready .hero__subtitle { animation-delay: 0.12s; }
+body.is-ready .hero__actions,
+body.is-ready .term-line { animation-delay: 0.18s; }
+body.is-ready .hero__stats { animation-delay: 0.24s; }
+
+/* ── Motion 5. The filtered set changed; that is a fact, not an
+   event. No FLIP, no height animation, no per-card stagger. */
+.js-rv .is-filtering { animation: filter-step 0.16s linear; }
+@keyframes filter-step { from { opacity: 0.4; } to { opacity: 1; } }
+
+/* ── Reduced motion. Everything above is decoration, so all of it
+   goes; nothing on this page depends on motion to be legible. This
+   also finally gates the sponsor modal's pop, which has been
+   unconditional since it shipped. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+  .js-rv .rv,
+  .js-rv .rv-group > * {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .term-line::after,
+  .group__rule {
+    transform: none !important;
+  }
+  html { scroll-behavior: auto; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Capture mode — html.is-still, set by ?still=1 (src/lib/capture.ts)
+
+   Every reveal and every arrival pinned to its settled state, so two
+   captures of the same URL are the same image. Last in the file on
+   purpose: this is a mode that has to win over every component above
+   it, not a component family of its own.
+
+   It does NOT skip the fetch. The page still has to load its data —
+   the screenshot recipe is ?still=1 plus a wait for #hero-title to be
+   non-empty.
+   ══════════════════════════════════════════════════════════════════ */
+
+html.is-still *,
+html.is-still *::before,
+html.is-still *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Scroll reveals. `.in` is added by an observer that never fires for
+   anything below the fold in a capture, so the settled state cannot
+   depend on the class. */
+html.is-still .rv,
+html.is-still .rv.in,
+html.is-still .rv-group > * {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+/* Drawn rules: the term line's underscore and the events-feed spine
+   both start scaled to zero and are grown by a class. */
+html.is-still .term-line::after { transform: scaleX(1) !important; }
+html.is-still .group__rule { transform: scaleY(1) !important; }
+
+/* Boot blanking. `.is-booting` sets opacity: 0 on the hero's children
+   until init() hands over to the `rise` keyframes; that is a plain
+   declaration, not an animation, so the rule above does not reach it. */
+html.is-still .is-booting .hero__inner > *,
+html.is-still .is-booting .hero__stats,
+html.is-still .is-booting .term-line {
+  opacity: 1 !important;
+}
+
+/* The flyer's "Loading event details…" line is replaced by a
+   postMessage from the iframe; in a capture it is just a stray
+   sentence above the event. (The iframe's own paint is the flyer's,
+   and not ours to settle.) */
+html.is-still .event-page__loading { display: none; }

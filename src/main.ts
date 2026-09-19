@@ -12,9 +12,57 @@
  */
 
 import { renderBrainMark } from "./brain-mark";
+import { applyCaptureMode, isCaptureStill } from "./lib/capture";
 import { escapeHtml, escapeAttr } from "./lib/html";
 import { hostnameSlug, isDashboardPreview } from "./lib/slug";
 import { eventFromSearch, eventPageHref, mountEventPage } from "./event-page";
+import type {
+  ChapterBundle,
+  EventRow,
+  HubConfig,
+  LocalContentEntry,
+  Officer,
+  ProjectRow,
+  RemoteConfig,
+} from "./lib/bundle";
+import { formatCount, officerInitials, plural } from "./lib/format";
+import { safeHttpUrl } from "./lib/net";
+import { renderGridEmpty } from "./lib/primitives";
+import {
+  futureEventsAscending,
+  latestPastEvent,
+  nextEvent,
+  pastEventsDescending,
+} from "./lib/events";
+import { termLineParts } from "./lib/season";
+import { MOUNT, viewContext, type ViewCtx } from "./lib/view";
+/* Side-effect imports: each view module registers itself into MOUNT at
+   load, so showPage() can find it by page key. */
+import "./views/officers";
+import "./views/members";
+import "./views/events";
+import "./views/projects";
+import "./views/learn";
+/* Named imports from the same view modules: the landing page shows a
+   sample of each room, and a sample rendered by a second copy of the
+   renderer is a sample that drifts from the room. One event row, one
+   feature card, one project card, one ranking. */
+import { renderEventRow, renderFeatureCard } from "./views/events";
+import { deriveYearFilters, renderProjectCard } from "./views/projects";
+import { rankByPoints, renderBoardRow, scoredRows } from "./views/members";
+import { renderStartHereBand, startCurriculumFetch } from "./views/learn";
+
+/* Capture mode is decided before anything renders, so ?still=1 never
+   catches a frame that already started animating. See lib/capture.ts. */
+const captureStill = applyCaptureMode(document.documentElement);
+
+/* Boot blanking. The hero ships with the template's own placeholder
+   text in it, so without this a visitor sees "My AI Club" before
+   renderIdentity replaces it — another club's name, on this club's
+   site. Added from JS rather than from the markup deliberately: if this
+   module never loads at all, nothing blanked the hero, and a FOUC beats
+   a permanently empty page. init()'s `finally` removes it. */
+document.body.classList.add("is-booting");
 
 declare const __HUB_CONFIG__: HubConfig;
 
@@ -34,27 +82,35 @@ interface Page {
   sections: string[]; // for deciding when a page is "empty"
 }
 
+/* Six destinations. The order is fixed and is never data-sorted: a nav
+   that reorders per chapter is a nav nobody can learn.
+
+   sections[] lists only *data-driven* sections — the ones an eboard can
+   toggle off, or that vanish when their data array is empty. The doors
+   strip and the per-page CTA bands are not here: they carry data-page
+   but deliberately no data-section, so they sit outside the toggle
+   system and cannot keep an otherwise-empty page alive.
+
+   Home's list is six keys long because Home carries a *window* onto
+   each destination. Two elements then legitimately share a data-section
+   value — the home band and the full view — which is why
+   pagesWithContent() and hideSection() are both page-scoped. */
 const PAGES: Page[] = [
-  // Home now hosts the explainer-flavored badges section (moved off
-  // Team per eboard feedback — badges + the points/merch system make
-  // more sense adjacent to the leaderboard).
-  // sections[] only lists *data-driven* sections — the ones that can
-  // be toggled off or hidden when their data array is empty. Pillars
-  // and per-page CTA bands aren't here because they're hardcoded
-  // decorations and don't influence whether a page is "empty."
-  { key: "home", label: "Home", sections: ["hero", "events", "leaderboard", "badges", "socials"] },
-  // Learn is just the tree. Workshops/playbooks are on the content
-  // CDN; the hub template used to mirror them but that duplicated
-  // effort and a fresh chapter site doesn't need them by default.
-  { key: "learn", label: "Learn", sections: ["learning_tree"] },
-  // Team = about-the-chapter + who runs it. Badges moved out.
-  { key: "team", label: "Team", sections: ["about", "officers"] },
-  // Merch stays as its own tab.
-  { key: "merch", label: "Merch", sections: ["merch"] },
-  // Projects tab — eboard-editable showcase via the dashboard's
-  // /projects page. Section toggles off entirely via Customize →
-  // Section visibility, or auto-hides when no active projects exist.
+  { key: "home", label: "Home", sections: ["hero", "events", "leaderboard", "projects", "officers", "learning_tree"] },
+  // Promoted from a home section to a destination: MSOE has run 59
+  // events over three years and this site rendered one of them.
+  { key: "events", label: "Events", sections: ["events"] },
   { key: "projects", label: "Projects", sections: ["projects"] },
+  // The tree itself, plus a native index above it. Workshops and
+  // playbooks live on the content CDN and are not mirrored here.
+  { key: "learn", label: "Learn", sections: ["learning_tree"] },
+  // Its own tab, named Officers, because that is what Ben asked for.
+  // Team holding a 200-row leaderboard buried it.
+  { key: "officers", label: "Officers", sections: ["officers", "about"] },
+  // Earn points → get recognised → redeem is one story. Merch folds in
+  // here: it was empty on 11 of 12 chapters, and a tab that is usually
+  // empty is worse than no tab.
+  { key: "members", label: "Members", sections: ["leaderboard", "badges", "merch"] },
 ];
 
 /** Dashboard route each section can be edited from — used by the
@@ -64,8 +120,8 @@ const SECTION_EDIT_INFO: Record<
   { path: string; label: string; kind: "internal" | "external" }
 > = {
   hero: { path: "/website", label: "Customize → Identity", kind: "internal" },
-  // Pillars + per-page CTA bands intentionally aren't here — they're
-  // hardcoded decorations without data-section, so the click-to-edit
+  // The doors strip + per-page CTA bands intentionally aren't here —
+  // they're decorations without data-section, so the click-to-edit
   // overlay never finds them and there's nothing for the eboard to
   // tweak per-section in the dashboard.
   about: { path: "/website", label: "Customize → About", kind: "internal" },
@@ -92,258 +148,8 @@ const SECTION_EDIT_INFO: Record<
   },
 };
 
-/* ── Types (kept compact; full shapes documented in aain-api lib/hub-config.ts) ── */
-
-interface HubConfig {
-  hub_name: string;
-  hub_acronym: string;
-  hub_id: string;
-  /** Domain whose subdomains are chapters. Only needed by a fork
-   *  self-hosting under its own domain; the network's own default is
-   *  all-ai-network.org. */
-  hub_domain?: string;
-  university: string;
-  description: string;
-  about: string;
-  theme: { primary_color: string; accent_color: string };
-  links: Record<string, string>;
-  officers: { name: string; role: string; image: string }[];
-  events: { title: string; date: string; time: string; location: string; description: string }[];
-  features: { learning_tree: boolean; playbooks: boolean; workshops: boolean };
-  content?: {
-    exclude_paths: string[];
-    custom_order: string[];
-    local_content: LocalContentEntry[];
-  };
-  content_url: string;
-}
-
-interface LocalContentEntry {
-  title: string;
-  description: string;
-  path: string;
-  type: "local";
-  section: "learning" | "workshops" | "playbooks";
-  thumbnail?: string;
-}
-
-interface ManifestEntry {
-  type: "learning" | "playbook" | "workshop" | "template";
-  title: string;
-  description: string;
-  path: string;
-  thumbnail?: string;
-}
-
-interface Manifest {
-  content: ManifestEntry[];
-}
-
-interface TreeNode {
-  id: string;
-  title: string;
-  description?: string;
-  layer: number;
-  difficulty: string;
-  estimated_minutes: number;
-  thumbnail?: string;
-  content_path?: string;
-}
-
-interface TreeData {
-  nodes: TreeNode[];
-}
-
-interface Officer {
-  name: string;
-  role: string;
-  image_url?: string | null;
-  linkedin?: string | null;
-  email?: string | null;
-}
-
-interface RemoteConfig {
-  theme: { primary: string; accent: string };
-  logo_url: string | null;
-  sections: Record<string, boolean>;
-  hub_name: string | null;
-  hub_acronym: string | null;
-  tagline: string | null;
-  about: string | null;
-  cta_primary_label: string | null;
-  cta_primary_href: string | null;
-  cta_secondary_label: string | null;
-  cta_secondary_href: string | null;
-  cta_tertiary_label: string | null;
-  cta_tertiary_href: string | null;
-  officers: Officer[];
-  social_links: Record<string, string>;
-  updated_at: string | null;
-}
-
-interface EventRow {
-  id: string;
-  title: string;
-  /** Listed events announce the schedule before their full details go live. */
-  publish_status?: "listed" | "published";
-  /** Markdown — small subset (bold/italic/links/bullets) rendered
-   *  via renderInlineMarkdown. Hub site mirrors what the dashboard
-   *  preview shows. */
-  description: string | null;
-  type: string;
-  /** Start. Required. */
-  date: string;
-  /** Optional end timestamp for multi-day events. NULL = single-
-   *  point event (the legacy case). */
-  end_date: string | null;
-  /** IANA timezone the event's date/end_date are in. NULL for legacy
-   *  events → rendered as UTC (their stored wall-clock). */
-  timezone: string | null;
-  /** Learning Tree node this event teaches (title is the display
-   *  snapshot; ref identifies the node). NULL = not linked. */
-  learning_tree_node_ref?: string | null;
-  learning_tree_node_title?: string | null;
-  /** Free-text address. Hub site auto-links to a Google Maps search
-   *  so visitors can pull it up on their phone. */
-  location: string | null;
-  /** Optional join URL for virtual / hybrid events (Zoom, Meet, …). */
-  virtual_url: string | null;
-  /** Format toggle: in_person | virtual | hybrid. Drives which
-   *  pills render (map link vs. "Join virtually"). NULL falls
-   *  through to in_person semantics. */
-  format: "in_person" | "virtual" | "hybrid" | null;
-  /** Cover photo URL. NULL = no header image. */
-  image_url: string | null;
-  points_attend: number;
-  points_win: number | null;
-  /** Wave 3b — points at an umbrella event. NULL = standalone. */
-  parent_event_id: string | null;
-  /** Wave 3c — viewer chapter's role on this event:
-   *  "host"    = chapter created the event
-   *  "co_host" = chapter accepted a co-host invitation; render with
-   *              host attribution so visitors know who's running it.
-   *  Older bundles may not include this — treat absent as host. */
-  my_role?: "host" | "co_host";
-  /** Wave 3c — the chapter that created the event. Renders next to
-   *  the title on co-hosted events ("hosted by MSOE AI Club") so
-   *  attribution is clear when more than one chapter is involved. */
-  host_chapter?: { id: string; name: string; slug: string } | null;
-  /** Wave 4a — phases inside this event (multi-phase projects).
-   *  When present + non-empty, the card renders a phase timeline
-   *  under the description so members see all checkpoints at once
-   *  instead of trying to piece together separate event cards. */
-  phases?: EventPhase[];
-}
-
-interface EventPhase {
-  id: string;
-  name: string;
-  description: string | null;
-  date_start: string;
-  date_end: string | null;
-  format: "in_person" | "virtual" | "hybrid" | "milestone";
-  location: string | null;
-  virtual_url: string | null;
-  has_check_in: boolean;
-  points_attend: number;
-  ordering: number;
-}
-
-interface LeaderboardBadge {
-  id: string;
-  name: string;
-  icon: string; // built-in key like "trophy", or full URL for custom uploads
-}
-
-interface LeaderboardRow {
-  name: string;
-  points: number;
-  events_attended: number;
-  rank: number;
-  badges?: LeaderboardBadge[];
-}
-
-interface BadgeRow {
-  id: string;
-  name: string;
-  description: string | null;
-  icon: string;
-  award_count: number;
-}
-
-interface MerchRow {
-  id: string;
-  name: string;
-  description: string | null;
-  cost_points: number;
-  // Ordered gallery of image URLs. Newer bundles ship `images`; older
-  // ones only have the single `image_url` mirror, so renderMerch falls
-  // back to `[image_url]` when `images` is absent.
-  images?: string[];
-  image_url: string | null;
-  // Optional chapter-authored cost label that overrides the default
-  // "{cost_points} points" display when non-empty.
-  cost_text?: string | null;
-  stock: number | null;
-}
-
-interface ProjectFileRow {
-  id: string;
-  kind: "paper" | "slides" | "video" | "image" | "link" | "other";
-  title: string;
-  url: string;
-  file_size: number | null;
-  mime_type: string | null;
-}
-
-interface ProjectLinkedEvent {
-  id: string;
-  title: string;
-  date: string | null;
-  end_date: string | null;
-}
-
-interface ProjectRow {
-  id: string;
-  title: string;
-  description: string | null;
-  image_url: string | null;
-  link_url: string | null;
-  year: string | null;
-  event_id?: string | null;
-  event?: ProjectLinkedEvent | null;
-  files?: ProjectFileRow[];
-}
-
-interface SocialPost {
-  id: string;
-  url: string | null;
-  posted_at: string | null;
-  content: string;
-  image_url: string | null;
-  likes: number;
-  comments: number;
-}
-
-interface SocialFeed {
-  source_url: string;
-  synced_at: string;
-  posts: SocialPost[];
-}
-
-interface ChapterBundle {
-  chapter: { slug: string; name: string; university: string; member_count: number; event_count: number };
-  config: RemoteConfig;
-  events: EventRow[];
-  leaderboard: LeaderboardRow[];
-  badges: BadgeRow[];
-  merch: MerchRow[];
-  projects: ProjectRow[];
-  /** Latest public posts synced from the chapter's linked accounts
-   *  (keyed by platform: linkedin / instagram). Optional — older
-   *  bundle responses won't carry it. */
-  social_feeds?: Record<string, SocialFeed>;
-}
+/* Types moved to ./lib/bundle — the view modules need the same shapes
+   and a second copy would drift. Imported at the top of this file. */
 
 const config = __HUB_CONFIG__;
 
@@ -359,13 +165,31 @@ const config = __HUB_CONFIG__;
    Bundle fetch — single round trip for config + data
    ────────────────────────────────────────────────────────────────── */
 
+/** The whole archive, not the upcoming window.
+ *
+ *  The bundle route has supported `events=all` since it was written and
+ *  this site had never sent it, so MSOE rendered 1 of its 59 events
+ *  under a hero that said "59 Events". Measured: 30 KB gzipped for all
+ *  59, one request, no waterfall. It also repairs the flyer's title
+ *  lookup — `events.find(e => e.id === eventId)` missed every past
+ *  event, so a shared archive link opened as "Event — MSOE AI Club".
+ *
+ *  `events=all` returns events DESCENDING; the old window returned them
+ *  ascending. Anything reading "what is next" must sort its own
+ *  ascending copy — see futureEventsAscending() in lib/events.
+ *
+ *  leaderboard_limit is deliberately NOT sent: the leaderboard query
+ *  has no consent filter, so raising 20 rows is a privacy change Ben
+ *  has not agreed to, not a clamp. */
+const BUNDLE_QUERY = "?events=all&events_limit=200";
+
 async function fetchBundle(slug: string): Promise<ChapterBundle | null> {
   if (!slug) return null;
   try {
     const res = await fetch(
       `${DASHBOARD_ORIGIN}/api/public/chapter/${encodeURIComponent(
         slug.toLowerCase(),
-      )}/bundle`,
+      )}/bundle${BUNDLE_QUERY}`,
       { cache: "no-store" },
     );
     if (!res.ok) return null;
@@ -524,9 +348,6 @@ function applySectionToggles(sections: Record<string, boolean>) {
   for (const [key, on] of Object.entries(sections)) {
     if (on) continue;
     document.querySelectorAll(`[data-section="${key}"]`).forEach((el) => el.remove());
-    document
-      .querySelectorAll(`.nav__link[data-nav-for="${key}"]`)
-      .forEach((el) => el.remove());
   }
 }
 
@@ -551,36 +372,70 @@ function renderIdentity(
   const hubName = remote?.hub_name ?? chapter?.name ?? config.hub_name;
   const hubAcronym =
     remote?.hub_acronym ?? config.hub_acronym ?? hubName.slice(0, 4);
-  const tagline =
-    remote?.tagline ?? config.description ?? "A student-run applied AI community.";
+  // The chapter's own tagline or nothing. The old chain fell through
+  // config.description to "A student-run applied AI community.", which
+  // was live on MSOE under their real name and is the single loudest
+  // generated-for-us tell on the property. Silence is the club's voice
+  // too. .hero__subtitle:empty collapses the gap.
+  const tagline = (remote?.tagline ?? "").trim();
   const university = chapter?.university ?? config.university;
 
   document.title = `${hubName} — ALL Applied AI Network`;
   const meta = document.querySelector('meta[name="description"]');
-  if (meta) meta.setAttribute("content", tagline);
+  // The og/meta description still needs a sentence even when the hero
+  // shows none — a blank description in a link unfurl is worse than a
+  // plain one. It never renders on the page.
+  if (meta) {
+    meta.setAttribute(
+      "content",
+      tagline || `${hubName} at ${university} — part of the ALL Applied AI Network.`,
+    );
+  }
 
   setText("nav-acronym", hubAcronym);
   setText("nav-hub-name", hubName);
   setText("hero-title", hubName);
   setText("hero-subtitle", tagline);
   setText("hero-university", university);
-  setText("about-title", `About ${hubName}`);
   setText("footer-hub-name", hubName);
   setText("footer-university", university);
+
+  // Long-name guard, measured from the content and not the viewport.
+  // ROAR's hub_name is "Rose Organization for AI Readiness" — 34
+  // characters against clamp(2.75rem, 7vw, 5.25rem), where its first
+  // word alone fills a phone.
+  document
+    .getElementById("hero-title")
+    ?.classList.toggle("hero__title--long", hubName.length > 22);
 }
 
 /**
- * Hero CTAs — three persona-targeted buttons so the landing page
- * speaks to every audience at once without burying them in nav clicks:
- *   1. Primary   → prospective members ("Join our next event")
- *   2. Secondary → partners/sponsors ("Become a partner")
- *   3. Tertiary  → curious learners ("Start learning")
+ * Hero CTAs.
  *
- * Each slot accepts a chapter-authored label+href from the dashboard;
- * when blank, falls back to a sensible default that anchors into the
- * relevant section so a freshly deployed site still feels complete.
+ * An authored slot renders exactly as it always has — an officer who
+ * filled one in meant it, and their Discord invite is a better first
+ * click than anything we could compute.
+ *
+ * The DEFAULTS are what changed. They used to be three fixed buttons,
+ * one of which anchored at the events section — computed before
+ * hideSection() ran, so on a chapter with no events it pointed at a
+ * section that was about to be deleted. ROAR shipped that dead button.
+ * Resolving the default to an event id instead removes the whole bug
+ * class and drops the visitor straight into the flyer, where join,
+ * RSVP and teams actually live:
+ *
+ *   a future event exists  → "Join our next event" → ?event={id}
+ *   any event exists       → "See what we ran"     → #events
+ *   neither                → "Become a partner"    → #sponsor
+ *
+ * One default button, not three. `.hero__actions:empty` collapses the
+ * row if even that cannot be resolved.
  */
-function renderHeroActions(remote: RemoteConfig | null) {
+function renderHeroActions(
+  remote: RemoteConfig | null,
+  events: EventRow[],
+  livePages: Set<string>,
+) {
   const container = document.getElementById("hero-actions");
   if (!container) return;
   container.innerHTML = "";
@@ -589,61 +444,57 @@ function renderHeroActions(remote: RemoteConfig | null) {
     label: string;
     href: string;
     style: "primary" | "ghost" | "ghost-accent";
+    /** True for a value the chapter typed. Officer-authored hrefs are
+     *  scheme-checked; the ones we compute are not, because
+     *  eventPageHref() returns a same-origin path and safeHttpUrl()
+     *  rejects every path that is not an absolute URL — which silently
+     *  swallowed the default button on every chapter with an event. */
+    authored: boolean;
   };
 
-  // Each slot falls back to its persona default when the eboard
-  // hasn't filled it in, so every fresh chapter site ships with
-  // three distinct audience CTAs from day one. Label overrides keep
-  // the eboard's voice; href overrides route to their Discord / merch
-  // / Typeform / whatever.
-  const pick = (
+  const authored = (
     label: string | null | undefined,
     href: string | null | undefined,
-    fallbackLabel: string,
-    fallbackHref: string,
     style: HeroCta["style"],
-  ): HeroCta => {
+  ): HeroCta | null => {
     const l = label?.trim();
     const h = href?.trim();
-    return {
-      label: l && l.length > 0 ? l : fallbackLabel,
-      href: h && h.length > 0 ? h : fallbackHref,
-      style,
-    };
+    // A label with no href is a button that goes nowhere; an href with
+    // no label is a button with nothing on it. Both need both.
+    return l && h ? { label: l, href: h, style, authored: true } : null;
   };
 
-  const eventsAnchor = document.getElementById("events") ? "#events" : "#home";
-  // Partner CTA defaults to #sponsor (in-site modal posted to the
-  // dashboard inbox), since every network-connected chapter gets
-  // persistent inquiry storage "for free" — surviving eboard
-  // turnover, unlike a per-officer mailto. Eboards who prefer a
-  // raw mailto can override via Customize → Hero CTAs.
   const buttons: HeroCta[] = [
-    // 1 — prospective members
-    pick(
-      remote?.cta_primary_label,
-      remote?.cta_primary_href,
-      "Join our next event",
-      eventsAnchor,
-      "primary",
-    ),
-    // 2 — partners / sponsors
-    pick(
-      remote?.cta_secondary_label,
-      remote?.cta_secondary_href,
-      "Become a partner",
-      "#sponsor",
-      "ghost",
-    ),
-    // 3 — curious learners
-    pick(
-      remote?.cta_tertiary_label,
-      remote?.cta_tertiary_href,
-      "Start learning",
-      "#learn",
-      "ghost-accent",
-    ),
-  ];
+    authored(remote?.cta_primary_label, remote?.cta_primary_href, "primary"),
+    authored(remote?.cta_secondary_label, remote?.cta_secondary_href, "ghost"),
+    authored(remote?.cta_tertiary_label, remote?.cta_tertiary_href, "ghost-accent"),
+  ].filter((b): b is HeroCta => b !== null);
+
+  if (!buttons.length) {
+    const next = nextEvent(events);
+    if (next) {
+      buttons.push({
+        label: "Join our next event",
+        href: eventPageHref(next.id, window.location.pathname),
+        style: "primary",
+        authored: false,
+      });
+    } else if (events.length) {
+      buttons.push({ label: "See what we ran", href: "#events", style: "primary", authored: false });
+    } else if (livePages.has("learn")) {
+      // No events at all: 8 of 12 chapters. The curriculum band IS the
+      // page here, so the masthead points at it. It used to say
+      // "Become a partner", which the partner band two screens down
+      // already says in the same words on the same button — the only
+      // two buttons on the page were the same button.
+      buttons.push({ label: "Start the curriculum", href: "#learn", style: "primary", authored: false });
+    } else {
+      // Nothing to show and nowhere to send them but the inbox. The
+      // partner CTA posts to the dashboard rather than a per-officer
+      // mailto, so the thread survives eboard turnover.
+      buttons.push({ label: "Become a partner", href: "#sponsor", style: "primary", authored: false });
+    }
+  }
 
   for (const b of buttons) {
     const a = document.createElement("a");
@@ -654,11 +505,13 @@ function renderHeroActions(remote: RemoteConfig | null) {
           ? "btn--ghost btn--ghost-accent"
           : "btn--ghost";
     a.className = `btn ${styleClass}`;
-    // The href is officer-authored via the dashboard bundle. Assigning it
-    // straight to a.href executed javascript: URLs on click (security
-    // audit 2026-08-18, finding 3) — safeHttpUrl already existed in this
-    // file for LinkedIn and social URLs, it just wasn't applied here.
-    const href = safeCtaHref(b.href);
+    // An officer-authored href comes out of the dashboard bundle as raw
+    // text. Assigning it straight to a.href executed javascript: URLs on
+    // click (security audit 2026-08-18, finding 3), so it is
+    // scheme-checked first. The computed defaults skip that check
+    // because they are ours, and because the check rejects the
+    // same-origin "?event={id}" path they are made of.
+    const href = b.authored ? safeCtaHref(b.href) : b.href;
     if (!href) continue;
     a.href = href;
     // Only true externals open in a new tab — anchor + mailto + tel
@@ -673,70 +526,10 @@ function renderHeroActions(remote: RemoteConfig | null) {
 }
 
 /* ──────────────────────────────────────────────────────────────────
-   "What we do" pillars — four-up explainer that answers "what is
-   this organization, actually?" for anyone landing on the home page
-   cold. Lives between the hero stat strip and the events grid so
-   visitors always have the gist before they start scanning events or
-   the leaderboard. Content is hardcoded on the template today — the
-   next iteration makes this dashboard-editable alongside the About
-   markdown, but every chapter says the same four things so the
-   defaults carry real weight.
-   ────────────────────────────────────────────────────────────────── */
-
-interface Pillar {
-  title: string;
-  desc: string;
-  href: string;
-  icon: string;
-}
-
-const PILLARS: Pillar[] = [
-  {
-    title: "Weekly events",
-    desc: "Workshops, speaker nights, and build sessions — hands-on applied-AI every week, open to any student.",
-    href: "#events",
-    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
-  },
-  {
-    title: "Ship real projects",
-    desc: "Innovation Labs cohorts, hackathon teams, and research collabs. Members graduate with a portfolio of shipped work.",
-    href: "#projects",
-    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`,
-  },
-  {
-    title: "Open curriculum",
-    desc: "A full applied-AI skill map, free forever. Follow the learning tree from zero to shipping production AI.",
-    href: "#learn",
-    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`,
-  },
-  {
-    title: "Recognition built in",
-    desc: "Every event check-in, project, and award earns points — redeem for merch, unlock badges, climb the leaderboard.",
-    href: "#badges",
-    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>`,
-  },
-];
-
-function renderPillars() {
-  const grid = document.getElementById("pillars-grid");
-  if (!grid) return;
-  grid.innerHTML = PILLARS.map(
-    (p) => `
-      <a class="pillar-card" href="${escapeAttr(p.href)}">
-        <div class="pillar-card__icon" aria-hidden="true">${p.icon}</div>
-        <div class="pillar-card__title">${escapeHtml(p.title)}</div>
-        <p class="pillar-card__desc">${escapeHtml(p.desc)}</p>
-      </a>
-    `,
-  ).join("");
-}
-
-/* ──────────────────────────────────────────────────────────────────
-   Per-page CTA bands — at the bottom of each non-home tab, give
-   visitors a clear next step. Projects visitors hear "how to
-   participate"; Team visitors hear "how to reach us / join the
-   eboard"; Learn visitors hear "attend an event to go deeper";
-   Merch visitors hear "earn points to redeem."
+   Per-page CTA bands — one at the bottom of each page, giving visitors
+   a clear next step in the language of the room they are standing in.
+   Home's is the partner band; it had none before, so a sponsor reading
+   the landing page ran out of page.
    ────────────────────────────────────────────────────────────────── */
 
 interface PageCtaBandCopy {
@@ -748,14 +541,21 @@ interface PageCtaBandCopy {
 }
 
 const PAGE_CTA_BANDS: Record<string, PageCtaBandCopy> = {
+  home: {
+    kicker: "Get in touch",
+    title: "Sponsoring, speaking, or hiring?",
+    desc: "The eboard reads this inbox, and it survives every handover.",
+    primary: { label: "Become a partner", href: "#sponsor" },
+    secondary: { label: "Meet the officers", href: "#officers" },
+  },
   projects: {
     kicker: "Build with us",
     title: "Want to ship a project with the chapter?",
     desc: "Members pitch ideas every semester and team up into Innovation Labs cohorts. Show up to a meeting, propose a project, recruit collaborators — eboard helps you scope it end-to-end.",
     primary: { label: "See upcoming events", href: "#events" },
-    secondary: { label: "Meet the eboard", href: "#team" },
+    secondary: { label: "Meet the officers", href: "#officers" },
   },
-  team: {
+  officers: {
     kicker: "Get in touch",
     title: "Running something? Reach out.",
     desc: "Sponsoring events, guest-speaking, recruiting our members, or joining the eboard — we reply fast. The whole eboard is a student team, and we love outside-of-class opportunities to build together.",
@@ -767,26 +567,53 @@ const PAGE_CTA_BANDS: Record<string, PageCtaBandCopy> = {
     title: "Pair the curriculum with a weekly build session.",
     desc: "The tree covers the theory; our workshops and speaker nights cover the applied side. Come to one, no prior experience needed — every track starts from zero.",
     primary: { label: "See upcoming events", href: "#events" },
-    secondary: { label: "Check the leaderboard", href: "#home" },
+    secondary: { label: "Meet the officers", href: "#officers" },
   },
-  merch: {
+  members: {
     kicker: "Earn & redeem",
-    title: "Merch is earned, not bought.",
-    desc: "Every event check-in, shipped project, and recognition earns points you can spend here. See any eboard member at a meeting to redeem — no online checkout, no shipping, all in-person.",
+    title: "Points are earned in person.",
+    desc: "Every event check-in, shipped project, and recognition earns points. See any eboard member at a meeting to redeem — no online checkout, no shipping, all in-person.",
     primary: { label: "See upcoming events", href: "#events" },
-    secondary: { label: "Leaderboard", href: "#home" },
+    secondary: { label: "Meet the officers", href: "#officers" },
   },
 };
 
-function renderPageCtaBands() {
+/** Every secondary CTA on these bands points at a destination, and on
+ *  a chapter with no officers the Officers tab does not exist — NTUA
+ *  shipped a "Meet the officers" button that jumped nowhere. A hash
+ *  href is only rendered when its destination is one of the live
+ *  pages; anything else (mailto, an absolute URL) is left alone. */
+function ctaTargetLives(href: string, livePages: Set<string>): boolean {
+  if (!href.startsWith("#")) return true;
+  const key = href.slice(1).split("/")[0];
+  // #sponsor is not a page: it falls through to home and opens the
+  // sponsor modal (wireSponsorHashRoute), so it always resolves.
+  if (key === "sponsor" || key === "") return true;
+  return livePages.has(key);
+}
+
+function renderPageCtaBands(livePages: Set<string>) {
   for (const [pageKey, copy] of Object.entries(PAGE_CTA_BANDS)) {
     const band = document.querySelector<HTMLElement>(
       `.page-cta-band[data-page="${pageKey}"]`,
     );
     if (!band) continue;
-    const secondaryHtml = copy.secondary
-      ? `<a class="btn btn--ghost" href="${escapeAttr(copy.secondary.href)}">${escapeHtml(copy.secondary.label)}</a>`
-      : "";
+
+    // A band whose primary target does not exist is not a band with a
+    // dead button — it is a band whose whole premise is false. The
+    // Learn band says "pair the curriculum with a weekly build
+    // session… come to one", and on the eight chapters that have never
+    // run an event that is the template describing a club that does
+    // not exist yet. The copy goes with the link.
+    if (!ctaTargetLives(copy.primary.href, livePages)) {
+      band.remove();
+      continue;
+    }
+
+    const secondaryHtml =
+      copy.secondary && ctaTargetLives(copy.secondary.href, livePages)
+        ? `<a class="btn btn--ghost" href="${escapeAttr(copy.secondary.href)}">${escapeHtml(copy.secondary.label)}</a>`
+        : "";
     band.innerHTML = `
       <div class="page-cta-band__inner">
         <div class="page-cta-band__copy">
@@ -1021,7 +848,7 @@ function openSponsorModal() {
     if (email) {
       window.location.href = `mailto:${email}?subject=Partnership inquiry`;
     } else {
-      window.location.hash = "#team";
+      window.location.hash = "#officers";
     }
     return;
   }
@@ -1078,1009 +905,472 @@ function wireSponsorHashRoute() {
   maybeOpen();
 }
 
+/**
+ * The stat strip — members / events / projects, the trio a prospective
+ * member or a partner is actually asking about.
+ *
+ * Two counting laws decide what survives. An entry below 1 is dropped
+ * outright (a hero reading `0 · 1 · 0` reads as a broken deploy, which
+ * is what ROAR shipped), and the whole strip is hidden when fewer than
+ * two entries are left, because a strip is a comparison and one number
+ * is not one. Labels are singular at 1.
+ *
+ * MSOE: 596 Members · 59 Events · 41 Projects.
+ * ROAR: one entry survives → no strip.
+ * NTUA: none survive → no strip.
+ */
 function renderStats(
   chapter: ChapterBundle["chapter"] | null,
   projects: ProjectRow[],
-) {
+): Set<string> {
   const strip = document.getElementById("hero-stats") as HTMLElement | null;
-  if (!strip) return;
+  const shown = new Set<string>();
+  if (!strip) return shown;
+  strip.innerHTML = "";
+  if (!chapter) return shown;
 
-  // No chapter data → hide the strip entirely. Em-dashes read as
-  // "data loading" rather than "nothing to show yet," and a ghost
-  // stats strip on a fresh template is worse than no strip at all.
-  if (!chapter) {
-    strip.style.display = "none";
-    return;
-  }
+  const entries: { key: string; n: number; one: string; many: string }[] = [
+    { key: "members", n: chapter.member_count, one: "Member", many: "Members" },
+    { key: "events", n: chapter.event_count, one: "Event", many: "Events" },
+    { key: "projects", n: projects.length, one: "Project", many: "Projects" },
+  ].filter((s) => s.n >= 1);
 
-  strip.style.display = "";
-  // Members / events / projects is the "how big is this chapter"
-  // trio a prospective member or partner cares about — swapped in
-  // from badges (which told visitors about the recognition system,
-  // but not the scale of the chapter). Badges are still their own
-  // full section below the leaderboard.
-  const map: Record<string, string> = {
-    members: formatCount(chapter.member_count),
-    events: formatCount(chapter.event_count),
-    projects: formatCount(projects.length),
-  };
-  for (const [key, val] of Object.entries(map)) {
-    const el = document.querySelector(`[data-stat="${key}"]`);
-    if (el) el.textContent = val;
-  }
-}
+  if (entries.length < 2) return shown;
 
-function formatCount(n: number): string {
-  if (n >= 1000) return `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k`;
-  return String(n);
-}
-
-function renderAbout(remoteAbout: string | null) {
-  const container = document.getElementById("about-content");
-  if (!container) return;
-  const md = remoteAbout ?? config.about ?? "";
-  if (!md.trim()) {
-    container.innerHTML = `
-      <p>We're part of the <strong>ALL Applied AI Network</strong> — a nationwide network of university AI chapters focused on applied AI engineering.</p>
-      <p>Our curriculum starts at absolute zero and builds a path to shipping real AI products. No prior experience required.</p>
-    `;
-    return;
-  }
-  container.innerHTML = md
-    .split(/\n{2,}/)
-    .filter((p) => p.trim())
-    .map((p) => `<p>${renderInlineMarkdown(p)}</p>`)
-    .join("");
-}
-
-/** Very small markdown subset: **bold**, *italic*, [label](url). */
-function renderInlineMarkdown(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
-    .replace(/_([^_]+)_/g, "<em>$1</em>")
-    // The URL is validated and attribute-escaped rather than substituted
-    // raw: a double quote inside the captured URL used to close the href
-    // and add an onclick (security audit 2026-08-18, finding 4).
-    .replace(
-      /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
-      (_m, label: string, url: string) => {
-        const safe = safeHttpUrl(url);
-        if (!safe) return label;
-        return `<a href="${escapeAttr(safe)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
-      },
-    )
-    .replace(/\n/g, "<br />");
-}
-
-/**
- * Richer markdown for places that get fuller content (event
- * descriptions). Mirrors the renderer used in the dashboard's
- * Create Event preview pane so eboards see exactly what the hub
- * site will show. Supported: paragraphs (blank-line splits),
- * `**bold**`, `_italic_` / `*italic*`, `[link](https://…)`, and
- * `- ` / `* ` bullet lists. Escapes HTML before processing.
- */
-function renderRichMarkdown(src: string): string {
-  const escaped = src
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-  const inline = (s: string): string =>
-    s
-      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-      .replace(/_([^_]+)_/g, "<em>$1</em>")
-      .replace(/\*([^*]+)\*/g, "<em>$1</em>")
-      .replace(
-        /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
-        '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>',
-      );
-  const lines = escaped.split(/\n/);
-  const out: string[] = [];
-  let inList = false;
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (line.startsWith("- ") || line.startsWith("* ")) {
-      if (!inList) {
-        out.push("<ul>");
-        inList = true;
-      }
-      out.push(`<li>${inline(line.slice(2))}</li>`);
-      continue;
-    }
-    if (inList) {
-      out.push("</ul>");
-      inList = false;
-    }
-    if (line.length === 0) continue;
-    out.push(`<p>${inline(line)}</p>`);
-  }
-  if (inList) out.push("</ul>");
-  return out.join("");
-}
-
-/* ──────────────────────────────────────────────────────────────────
-   Events
-   ────────────────────────────────────────────────────────────────── */
-
-/** Remove a whole section + its nav link + any page tabs that
- *  pointed at it. Used by the data-driven renderers below when the
- *  API returns no rows — empty "no events yet" cards on a public
- *  site read as broken, better to hide the section entirely and
- *  surface the warning on the dashboard. */
-function hideSection(sectionKey: string) {
-  document
-    .querySelectorAll(`[data-section="${sectionKey}"]`)
-    .forEach((el) => el.remove());
-  document
-    .querySelectorAll(`.nav__link[data-nav-for="${sectionKey}"]`)
-    .forEach((el) => el.remove());
-}
-
-/**
- * Render the events grid. Each card now reflects every field the
- * dashboard captures — cover image, date range for multi-day,
- * location with auto-Maps link, format chip + virtual join button
- * for hybrid / virtual, co-host attribution when this site is
- * surfacing another chapter's event, and a "Part of <Umbrella>"
- * badge for child events whose parent shipped in the same bundle.
- *
- * Description renders through the same markdown subset the About
- * section uses — bold / italic / links / bullets — so what the
- * eboard sees in the create-form preview matches what visitors see.
- */
-function renderEvents(events: EventRow[], _tagline: string | null | undefined) {
-  const grid = document.getElementById("events-grid");
-  if (!grid) return;
-  if (!events.length) {
-    hideSection("events");
-    return;
-  }
-
-  // Build a parent lookup so child events can label "Part of X."
-  // Falls back to nothing if the parent isn't in the same window
-  // (e.g. last week's umbrella, this week's child).
-  const byId = new Map<string, EventRow>();
-  for (const ev of events) byId.set(ev.id, ev);
-
-  grid.innerHTML = events.map((e) => renderEventCard(e, byId)).join("");
-}
-
-/**
- * Calendar parts of an ISO instant, computed in `tz` (or UTC for legacy
- * null-tz events) so the hub shows the same wall-clock as the dashboard
- * regardless of the visitor's own timezone. `tzAbbr` is "" when there's
- * no captured zone (legacy), so those events render without a label.
- */
-function zoneParts(
-  iso: string,
-  tz: string | null,
-): {
-  year: number;
-  month: number;
-  day: number;
-  monthShort: string;
-  time: string;
-  tzAbbr: string;
-} {
-  const d = new Date(iso);
-  const timeZone = tz || "UTC";
-  const p: Record<string, string> = {};
-  for (const part of new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(d)) {
-    p[part.type] = part.value;
-  }
-  const tzAbbr = tz
-    ? d
-        .toLocaleTimeString("en-US", { timeZone, timeZoneName: "short" })
-        .split(" ")
-        .pop() || ""
-    : "";
-  return {
-    year: Number(p.year),
-    month: Number(p.month),
-    day: Number(p.day),
-    monthShort: d.toLocaleDateString("en-US", { timeZone, month: "short" }),
-    time: d.toLocaleTimeString("en-US", {
-      timeZone,
-      hour: "numeric",
-      minute: "2-digit",
-    }),
-    tzAbbr,
-  };
-}
-
-function renderEventCard(
-  e: EventRow,
-  byId: Map<string, EventRow>,
-): string {
-  const listed = e.publish_status === "listed";
-  const tz = e.timezone;
-  const s = zoneParts(e.date, tz);
-  const eParts = e.end_date ? zoneParts(e.end_date, tz) : null;
-  const isMultiDay =
-    eParts !== null &&
-    (eParts.year !== s.year ||
-      eParts.month !== s.month ||
-      eParts.day !== s.day);
-
-  const month = s.monthShort.toUpperCase();
-  const day = s.day;
-  const startTime = e.timezone ? `${s.time} ${s.tzAbbr}` : s.time;
-  const endTime = eParts
-    ? e.timezone
-      ? `${eParts.time} ${eParts.tzAbbr}`
-      : eParts.time
-    : null;
-  const endLabel = eParts
-    ? `${eParts.month === s.month ? "" : eParts.monthShort + " "}${eParts.day}`.trim()
-    : null;
-
-  // Date chip on the left — adds a "→ N" range stripe for multi-day.
-  const dateChip = `
-    <div class="event-card__date${isMultiDay ? " event-card__date--range" : ""}" aria-label="${month} ${day}${endLabel ? ` to ${endLabel}` : ""}">
-      <div class="event-card__date-month">${month}</div>
-      <div class="event-card__date-day">${day}</div>
-      ${
-        isMultiDay && endLabel
-          ? `<div class="event-card__date-range">→ ${escapeHtml(endLabel)}</div>`
-          : ""
-      }
-    </div>
-  `;
-
-  // Description renders through the richer paragraphs+bullets
-  // markdown pass so what the dashboard preview shows matches what
-  // visitors see (the create form's toolbar inserts `- ` lists and
-  // blank-line paragraph splits).
-  const desc = !listed && e.description
-    ? `<div class="event-card__desc">${renderRichMarkdown(e.description)}</div>`
-    : "";
-
-  // Format → which pills render. in_person + (default) → just map.
-  // virtual → just join. hybrid → both stacked.
-  const fmt = e.format ?? "in_person";
-  const showLocation =
-    !(e.phases?.length) &&
-    (fmt === "in_person" || fmt === "hybrid") &&
-    e.location &&
-    e.location.trim().length > 0;
-  const showVirtual =
-    !listed &&
-    !(e.phases?.length) &&
-    (fmt === "virtual" || fmt === "hybrid") &&
-    e.virtual_url &&
-    e.virtual_url.trim().length > 0;
-
-  const formatChip =
-    fmt === "virtual" || fmt === "hybrid"
-      ? `<span class="event-card__format-chip event-card__format-chip--${fmt}">${
-          fmt === "virtual" ? "Virtual" : "Hybrid"
-        }</span>`
-      : "";
-
-  // Learning Tree association — links to the Learn PAGE (hash-router key
-  // "learn", not the section's DOM id) so a visitor can jump from a
-  // workshop event to the material it teaches.
-  const treeChip = !listed && e.learning_tree_node_title
-    ? `<a class="event-card__format-chip event-card__format-chip--tree" href="#learn">🌳 ${escapeHtml(e.learning_tree_node_title)}</a>`
-    : "";
-
-  const locationPill = showLocation
-    ? `<a class="event-card__pill event-card__pill--map" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.location ?? "")}" target="_blank" rel="noopener noreferrer">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-          <circle cx="12" cy="10" r="3"/>
-        </svg>
-        <span>${escapeHtml(e.location ?? "")}</span>
-      </a>`
-    : "";
-
-  // virtual_url is free text: a real join URL renders as a "Join
-  // virtually" link; anything else ("See in Teams (private)") renders as
-  // a plain pill showing the note itself. safeHttpUrl also keeps
-  // javascript:-style values out of the href.
-  const virtualHref = showVirtual ? safeHttpUrl(e.virtual_url ?? "") : null;
-  const virtualIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <polygon points="23 7 16 12 23 17 23 7"/>
-          <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
-        </svg>`;
-  const virtualPill = showVirtual
-    ? virtualHref
-      ? `<a class="event-card__pill event-card__pill--virtual" href="${escapeAttr(virtualHref)}" target="_blank" rel="noopener noreferrer">
-        ${virtualIcon}
-        <span>Join virtually</span>
-      </a>`
-      : `<span class="event-card__pill event-card__pill--virtual">
-        ${virtualIcon}
-        <span>${escapeHtml(e.virtual_url ?? "")}</span>
-      </span>`
-    : "";
-
-  // Co-host attribution: when this hub is surfacing another chapter's
-  // event, credit the host so visitors know who organized it.
-  const cohostBadge =
-    e.my_role === "co_host" && e.host_chapter
-      ? `<div class="event-card__cohost">Hosted by <strong>${escapeHtml(e.host_chapter.name)}</strong></div>`
-      : "";
-
-  // Parent badge: "Part of <Umbrella>" — only if the parent is in
-  // the same bundle (same window). Otherwise quietly omit.
-  const parent = e.parent_event_id ? byId.get(e.parent_event_id) : null;
-  const parentBadge = parent
-    ? `<div class="event-card__parent">Part of <strong>${escapeHtml(parent.title)}</strong></div>`
-    : "";
-
-  // Cover image up top when set. 16:9 aspect ratio matches the
-  // dashboard preview and most marketing photos.
-  const cover = e.image_url
-    ? `<div class="event-card__cover"><img src="${escapeAttr(e.image_url)}" alt="" loading="lazy" /></div>`
-    : "";
-
-  // Meta line: time + points (or "no points" when QR was off, which
-  // we infer client-side from points_attend === 0; the bundle never
-  // surfaces QR-disabled events with points anyway).
-  const timeLabel =
-    isMultiDay && endTime ? `${startTime} → ${endTime}` : startTime;
-  const meta = listed ? timeLabel : `${timeLabel} · ${e.points_attend} ${e.points_attend === 1 ? "pt" : "pts"}`;
-
-  // Phase timeline — when the event has phases (kickoff → midpoint →
-  // finals → due-date), render them as a numbered checkpoint list
-  // under the description. Each row carries its own format chip and
-  // a short relative date so members can see the whole arc at once.
-  // Sorted by the bundle endpoint (ordering, then date_start), so we
-  // just render in order.
-  const phases = (e.phases ?? []).slice();
-  const phaseTimeline = phases.length
-    ? `<div class="event-card__phases" aria-label="Event phases">
-        <div class="event-card__phases-heading">${phases.length}-${listed ? "phase event" : "part project"}</div>
-        <ol class="event-card__phase-list">
-          ${phases.map((p, i) => renderPhaseRow(p, i + 1, e.timezone, listed)).join("")}
-        </ol>
-      </div>`
-    : "";
-
-  return `
-    <article class="event-card${cover ? " event-card--with-cover" : ""}" role="listitem">
-      ${cover}
-      <div class="event-card__inner">
-        ${dateChip}
-        <div class="event-card__body">
-          <div class="event-card__type-row">
-            <span class="event-card__type">${escapeHtml(e.type ?? "event")}</span>
-            ${formatChip}
-            ${treeChip}
-            ${listed ? '<span class="event-card__announcement">Details coming soon</span>' : ""}
-          </div>
-          ${parentBadge}
-          <h3 class="event-card__title"><a href="${escapeAttr(eventPageHref(e.id, window.location.pathname))}">${escapeHtml(e.title)}</a></h3>
-          ${cohostBadge}
-          ${desc}
-          ${phaseTimeline}
-          ${locationPill || virtualPill ? `<div class="event-card__pills">${locationPill}${virtualPill}</div>` : ""}
-          <div class="event-card__meta">${meta}</div>
-          <a class="event-card__details" href="${escapeAttr(eventPageHref(e.id, window.location.pathname))}">${listed ? "View schedule" : "View event"} <span aria-hidden="true">→</span></a>
-        </div>
-      </div>
-    </article>
-  `;
-}
-
-/** Render a single phase row inside the event-card phase timeline.
- *  Format milestone → no chip, just the "Milestone" pill (no
- *  check-in expected). in_person / virtual / hybrid → coloured chip
- *  + location or "Virtual" hint, matching how the parent event card
- *  surfaces format. Points are only shown when has_check_in (otherwise
- *  the row is a checkpoint without attendance). */
-function renderPhaseRow(
-  p: EventPhase,
-  num: number,
-  tz: string | null,
-  listed = false,
-): string {
-  const s = zoneParts(p.date_start, tz);
-  const eParts = p.date_end ? zoneParts(p.date_end, tz) : null;
-  const startStr = `${s.monthShort} ${s.day}`;
-  const startTime = tz ? `${s.time} ${s.tzAbbr}` : s.time;
-  const sameDayEnd =
-    eParts !== null &&
-    eParts.year === s.year &&
-    eParts.month === s.month &&
-    eParts.day === s.day;
-  const endStr = eParts
-    ? sameDayEnd
-      ? tz
-        ? `${eParts.time} ${eParts.tzAbbr}`
-        : eParts.time
-      : `${eParts.monthShort} ${eParts.day}`
-    : null;
-  const whenLabel = endStr
-    ? sameDayEnd
-      ? `${startStr} · ${startTime} → ${endStr}`
-      : `${startStr} → ${endStr}`
-    : `${startStr} · ${startTime}`;
-
-  const formatLabel =
-    p.format === "in_person"
-      ? "In person"
-      : p.format === "virtual"
-        ? "Virtual"
-        : p.format === "hybrid"
-          ? "Hybrid"
-          : "Milestone";
-  const formatChip = `<span class="event-card__phase-chip event-card__phase-chip--${escapeAttr(p.format)}">${formatLabel}</span>`;
-
-  const locText =
-    (p.format === "in_person" || p.format === "hybrid") &&
-    p.location &&
-    p.location.trim().length > 0
-      ? `<span class="event-card__phase-loc">${escapeHtml(p.location)}</span>`
-      : "";
-
-  const pointsText =
-    !listed && p.has_check_in && p.points_attend > 0
-      ? `<span class="event-card__phase-points">+${p.points_attend} ${p.points_attend === 1 ? "pt" : "pts"}</span>`
-      : "";
-
-  const descBlock = !listed && p.description
-    ? `<div class="event-card__phase-desc">${escapeHtml(p.description)}</div>`
-    : "";
-
-  return `
-    <li class="event-card__phase-row event-card__phase-row--${escapeAttr(p.format)}">
-      <div class="event-card__phase-num" aria-hidden="true">${num}</div>
-      <div class="event-card__phase-body">
-        <div class="event-card__phase-head">
-          <span class="event-card__phase-name">${escapeHtml(p.name)}</span>
-          ${formatChip}
-          ${pointsText}
-        </div>
-        <div class="event-card__phase-when">${escapeHtml(whenLabel)}${locText ? " · " : ""}${locText}</div>
-        ${descBlock}
-      </div>
-    </li>
-  `;
-}
-
-/* ──────────────────────────────────────────────────────────────────
-   Leaderboard — top 3 podium + list up to 20
-   ────────────────────────────────────────────────────────────────── */
-
-/** SVG medal icons — the emoji versions read as "playful" rather than
- *  "grand". These are flat SVGs styled with CSS per rank. */
-const MEDAL_SVGS: Record<number, string> = {
-  1: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/><path d="m10.5 15 1.5 1.5L14 14"/></svg>`,
-  2: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/></svg>`,
-  3: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/></svg>`,
-};
-
-function renderLeaderboard(rows: LeaderboardRow[]) {
-  const container = document.getElementById("leaderboard-content");
-  if (!container) return;
-
-  if (!rows.length) {
-    hideSection("leaderboard");
-    return;
-  }
-
-  // Cap the visible count so the podium has something even on small
-  // chapters, and the list doesn't run forever.
-  const top3 = rows.filter((r) => r.rank <= 3);
-  const rest = rows.filter((r) => r.rank > 3);
-  const maxPoints = Math.max(...rows.map((r) => r.points), 1);
-
-  // Re-order 2, 1, 3 visually for the classic podium shape (center
-  // winner, left runner-up, right third). #1 card is taller to
-  // reinforce the tier visually beyond color alone.
-  const ordered = [2, 1, 3]
-    .map((rank) => top3.find((t) => t.rank === rank))
-    .filter((r): r is LeaderboardRow => Boolean(r));
-
-  const rankLabel: Record<number, string> = { 1: "Gold", 2: "Silver", 3: "Bronze" };
-
-  // Compact badge strip next to each member's name — cap at 4 visible
-  // icons so a prolific winner doesn't blow out the row, with a "+N"
-  // overflow chip. Gives the leaderboard visual variety across members.
-  const renderMemberBadges = (badges?: LeaderboardBadge[]): string => {
-    if (!badges?.length) return "";
-    const MAX = 4;
-    const shown = badges.slice(0, MAX);
-    const overflow = badges.length - shown.length;
-    const chips = shown
-      .map(
-        (b) => `
-        <span class="member-badge" title="${escapeAttr(b.name)}" aria-label="${escapeAttr(b.name)}">
-          ${renderBadgeIcon(b.icon)}
-        </span>
-      `,
-      )
-      .join("");
-    const more =
-      overflow > 0
-        ? `<span class="member-badge member-badge--more" title="${overflow} more" aria-label="${overflow} more">+${overflow}</span>`
-        : "";
-    return `<div class="member-badges" aria-label="earned badges">${chips}${more}</div>`;
-  };
-
-  const podiumHtml = ordered.length
-    ? `
-      <div class="podium">
-        ${ordered
-          .map((r) => {
-            const pctOfMax = Math.round((r.points / maxPoints) * 100);
-            return `
-          <div class="podium-card podium-card--rank-${r.rank}">
-            <div class="podium-card__glow" aria-hidden="true"></div>
-            <div class="podium-card__medal">${MEDAL_SVGS[r.rank] ?? ""}</div>
-            <div class="podium-card__tier">${rankLabel[r.rank]}</div>
-            <div class="podium-card__rank">${r.rank}</div>
-            <div class="podium-card__name">${escapeHtml(r.name)}</div>
-            ${renderMemberBadges(r.badges)}
-            <div class="podium-card__xp">
-              <span class="podium-card__xp-num">${r.points.toLocaleString()}</span>
-              <span class="podium-card__xp-unit">Pts</span>
-            </div>
-            <div class="podium-card__events">${r.events_attended} events</div>
-            <div class="podium-card__bar" aria-hidden="true">
-              <div class="podium-card__bar-fill" style="width:${pctOfMax}%"></div>
-            </div>
-          </div>
-        `;
-          })
-          .join("")}
-      </div>
-    `
-    : "";
-
-  const listHtml = rest.length
-    ? `
-      <div class="leaderboard-list">
-        ${rest
-          .map((r) => {
-            const pctOfMax = Math.round((r.points / maxPoints) * 100);
-            return `
-          <div class="leaderboard-row">
-            <div class="leaderboard-row__rank">#${r.rank}</div>
-            <div class="leaderboard-row__body">
-              <div class="leaderboard-row__name-row">
-                <span class="leaderboard-row__name">${escapeHtml(r.name)}</span>
-                ${renderMemberBadges(r.badges)}
-              </div>
-              <div class="leaderboard-row__bar" aria-hidden="true">
-                <div class="leaderboard-row__bar-fill" style="width:${pctOfMax}%"></div>
-              </div>
-              <div class="leaderboard-row__meta">${r.events_attended} events</div>
-            </div>
-            <div class="leaderboard-row__points">
-              ${r.points.toLocaleString()}<span class="leaderboard-row__points-unit">Pts</span>
-            </div>
-          </div>
-        `;
-          })
-          .join("")}
-      </div>
-    `
-    : "";
-
-  container.innerHTML = podiumHtml + listHtml;
-}
-
-/* ──────────────────────────────────────────────────────────────────
-   Badges
-   ────────────────────────────────────────────────────────────────── */
-
-const BUILT_IN_ICONS: Record<string, string> = {
-  trophy:
-    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>',
-  star:
-    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
-  award:
-    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>',
-  medal:
-    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><circle cx="12" cy="17" r="5"/></svg>',
-  lightning:
-    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
-};
-
-function renderBadgeIcon(icon: string): string {
-  const key = (icon ?? "").trim();
-  if (
-    key.startsWith("http://") ||
-    key.startsWith("https://") ||
-    key.startsWith("data:image/")
-  ) {
-    return `<img src="${escapeAttr(key)}" alt="" />`;
-  }
-  return BUILT_IN_ICONS[key] ?? BUILT_IN_ICONS.trophy;
-}
-
-function renderBadges(badges: BadgeRow[]) {
-  const grid = document.getElementById("badges-grid");
-  if (!grid) return;
-
-  if (!badges.length) {
-    hideSection("badges");
-    return;
-  }
-
-  const sorted = [...badges].sort((a, b) => b.award_count - a.award_count);
-
-  grid.innerHTML = sorted
+  strip.innerHTML = entries
     .map(
-      (b) => `
-    <div class="badge-card" role="listitem">
-      <div class="badge-card__icon">${renderBadgeIcon(b.icon)}</div>
-      <div class="badge-card__body">
-        <div class="badge-card__name">${escapeHtml(b.name)}</div>
-        ${
-          b.description
-            ? `<p class="badge-card__desc">${escapeHtml(b.description)}</p>`
-            : ""
-        }
-        <div class="badge-card__count">${b.award_count} earned</div>
-      </div>
-    </div>
-  `,
+      (s) => `
+      <div class="hero__stat">
+        <span class="hero__stat-num">${escapeHtml(formatCount(s.n))}</span>
+        <span class="hero__stat-label">${escapeHtml(s.n === 1 ? s.one : s.many)}</span>
+      </div>`,
     )
     .join("");
-}
 
-/* ──────────────────────────────────────────────────────────────────
-   Merch
-   ────────────────────────────────────────────────────────────────── */
-
-function renderMerch(items: MerchRow[]) {
-  const grid = document.getElementById("merch-grid");
-  if (!grid) return;
-
-  if (!items.length) {
-    hideSection("merch");
-    return;
-  }
-
-  const packageIcon = `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M16.5 9.4 7.55 4.24"/>
-    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
-    <line x1="12" y1="22.08" x2="12" y2="12"/>
-  </svg>`;
-
-  grid.innerHTML = items
-    .map((m) => {
-      // Prefer the ordered `images` gallery; fall back to the legacy
-      // single `image_url` for older bundles. Drop anything non-string
-      // or blank so a bad entry can't render an empty <img>.
-      const imgs = (m.images && m.images.length
-        ? m.images
-        : m.image_url
-          ? [m.image_url]
-          : []
-      ).filter((u) => typeof u === "string" && u.trim().length > 0);
-
-      const name = escapeHtml(m.name);
-      let photo: string;
-      if (imgs.length > 1) {
-        // Gallery: a primary image plus a thumbnail strip. Clicking a
-        // thumb swaps the primary (wired via delegation below).
-        const thumbs = imgs
-          .map(
-            (u, i) => `
-            <button type="button" class="merch-card__thumb${i === 0 ? " is-active" : ""}"
-              data-merch-thumb data-src="${escapeAttr(u)}"
-              aria-label="Show photo ${i + 1} of ${imgs.length}" aria-pressed="${i === 0}">
-              <img src="${escapeAttr(u)}" alt="" loading="lazy" />
-            </button>`,
-          )
-          .join("");
-        photo = `
-          <div class="merch-card__photo" data-merch-gallery>
-            <img class="merch-card__photo-main" data-merch-main src="${escapeAttr(imgs[0])}" alt="${name}" />
-          </div>
-          <div class="merch-card__thumbs" role="group" aria-label="${name} photos">${thumbs}</div>`;
-      } else if (imgs.length === 1) {
-        photo = `<div class="merch-card__photo"><img src="${escapeAttr(imgs[0])}" alt="${name}" loading="lazy" /></div>`;
-      } else {
-        photo = `<div class="merch-card__photo"><div class="merch-card__photo-placeholder">${packageIcon}</div></div>`;
-      }
-
-      // Cost display rule (identical everywhere): a non-empty chapter
-      // `cost_text` overrides the default "{cost_points} points". Never
-      // show both. cost_text is chapter-authored → escape it.
-      const cost =
-        m.cost_text && m.cost_text.trim()
-          ? escapeHtml(m.cost_text.trim())
-          : `${m.cost_points.toLocaleString()} points`;
-
-      const stockLine =
-        m.stock === null
-          ? "Unlimited stock"
-          : m.stock === 0
-            ? "Out of stock"
-            : `${m.stock} left`;
-      const stockClass = m.stock === 0 ? " merch-card__stock--empty" : "";
-      return `
-      <div class="merch-card" role="listitem">
-        ${photo}
-        <div class="merch-card__body">
-          <div class="merch-card__header">
-            <div class="merch-card__name">${name}</div>
-            <div class="merch-card__cost">${cost}</div>
-          </div>
-          ${
-            m.description
-              ? `<p class="merch-card__desc">${escapeHtml(m.description)}</p>`
-              : ""
-          }
-          <div class="merch-card__stock${stockClass}">${stockLine}</div>
-        </div>
-      </div>
-    `;
-    })
-    .join("");
-
-  // Thumbnail swap — one delegated listener on the grid handles every
-  // card's strip, matching the modal's delegation style.
-  grid.addEventListener("click", (e) => {
-    const thumb = (e.target as HTMLElement | null)?.closest<HTMLButtonElement>(
-      "[data-merch-thumb]",
-    );
-    if (!thumb) return;
-    const card = thumb.closest(".merch-card");
-    const main = card?.querySelector<HTMLImageElement>("[data-merch-main]");
-    const src = thumb.getAttribute("data-src");
-    if (!main || !src) return;
-    main.src = src;
-    card
-      ?.querySelectorAll<HTMLButtonElement>("[data-merch-thumb]")
-      .forEach((t) => {
-        const active = t === thumb;
-        t.classList.toggle("is-active", active);
-        t.setAttribute("aria-pressed", String(active));
-      });
-  });
-}
-
-/* ──────────────────────────────────────────────────────────────────
-   Officers
-   ────────────────────────────────────────────────────────────────── */
-
-/* ──────────────────────────────────────────────────────────────────
-   Projects — chapter-editable showcase
-   ────────────────────────────────────────────────────────────────── */
-
-function renderProjects(projects: ProjectRow[]) {
-  const grid = document.getElementById("projects-grid");
-  if (!grid) return;
-
-  if (!projects.length) {
-    // Same auto-hide pattern as the other data-driven sections — no
-    // data → the whole Projects tab disappears from the nav.
-    hideSection("projects");
-    return;
-  }
-
-  const packageIcon = `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09Z"/>
-    <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2Z"/>
-    <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/>
-    <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
-  </svg>`;
-
-  const externalIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-    <polyline points="15 3 21 3 21 9"/>
-    <line x1="10" y1="14" x2="21" y2="3"/>
-  </svg>`;
-
-  const calendarIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-    <line x1="16" y1="2" x2="16" y2="6"/>
-    <line x1="8" y1="2" x2="8" y2="6"/>
-    <line x1="3" y1="10" x2="21" y2="10"/>
-  </svg>`;
-
-  // Inline kind icons — small enough to read in a list, distinct
-  // enough that "paper" and "slides" don't blur together at a glance.
-  function fileKindIcon(kind: ProjectFileRow["kind"]): string {
-    switch (kind) {
-      case "paper":
-        return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>`;
-      case "slides":
-        return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2" ry="2"/><line x1="8" y1="22" x2="16" y2="22"/><line x1="12" y1="18" x2="12" y2="22"/></svg>`;
-      case "video":
-        return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>`;
-      case "image":
-        return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
-      case "link":
-        return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
-      default:
-        return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
-    }
-  }
-
-  function fileKindLabel(kind: ProjectFileRow["kind"]): string {
-    switch (kind) {
-      case "paper":
-        return "Paper";
-      case "slides":
-        return "Slides";
-      case "video":
-        return "Video";
-      case "image":
-        return "Image";
-      case "link":
-        return "Link";
-      default:
-        return "File";
-    }
-  }
-
-  grid.innerHTML = projects
-    .map((p) => {
-      const photo = p.image_url
-        ? `<img src="${escapeAttr(p.image_url)}" alt="" loading="lazy" />`
-        : `<div class="project-card__photo-placeholder">${packageIcon}</div>`;
-      const year = p.year
-        ? `<span class="project-card__year">${escapeHtml(p.year)}</span>`
-        : "";
-
-      const files = p.files ?? [];
-      const hasFiles = files.length > 0;
-      const hasEvent = !!p.event;
-
-      // When the card carries files or an event chip we drop the
-      // anchor-wrap pattern (which would swallow the file links) and
-      // turn link_url into a discrete button at the bottom. Plain
-      // single-link cards keep the click-anywhere UX.
-      const useFullCardLink = !hasFiles && !hasEvent && !!p.link_url;
-      const linkWrap = useFullCardLink
-        ? `<a class="project-card" href="${escapeAttr(p.link_url!)}" target="_blank" rel="noopener noreferrer" role="listitem">`
-        : `<div class="project-card${hasFiles || hasEvent ? " project-card--rich" : ""}" role="listitem">`;
-      const linkClose = useFullCardLink ? `</a>` : `</div>`;
-
-      const eventChip = hasEvent
-        ? `<span class="project-card__chip project-card__chip--event" title="${escapeAttr(p.event!.title)}">${calendarIcon}<span class="project-card__chip-text">From ${escapeHtml(p.event!.title)}</span></span>`
-        : "";
-
-      const filesList = hasFiles
-        ? `<ul class="project-card__files" aria-label="Project attachments">
-            ${files
-              .map(
-                (f) => `
-                  <li class="project-card__file">
-                    <a class="project-card__file-link" href="${escapeAttr(f.url)}" target="_blank" rel="noopener noreferrer">
-                      <span class="project-card__file-icon" aria-hidden="true">${fileKindIcon(f.kind)}</span>
-                      <span class="project-card__file-meta">
-                        <span class="project-card__file-title">${escapeHtml(f.title)}</span>
-                        <span class="project-card__file-kind">${escapeHtml(fileKindLabel(f.kind))}</span>
-                      </span>
-                      <span class="project-card__file-go" aria-hidden="true">${externalIcon}</span>
-                    </a>
-                  </li>`,
-              )
-              .join("")}
-          </ul>`
-        : "";
-
-      // Standalone "view" button for rich cards. Plain cards rely on
-      // the surrounding anchor-wrap (useFullCardLink branch above).
-      const linkButton = useFullCardLink
-        ? `<span class="project-card__link">${externalIcon} View</span>`
-        : p.link_url
-          ? `<a class="project-card__view" href="${escapeAttr(p.link_url)}" target="_blank" rel="noopener noreferrer">${externalIcon}<span>View project</span></a>`
-          : "";
-
-      return `
-        ${linkWrap}
-          <div class="project-card__photo">
-            ${photo}
-            ${year}
-          </div>
-          <div class="project-card__body">
-            <h3 class="project-card__title">${escapeHtml(p.title)}</h3>
-            ${
-              p.description
-                ? `<p class="project-card__desc">${escapeHtml(p.description)}</p>`
-                : ""
-            }
-            ${eventChip}
-            ${filesList}
-            ${linkButton}
-          </div>
-        ${linkClose}
-      `;
-    })
-    .join("");
-}
-
-/* ── Socials — latest public posts from the club's linked accounts ──
-   Fed by the bundle's social_feeds (synced from the dashboard via
-   Apify). Self-hides until at least one platform has synced posts. */
-function renderSocialFeed(feeds: Record<string, SocialFeed> | undefined) {
-  const grid = document.getElementById("socials-grid");
-  const section = document.getElementById("socials");
-  if (!grid || !section) return;
-
-  type TaggedPost = SocialPost & { platform: string };
-  const posts: TaggedPost[] = [];
-  for (const [platform, feed] of Object.entries(feeds ?? {})) {
-    for (const p of feed?.posts ?? []) {
-      posts.push({ ...p, platform });
-    }
-  }
-  if (posts.length === 0) {
-    section.remove();
-    return;
-  }
-
-  // Newest first across platforms; undated posts sink to the end.
-  posts.sort((a, b) => {
-    const ta = a.posted_at ? new Date(a.posted_at).getTime() : 0;
-    const tb = b.posted_at ? new Date(b.posted_at).getTime() : 0;
-    return tb - ta;
-  });
-
-  const platformLabel = (p: string) =>
-    p === "linkedin" ? "LinkedIn" : p === "instagram" ? "Instagram" : p;
-
-  grid.innerHTML = posts
-    .slice(0, 9)
-    .map((p) => {
-      const img =
-        p.image_url && safeHttpUrl(p.image_url)
-          ? `<div class="social-card__media"><img src="${escapeAttr(safeHttpUrl(p.image_url) ?? "")}" alt="" loading="lazy" /></div>`
-          : "";
-      const text = p.content
-        ? escapeHtml(
-            p.content.length > 220 ? `${p.content.slice(0, 220)}…` : p.content,
-          )
-        : "";
-      const date = p.posted_at
-        ? new Date(p.posted_at).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-          })
-        : "";
-      const postHref = p.url ? safeHttpUrl(p.url) : null;
-      const link = postHref
-        ? `<a class="social-card__link" href="${escapeAttr(postHref)}" target="_blank" rel="noopener noreferrer">View on ${platformLabel(p.platform)} →</a>`
-        : `<span class="social-card__link">${platformLabel(p.platform)}</span>`;
-      return `
-      <article class="social-card" role="listitem">
-        ${img}
-        <div class="social-card__body">
-          <div class="social-card__meta">
-            <span class="social-card__platform social-card__platform--${escapeAttr(p.platform)}">${platformLabel(p.platform)}</span>
-            ${date ? `<span>${date}</span>` : ""}
-            ${p.likes ? `<span>♥ ${p.likes}</span>` : ""}
-          </div>
-          ${text ? `<p class="social-card__text">${text}</p>` : ""}
-          ${link}
-        </div>
-      </article>`;
-    })
-    .join("");
-}
-
-function officerInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+  for (const s of entries) shown.add(s.key);
+  return shown;
 }
 
 /**
- * Only http(s) URLs are safe to place in an href. Officer LinkedIn URLs
- * are admin-entered and stored raw, so a `javascript:` value would be a
- * clickable XSS sink on the public page — scheme-validate before render.
+ * The term line, under the CTAs. `Fall 2026 · 3 events this term ·
+ * Next: Oct 8` — and on a chapter that has run nothing, `Fall 2026`
+ * alone. Every clause is the chapter's own data and any clause that
+ * would count zero was already dropped upstream (lib/season.ts).
+ *
+ * `.term-line:empty` collapses it, so a chapter whose clock is somehow
+ * unreadable loses the line rather than printing a fragment.
  */
+function renderTermLine(events: EventRow[]) {
+  const line = document.getElementById("term-line");
+  if (!line) return;
+  const parts = termLineParts(events, nextEvent(events));
+  // The separator travels INSIDE the clause it introduces. The line
+  // wraps at 375px, and a separator that is its own flex item wraps on
+  // its own — leaving a "·" dangling at the end of the first line,
+  // which reads as a typo rather than as punctuation.
+  line.innerHTML = parts
+    .map((part, i) => {
+      // The first clause is the term itself and is the only one set in
+      // the page's own voice; the rest are counts and dates.
+      const cls = i === 0 ? "term-line__name" : "term-line__n";
+      const sep = i === 0 ? "" : `<span class="term-line__sep" aria-hidden="true">·</span> `;
+      return `<span class="${cls}">${sep}${escapeHtml(part)}</span>`;
+    })
+    .join("");
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Sections
+   ────────────────────────────────────────────────────────────────── */
+
+/** Remove a section. Used by the data-driven renderers below when the
+ *  API returns no rows — empty "no events yet" cards on a public site
+ *  read as broken, better to hide the section entirely and surface the
+ *  warning on the dashboard.
+ *
+ *  `page` scopes the removal to one destination. The landing page
+ *  carries a window onto several destinations, so two elements can share
+ *  a data-section value: the home band and the full view. Passing a page
+ *  removes one of them and leaves the other. Passing nothing removes
+ *  every instance, which is what an officer switching a section off in
+ *  Customize means — see applySectionToggles, which is deliberately
+ *  never scoped. */
+function hideSection(sectionKey: string, page?: string) {
+  const selector = page
+    ? `[data-page="${page}"][data-section="${sectionKey}"]`
+    : `[data-section="${sectionKey}"]`;
+  document.querySelectorAll(selector).forEach((el) => el.remove());
+}
+
+/**
+ * Remove every destination section the chapter has no data for, BEFORE
+ * pagesWithContent() reads the DOM.
+ *
+ * This has to live here rather than inside the views. A view mounts on
+ * first entry to its tab, and the tab is decided by pagesWithContent()
+ * at boot — so a view that removes its own empty section removes it
+ * after the nav already grew a tab that leads to nothing. The views
+ * still prune themselves (they are each other's only defence against a
+ * bundle that changed under them); this makes the nav honest.
+ *
+ * Only destination instances are named. Home's bands decide for
+ * themselves, because a home band can have an empty state worth
+ * showing — "Points start showing up here once members check in" — and
+ * a destination cannot.
+ */
+function pruneEmptySections(bundle: ChapterBundle | null) {
+  const events = bundle?.events ?? [];
+  const projects = bundle?.projects ?? [];
+  const officers = bundle?.config?.officers ?? [];
+  const badges = bundle?.badges ?? [];
+  const merch = bundle?.merch ?? [];
+  const about = (bundle?.config?.about ?? "").trim();
+  // A member on zero points is not a standing — see scoredRows. ML@IIT
+  // ships 20 rows of 0 against 100 members, which ranked is twenty tied
+  // firsts each printing a zero beside a real student's name.
+  const scored = scoredRows(bundle?.leaderboard ?? []).length;
+
+  // Events and projects have no empty state anywhere: a chapter with
+  // none of either simply has no band and no tab.
+  if (!events.length) hideSection("events");
+  if (!projects.length) hideSection("projects");
+
+  if (!officers.length) hideSection("officers");
+  if (!about) hideSection("about", "officers");
+  if (!scored) hideSection("leaderboard", "members");
+  // The badges section carries the three points-explainer cards as well
+  // as the wall, and the explainer earns its place whenever there are
+  // points OR badges to explain.
+  if (!badges.length && !scored) hideSection("badges", "members");
+  if (!merch.length) hideSection("merch", "members");
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   THE LANDING PAGE
+
+   A front door: who this is, what is next, and a sample of each room
+   behind the nav. Every sample is rendered by the destination's own
+   renderer — renderFeatureCard, renderEventRow, renderProjectCard,
+   renderBoardRow, renderStartHereBand — so the sample and the room can
+   never disagree about what an event or a tie looks like.
+   ────────────────────────────────────────────────────────────────── */
+
+/** Home bands sample three rows / three cards / five names. More than
+ *  that is not a sample, it is the destination rendered twice. */
+const BAND_ROWS = 3;
+const BAND_STANDINGS = 5;
+const STRIP_OFFICERS = 6;
+
+/** The band head: a quiet title on the left, a way into the room on the
+ *  right. No .section__kicker anywhere on this page — six uppercase
+ *  eyebrows at even intervals down one page is the drumbeat. */
+function bandHead(title: string, link: { label: string; href: string }): string {
+  return `
+    <div class="band-head rv">
+      <h2 class="band-head__title">${escapeHtml(title)}</h2>
+      <a class="band-head__link" href="${escapeAttr(link.href)}">${escapeHtml(link.label)} <span aria-hidden="true">→</span></a>
+    </div>`;
+}
+
+/** Fill a band's interior, or remove the band. A band that renders its
+ *  head and then nothing is the empty grid this pass exists to kill. */
+function fillBand(id: string, inner: string): HTMLElement | null {
+  const band = document.getElementById(id);
+  if (!band) return null;
+  if (!inner) {
+    band.remove();
+    return null;
+  }
+  band.innerHTML = `<div class="section__inner">${inner}</div>`;
+  return band;
+}
+
+/* ── 2 — The doors ────────────────────────────────────────────────── */
+
+interface Door {
+  key: string;
+  name: string;
+  href: string;
+  n: number;
+  /** Singular / plural unit, plus any " since 2023" suffix. */
+  unit: string;
+  /** One live line out of the bundle — a real title or a real name. */
+  line: string;
+}
+
+/** The year this chapter's record starts, when the record is long
+ *  enough for a start to mean anything. Under twelve months, "since
+ *  2026" on a chapter founded in March says nothing. */
+function sinceYear(events: EventRow[]): number | null {
+  if (!events.length) return null;
+  const times = events.map((e) => new Date(e.date).getTime()).filter(Number.isFinite);
+  if (!times.length) return null;
+  const first = Math.min(...times);
+  const span = Math.max(...times) - first;
+  const TWELVE_MONTHS = 365 * 24 * 60 * 60 * 1000;
+  return span < TWELVE_MONTHS ? null : new Date(first).getFullYear();
+}
+
+function renderDoor(d: Door, heroPrinted: Set<string>): string {
+  // Law 2: never headline a one. ROAR's Events door reads
+  // "Events / Welcome Back Wednesday · Sep 2 →", never a giant 1.
+  //
+  // And never twice: the stat strip sits ~150px above this row, so on
+  // MSOE the hero said "59 Events · 41 Projects" and the doors said
+  // "59 events since 2023" and "41 projects" in the same glance. The
+  // strip owns the integers it prints; a door that would repeat one
+  // keeps its name and its live line, which is the more useful half
+  // of the card anyway.
+  const count =
+    d.n >= 2 && !heroPrinted.has(d.key)
+      ? `<div><span class="door__n">${escapeHtml(formatCount(d.n))}</span><span class="door__unit">${escapeHtml(d.unit)}</span></div>`
+      : "";
+  return `
+    <a class="door" href="${escapeAttr(d.href)}" role="listitem">
+      <div class="door__name">${escapeHtml(d.name)}</div>
+      ${count}
+      ${d.line ? `<div class="door__line">${escapeHtml(d.line)}</div>` : ""}
+    </a>`;
+}
+
+/**
+ * Four cards carrying the club's own integers, each a way into a room.
+ * Returns the set of destination keys that printed a numeral, so the
+ * band heads below do not print the same integer again a hundred pixels
+ * further down the same screen.
+ *
+ * A door whose destination is not in `pages` does not render, and fewer
+ * than two doors omits the strip — one door is a link, not a choice.
+ * Members is deliberately not a door: the standings band IS the door to
+ * it, and five doors on a 375px phone is two rows of squint.
+ */
+function renderDoors(
+  bundle: ChapterBundle,
+  pages: Page[],
+  lessons: { count: number; first: string },
+  heroPrinted: Set<string>,
+): Set<string> {
+  const printed = new Set<string>();
+  const grid = document.getElementById("doors-grid");
+  const band = document.getElementById("doors-band");
+  if (!grid || !band) return printed;
+
+  const live = new Set(pages.map((p) => p.key));
+  const events = bundle.events ?? [];
+  const projects = bundle.projects ?? [];
+  const officers = bundle.config?.officers ?? [];
+  const doors: Door[] = [];
+
+  if (live.has("events") && events.length) {
+    const lead = nextEvent(events) ?? latestPastEvent(events);
+    const year = sinceYear(events);
+    doors.push({
+      key: "events",
+      name: "Events",
+      href: "#events",
+      n: events.length,
+      // A non-breaking space before the year: at 150px the unit wraps,
+      // and "59 events since / 2023" is a worse break than "59 events /
+      // since 2023".
+      unit: events.length === 1 ? "event" : `events${year ? ` since ${year}` : ""}`,
+      line: lead ? lead.title : "",
+    });
+  }
+
+  if (live.has("projects") && projects.length) {
+    doors.push({
+      key: "projects",
+      name: "Projects",
+      href: "#projects",
+      n: projects.length,
+      unit: projects.length === 1 ? "project" : "projects",
+      line: projects[0]?.title ?? "",
+    });
+  }
+
+  if (live.has("officers") && officers.length) {
+    const lead = officers[0];
+    const role = (lead?.role ?? "").trim();
+    doors.push({
+      key: "officers",
+      name: "Officers",
+      href: "#officers",
+      n: officers.length,
+      unit: officers.length === 1 ? "officer" : "officers",
+      // An empty role renders nothing rather than a dangling comma:
+      // ROAR's one officer has role: "".
+      line: lead ? (role ? `${lead.name}, ${role}` : lead.name) : "",
+    });
+  }
+
+  if (live.has("learn") && lessons.count) {
+    doors.push({
+      key: "learn",
+      name: "Learn",
+      href: "#learn",
+      n: lessons.count,
+      unit: lessons.count === 1 ? "lesson" : "lessons",
+      line: lessons.first,
+    });
+  }
+
+  if (doors.length < 2) {
+    band.remove();
+    return printed;
+  }
+
+  grid.innerHTML = doors.map((d) => renderDoor(d, heroPrinted)).join("");
+  for (const d of doors) if (d.n >= 2) printed.add(d.key);
+  return printed;
+}
+
+/* ── 3 — What's on ───────────────────────────────────────────────── */
+
+function renderEventsBand(bundle: ChapterBundle, printed: Set<string>) {
+  const events = bundle.events ?? [];
+  if (!events.length) return;
+
+  const byId = new Map(events.map((e) => [e.id, e]));
+  // The first future event, or the most recent past one labelled for
+  // what it is. A chapter with nothing scheduled still has something to
+  // show; it just does not pretend the date is ahead.
+  const next = nextEvent(events);
+  const feature = next ?? latestPastEvent(events);
+  if (!feature) return;
+
+  // No object appears twice in one screen: whatever is in the feature
+  // slot is skipped in the rows under it.
+  const rows = pastEventsDescending(events)
+    .filter((e) => e.id !== feature.id)
+    .slice(0, BAND_ROWS);
+
+  // The hero strip or the door above already printed "59 events".
+  // Printing it again in
+  // the link a hundred pixels below is the same integer twice on one
+  // screen, so the number is dropped where the door carried it.
+  const link =
+    events.length >= 2
+      ? { label: printed.has("events") ? "All events" : `All ${plural(events.length, "event")}`, href: "#events" }
+      : { label: "Open the archive", href: "#events" };
+
+  fillBand(
+    "band-events",
+    bandHead("What's on", link) +
+      `<div class="rv">${renderFeatureCard(feature, byId, { pastLabel: !next })}</div>` +
+      (rows.length
+        ? `<div class="band-rows">${rows.map((e) => renderEventRow(e, window.location.pathname)).join("")}</div>`
+        : ""),
+  );
+}
+
+/* ── 4 — The people ──────────────────────────────────────────────── */
+
+function renderOfficerChip(o: Officer): string {
+  const avatar = o.image_url
+    ? `<img src="${escapeAttr(o.image_url)}" alt="" loading="lazy" />`
+    : escapeHtml(officerInitials(o.name));
+  // A blank role renders no element at all. ROAR's one officer has
+  // role: "", and a grey empty line under a name reads as a bug.
+  const role = (o.role ?? "").trim();
+  return `
+    <a class="officer-chip" href="#officers">
+      <span class="officer-chip__avatar">${avatar}</span>
+      <span class="officer-chip__name">${escapeHtml(o.name)}</span>
+      ${role ? `<span class="officer-chip__role">${escapeHtml(role)}</span>` : ""}
+    </a>`;
+}
+
+/**
+ * Two blocks under one head: the officers' faces, and the top of the
+ * board. They carry their own data-section so `?off=leaderboard` takes
+ * the standings and leaves the strip — which means the head can belong
+ * to either one, and is given to whichever survives first.
+ */
+function renderPeopleBand(bundle: ChapterBundle) {
+  const band = document.getElementById("band-people");
+  const officersEl = document.getElementById("band-officers");
+  const standingsEl = document.getElementById("band-standings");
+  if (!band) return;
+
+  const officers = bundle.config?.officers ?? [];
+  const rows = scoredRows(bundle.leaderboard ?? []);
+  const hasEvents = (bundle.events ?? []).length > 0;
+  let headUsed = false;
+
+  if (officersEl) {
+    if (!officers.length) {
+      officersEl.remove();
+    } else {
+      const shown = officers.slice(0, STRIP_OFFICERS);
+      const rest = officers.length - shown.length;
+      officersEl.innerHTML =
+        bandHead("The people", { label: "Meet the officers", href: "#officers" }) +
+        `<div class="officer-strip">
+           ${shown.map(renderOfficerChip).join("")}
+           ${rest > 0 ? `<a class="officer-chip officer-chip--more" href="#officers">+${rest} more</a>` : ""}
+         </div>`;
+      headUsed = true;
+    }
+  }
+
+  if (standingsEl) {
+    if (rows.length) {
+      const ranked = rankByPoints(rows).slice(0, BAND_STANDINGS);
+      standingsEl.innerHTML =
+        (headUsed ? "" : bandHead("The people", { label: "Full leaderboard", href: "#members" })) +
+        ranked.map(renderBoardRow).join("") +
+        // Law 3: a link says there is more only when there is more.
+        (rows.length > BAND_STANDINGS
+          ? `<a class="band-head__link band-head__link--under" href="#members">Full leaderboard <span aria-hidden="true">→</span></a>`
+          : "");
+    } else if (hasEvents) {
+      // An empty state that names the fix, and the fix is true for a
+      // visitor to read. Without events there is nothing to check into,
+      // so the block is removed instead — an empty board on a chapter
+      // with no events is an accusation.
+      standingsEl.innerHTML =
+        (headUsed ? "" : bandHead("The people", { label: "Meet the officers", href: "#officers" })) +
+        `<p class="note">Points start showing up here once members check in at an event.</p>`;
+    } else {
+      standingsEl.remove();
+    }
+  }
+
+  if (!band.querySelector(".band-head")) band.remove();
+}
+
+/* ── 5 — What we've built ────────────────────────────────────────── */
+
+function renderProjectsBand(bundle: ChapterBundle, printed: Set<string>) {
+  const projects = bundle.projects ?? [];
+  // No empty state and no "coming soon": a club with no projects simply
+  // has no projects band on its front page.
+  if (!projects.length) return;
+
+  // The newest year group, in bundle order — which is the order
+  // officers arranged them in. deriveYearFilters already knows how to
+  // sort a free-text year field and which strings it cannot parse.
+  const newest = deriveYearFilters(projects)[0]?.year ?? null;
+  const pool = newest ? projects.filter((p) => (p.year ?? "").trim() === newest) : projects;
+  const shown = (pool.length ? pool : projects).slice(0, BAND_ROWS);
+
+  const link =
+    projects.length >= 2
+      ? {
+          label: printed.has("projects") ? "All projects" : `All ${plural(projects.length, "project")}`,
+          href: "#projects",
+        }
+      : { label: "See the project", href: "#projects" };
+
+  fillBand(
+    "band-projects",
+    bandHead("What we've built", link) +
+      `<div class="projects-grid rv-group" role="list">
+         ${shown.map((p) => renderProjectCard(p, window.location.pathname)).join("")}
+       </div>`,
+  );
+}
+
 /**
  * CTA hrefs come from chapter officers. Anchors, mailto: and tel: are
  * legitimate button targets; anything else has to parse as http(s).
@@ -2092,77 +1382,6 @@ function safeCtaHref(raw: string): string | null {
   if (h.startsWith("#")) return h;
   if (/^(mailto|tel):[^\s<>"']+$/i.test(h)) return h;
   return safeHttpUrl(h);
-}
-
-function safeHttpUrl(raw: string): string | null {
-  try {
-    const u = new URL(raw.trim());
-    return u.protocol === "http:" || u.protocol === "https:" ? u.href : null;
-  } catch {
-    return null;
-  }
-}
-
-function renderOfficers(officers: Officer[], hasRemote: boolean) {
-  const grid = document.getElementById("officers-grid");
-  if (!grid) return;
-
-  // When the dashboard bundle loaded, its roster is authoritative — an
-  // empty roster means "hide the Team section," NOT "show the template's
-  // placeholders." Only fall back to the bundled local officers when
-  // there was no remote at all (a fresh fork or an offline preview).
-  const list =
-    officers.length > 0
-      ? officers
-      : hasRemote
-        ? []
-        : (config.officers ?? []).map((o) => ({
-            name: o.name,
-            role: o.role,
-            image_url: o.image || null,
-            linkedin: null,
-            email: null,
-          }));
-
-  if (!list.length) {
-    // No officers anywhere — remove the section entirely.
-    const section = document.getElementById("officers");
-    section?.remove();
-    document
-      .querySelector('.nav__link[data-nav-for="officers"]')
-      ?.remove();
-    return;
-  }
-
-  const linkedinIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM8.34 18.34V9.67H5.67v8.67zM7 8.5a1.54 1.54 0 1 0 0-3.08 1.54 1.54 0 0 0 0 3.08zm11.34 9.84v-4.75c0-2.53-1.35-3.7-3.15-3.7-1.45 0-2.1.8-2.47 1.37V9.67h-2.68s.03.76 0 8.67h2.68v-4.84c0-.24.02-.48.09-.65.18-.48.62-.98 1.35-.98.96 0 1.34.73 1.34 1.8v4.67z"/></svg>`;
-  const emailIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>`;
-
-  grid.innerHTML = list
-    .map((o) => {
-      const avatar = o.image_url
-        ? `<img src="${escapeAttr(o.image_url)}" alt="" />`
-        : officerInitials(o.name);
-      const linkedinUrl = o.linkedin ? safeHttpUrl(o.linkedin) : null;
-      const linkedin = linkedinUrl
-        ? `<a class="officer-card__linkedin" href="${escapeAttr(linkedinUrl)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttr(o.name)} on LinkedIn">${linkedinIcon}</a>`
-        : "";
-      const email = o.email
-        ? `<a class="officer-card__email" href="mailto:${escapeAttr(o.email)}" aria-label="Email ${escapeAttr(o.name)}">${emailIcon}</a>`
-        : "";
-      const links =
-        linkedin || email
-          ? `<div class="officer-card__links">${linkedin}${email}</div>`
-          : "";
-      return `
-      <div class="officer-card" role="listitem">
-        <div class="officer-card__avatar">${avatar}</div>
-        <div class="officer-card__name">${escapeHtml(o.name)}</div>
-        <div class="officer-card__role">${escapeHtml(o.role ?? "")}</div>
-        ${links}
-      </div>
-    `;
-    })
-    .join("");
 }
 
 /* ──────────────────────────────────────────────────────────────────
@@ -2218,17 +1437,6 @@ function renderSocials(links: Record<string, string>) {
 /* ──────────────────────────────────────────────────────────────────
    Learning / Workshops / Playbooks — CDN content
    ────────────────────────────────────────────────────────────────── */
-
-async function fetchJSON<T>(url: string): Promise<T | null> {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`${res.status}`);
-    return await res.json();
-  } catch (e) {
-    console.warn(`Failed to fetch ${url}:`, e);
-    return null;
-  }
-}
 
 function isLocalPath(path: string): boolean {
   return path.startsWith("local/");
@@ -2318,22 +1526,6 @@ function getLocalContentForSection(
   return (
     config.content?.local_content?.filter((lc) => lc.section === section) ?? []
   );
-}
-
-/** Render the shared empty-state card inside a grid. */
-function renderGridEmpty(
-  gridId: string,
-  title: string,
-  desc: string,
-): void {
-  const grid = document.getElementById(gridId);
-  if (!grid) return;
-  grid.innerHTML = `
-    <div class="empty-state" style="grid-column:1/-1">
-      <div class="empty-state__title">${escapeHtml(title)}</div>
-      <div class="empty-state__desc">${escapeHtml(desc)}</div>
-    </div>
-  `;
 }
 
 /**
@@ -2500,8 +1692,6 @@ interface NetworkNode {
   r: number;
   /** "primary" or "accent" — which theme color this node uses. */
   tone: "primary" | "accent";
-  /** Stagger animation phase so the whole mesh doesn't pulse in sync. */
-  delay: number;
 }
 
 function renderHeroNetwork() {
@@ -2510,6 +1700,23 @@ function renderHeroNetwork() {
 
   const VB_W = 1200;
   const VB_H = 500;
+
+  /* The mesh is generated rather than authored so no two sessions look
+     identical and no chapter's site ships a pattern baked into the
+     markup — but ?still=1 has to be reproducible, and a capture that
+     differs between two loads of the same URL is not a capture anyone
+     can compare against. In capture mode the source is a fixed seed
+     instead of Math.random, which makes the mesh a deterministic
+     function of nothing at all. mulberry32: 4 lines, no dependency. */
+  let seed = 0x5eed_1a11;
+  const rand = captureStill
+    ? () => {
+        seed = (seed + 0x6d2b79f5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      }
+    : Math.random;
 
   // A rough hex-ish grid of node slots. We jitter each slot a bit
   // and then drop ~25% randomly so the mesh doesn't look machine-
@@ -2523,8 +1730,8 @@ function renderHeroNetwork() {
   const nodes: NetworkNode[] = [];
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
-      const jitterX = (Math.random() - 0.5) * cellW * 0.4;
-      const jitterY = (Math.random() - 0.5) * cellH * 0.35;
+      const jitterX = (rand() - 0.5) * cellW * 0.4;
+      const jitterY = (rand() - 0.5) * cellH * 0.35;
       const x = c * cellW + jitterX;
       const y = r * cellH + jitterY;
 
@@ -2538,14 +1745,13 @@ function renderHeroNetwork() {
 
       // Probability of keeping the node increases toward the edges.
       const keepChance = 0.4 + centerDist * 0.6;
-      if (Math.random() > keepChance) continue;
+      if (rand() > keepChance) continue;
 
       nodes.push({
         x,
         y,
-        r: 2.5 + Math.random() * 2.5,
-        tone: Math.random() < 0.55 ? "primary" : "accent",
-        delay: Math.random() * 4,
+        r: 2.5 + rand() * 2.5,
+        tone: rand() < 0.55 ? "primary" : "accent",
       });
     }
   }
@@ -2554,7 +1760,7 @@ function renderHeroNetwork() {
   // ~1.5 cells away. Dedupe so (a→b) and (b→a) aren't both drawn.
   const maxEdgeDist = Math.sqrt(cellW * cellW + cellH * cellH) * 1.5;
   const edgeSet = new Set<string>();
-  const edges: Array<{ a: NetworkNode; b: NetworkNode; delay: number }> = [];
+  const edges: Array<{ a: NetworkNode; b: NetworkNode }> = [];
   for (let i = 0; i < nodes.length; i++) {
     const distances = nodes
       .map((n, j) => ({
@@ -2568,11 +1774,7 @@ function renderHeroNetwork() {
       const key = i < j ? `${i}-${j}` : `${j}-${i}`;
       if (edgeSet.has(key)) continue;
       edgeSet.add(key);
-      edges.push({
-        a: nodes[i],
-        b: nodes[j],
-        delay: Math.random() * 5,
-      });
+      edges.push({ a: nodes[i], b: nodes[j] });
     }
   }
 
@@ -2585,7 +1787,6 @@ function renderHeroNetwork() {
         x1="${e.a.x.toFixed(1)}" y1="${e.a.y.toFixed(1)}"
         x2="${e.b.x.toFixed(1)}" y2="${e.b.y.toFixed(1)}"
         class="hero-net-line"
-        style="animation-delay:${e.delay.toFixed(2)}s"
       />`,
     )
     .join("");
@@ -2596,7 +1797,6 @@ function renderHeroNetwork() {
       <circle
         cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" r="${n.r.toFixed(1)}"
         class="hero-net-node hero-net-node--${n.tone}"
-        style="animation-delay:${n.delay.toFixed(2)}s"
       />`,
     )
     .join("");
@@ -2626,7 +1826,14 @@ function pagesWithContent(sectionsEnabled: Record<string, boolean>): Page[] {
     return p.sections.some((sectionKey) => {
       // Section was toggled off entirely by the dashboard — gone from DOM.
       if (sectionsEnabled[sectionKey] === false) return false;
-      const el = document.querySelector(`[data-section="${sectionKey}"]`);
+      // Scoped to this page, not site-wide. Home carries a window onto
+      // several destinations, so a home band with data-section="projects"
+      // would otherwise keep the Projects TAB alive for a chapter that
+      // has no projects view — the exact broken render the tab-dropping
+      // exists to prevent.
+      const el = document.querySelector(
+        `[data-page="${p.key}"][data-section="${sectionKey}"]`,
+      );
       return el !== null;
     });
   });
@@ -2657,31 +1864,64 @@ const PAGE_HEADER_COPY: Record<
   string,
   { kicker: string; title: string; desc: string }
 > = {
-  learn: {
-    kicker: "Curriculum",
-    title: "Learning tree",
-    desc: "Our full applied-AI skill map. Click any node to expand it; follow the edges to see what comes next.",
+  events: {
+    kicker: "Calendar",
+    title: "Events",
+    desc: "Every event this chapter has run, newest first. Open any one for the schedule and how to take part.",
   },
   projects: {
     kicker: "Our work",
     title: "Projects",
-    desc: "What members have built — Innovation Labs cohorts, hackathon winners, research collaborations.",
+    desc: "What members have built, and who built it.",
   },
-  team: {
-    kicker: "People + recognition",
-    title: "Team",
-    desc: "Meet the eboard and see every badge members have earned.",
+  learn: {
+    kicker: "Curriculum",
+    title: "Learn",
+    desc: "The applied-AI path every chapter in the network teaches.",
   },
-  merch: {
-    kicker: "Rewards shop",
-    title: "Merch",
-    desc: "Earn points at events and recognitions, redeem in person at any meeting.",
+  officers: {
+    kicker: "Leadership",
+    title: "Officers",
+    // {acronym} is filled in by showPage from the live config — an
+    // acronym is the one thing in this map the chapter owns.
+    desc: "Who runs {acronym}, and how to reach us.",
+  },
+  members: {
+    kicker: "Points & recognition",
+    title: "Members",
+    desc: "Points come from event check-ins, projects, and recognitions.",
   },
 };
+
+/** The chapter's acronym, for the one header line that names it.
+ *  Resolved once in init(); "us" is the wording that stays true when a
+ *  fork has no acronym at all. */
+let chapterAcronym = "us";
+
+/** The context every view is handed. Set in init() once the bundle has
+ *  resolved; null when there is no bundle at all (the demo site and a
+ *  preview of a slug the dashboard doesn't know), in which case there is
+ *  no chapter data for a view to render and mounting is skipped. */
+let viewCtx: ViewCtx | null = null;
+
+/** Page keys whose view has already run. A view is mounted at most
+ *  once — it fills markup that then stays filled. */
+const mounted = new Set<string>();
 
 function showPage(pageKey: string, pages: Page[]) {
   const page = pages.find((p) => p.key === pageKey) ?? pages[0];
   if (!page) return;
+
+  // Mount-on-enter. Home renders at init() because it is where a
+  // visitor lands; every other view waits for its tab, so a phone does
+  // not build the 59-row archive, the projects grid and the badge wall
+  // before first paint. activateLearningTree() already worked this way;
+  // this generalises it. Safe to defer because pagesWithContent() reads
+  // the DOM's data-section markup, not whether a renderer has run.
+  if (viewCtx && !mounted.has(page.key)) {
+    mounted.add(page.key);
+    MOUNT[page.key]?.(viewCtx);
+  }
 
   // Learning tree's iframe is loading="lazy" and sits behind this
   // tab, so only start loading it (and its 8s fallback timer) once
@@ -2722,21 +1962,36 @@ function showPage(pageKey: string, pages: Page[]) {
       };
       setText("page-header-kicker", copy.kicker);
       setText("page-header-title", copy.title);
-      setText("page-header-desc", copy.desc);
+      setText("page-header-desc", copy.desc.replace("{acronym}", chapterAcronym));
       header.hidden = false;
     }
   }
 
-  // Don't scroll on initial load (hashchange on boot); scroll only when
-  // the user explicitly clicks a tab.
-  if (document.body.dataset.pageInited === "1") {
+  // Don't scroll on initial load (hashchange on boot), and don't scroll
+  // when only the sub-route moved: choosing a filter chip sets
+  // #events/hackathon, which is the same page and must not jump the
+  // visitor back to the top of a list they were reading.
+  const changed = document.body.dataset.pageShown !== page.key;
+  document.body.dataset.pageShown = page.key;
+  if (document.body.dataset.pageInited === "1" && changed) {
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
   }
 }
 
+/**
+ * The page a hash names, ignoring anything after the first slash.
+ *
+ * `#events/hackathon`, `#projects/2024-2025` and `#learn/python` are
+ * sub-routes — a filtered archive and a curriculum topic, both of which
+ * have to survive a reload and be shareable. Matching the whole hash
+ * against the page keys sent all three to Home.
+ *
+ * An unknown key still falls through to the first page, so `#sponsor`
+ * keeps landing on Home with the modal open.
+ */
 function getValidPageFromHash(pages: Page[]): string {
-  const hash = window.location.hash.replace(/^#/, "").trim();
-  if (pages.some((p) => p.key === hash)) return hash;
+  const key = window.location.hash.replace(/^#/, "").trim().split("/")[0];
+  if (pages.some((p) => p.key === key)) return key;
   return pages[0]?.key ?? "home";
 }
 
@@ -2756,11 +2011,21 @@ function wirePageRouting(pages: Page[]) {
 
 function enableEditOverlays() {
   document.body.classList.add("preview-edit-mode");
+  // One pill per section KEY, not per element. The landing page now
+  // carries a window onto several destinations, so `events`,
+  // `projects`, `officers`, `leaderboard` and `learning_tree` each match
+  // two elements — and an officer looking at Customize would see the
+  // same "Events page" pill twice with no way to tell them apart. First
+  // in document order wins, which is the Home band: the page an officer
+  // is looking at while they edit.
+  const claimed = new Set<string>();
   document.querySelectorAll<HTMLElement>("[data-section]").forEach((section) => {
     const key = section.getAttribute("data-section");
     if (!key) return;
     const info = SECTION_EDIT_INFO[key];
     if (!info) return;
+    if (claimed.has(key)) return;
+    claimed.add(key);
 
     // Position the pill relative to the section.
     if (getComputedStyle(section).position === "static") {
@@ -2815,15 +2080,161 @@ function wireNavToggle() {
 }
 
 /* ──────────────────────────────────────────────────────────────────
-   Utilities
+   Motion
+
+   Five behaviours, and all five settle. Nothing loops, nothing counts,
+   nothing lifts, nothing drifts. Two of them live here:
+
+     2  Band reveal — each .band-head and its first row/card rises once
+        as you reach it. One reveal per band, never per card: staggering
+        41 project cards is a loading screen, not choreography.
+     3  The term rule — the 2px line under the term line, drawn once.
+
+   The rest are CSS: boot assembly (body.is-ready), the Events year
+   spine (views/events.ts owns its observer) and the filter step.
+
+   Every path here checks the settled case FIRST. Under ?still=1, under
+   reduced motion, and in a browser without IntersectionObserver, the
+   end state is applied immediately and no observer is created — so a
+   .rv element can never be left invisible by an observer that never
+   fired, which is the one way this pattern breaks a page.
    ────────────────────────────────────────────────────────────────── */
+
+/** True when this load should show every arrival already arrived. */
+function motionSettled(): boolean {
+  return (
+    captureStill ||
+    typeof IntersectionObserver === "undefined" ||
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true
+  );
+}
+
+let revealObserver: IntersectionObserver | null = null;
+
+/** Observe every .rv / .rv-group that is in the DOM now. Safe to call
+ *  again for content that arrived later — an element already marked
+ *  `in` is skipped, and the observer unobserves on first hit. */
+function initReveal(root: ParentNode = document) {
+  const targets = [...root.querySelectorAll<HTMLElement>(".rv, .rv-group")].filter(
+    (el) => !el.classList.contains("in"),
+  );
+  if (!targets.length) return;
+
+  if (motionSettled()) {
+    targets.forEach((el) => el.classList.add("in"));
+    return;
+  }
+
+  if (!revealObserver) {
+    revealObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          entry.target.classList.add("in");
+          revealObserver?.unobserve(entry.target);
+        }
+      },
+      { threshold: 0.15, rootMargin: "0px 0px -8% 0px" },
+    );
+  }
+  targets.forEach((el) => revealObserver!.observe(el));
+}
+
+/** Motion 3. The rule under the term line draws once, 240 ms after the
+ *  page has settled. Under ?still=1 and reduced motion the stylesheet
+ *  has already drawn it, so nothing is scheduled at all. */
+function drawTermRule() {
+  const line = document.getElementById("term-line");
+  if (!line || !line.textContent?.trim()) return;
+  if (motionSettled()) return;
+  window.setTimeout(() => line.classList.add("is-in"), 240);
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Footer — the network's own two integers
+
+   #footer-network-stats has been documented as "populated at runtime
+   from the network-stats endpoint" since the template shipped, and
+   nothing ever fetched it. Wired here, on idle, because it is the least
+   important number on the page: the static sentence already in the
+   markup is correct, so a failed fetch changes nothing.
+   ────────────────────────────────────────────────────────────────── */
+
+function renderFooterNetworkStats() {
+  const el = document.getElementById("footer-network-stats");
+  if (!el) return;
+
+  const run = async () => {
+    try {
+      const res = await fetch(`${DASHBOARD_ORIGIN}/api/public/network-stats`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!res.ok) return;
+      // The two integers are nested under `stats`; the same response
+      // also carries the full chapter directory, which is none of this
+      // sentence's business.
+      const data = (await res.json()) as {
+        stats?: { chapters_active?: number; members_total?: number };
+      };
+      const chapters = Number(data.stats?.chapters_active);
+      const members = Number(data.stats?.members_total);
+      // Both integers or neither: "12 chapters · 0 members" is worse
+      // than the sentence that shipped.
+      if (!(chapters >= 1) || !(members >= 1)) return;
+      el.innerHTML = `${escapeHtml(plural(chapters, "chapter"))} &middot; ${escapeHtml(
+        plural(members, "member"),
+      )} across the network
+        <a href="https://all-ai-network.org/impact.html" target="_blank" rel="noopener">See the network &rarr;</a>`;
+    } catch {
+      // The static line stays. Nothing to say and nobody to say it to.
+    }
+  };
+
+  // Idle when the browser offers it, a late timeout when it does not.
+  // Read off a local so the `in` check does not narrow `window` itself
+  // out from under the fallback.
+  const idle = (globalThis as { requestIdleCallback?: (cb: () => void) => void })
+    .requestIdleCallback;
+  if (typeof idle === "function") idle.call(globalThis, run);
+  else window.setTimeout(run, 1200);
+}
 
 /* ──────────────────────────────────────────────────────────────────
    Init
    ────────────────────────────────────────────────────────────────── */
 
+/**
+ * Chapter banners are not 16:9. The covers officers upload are wide
+ * strips — the MSOE hackathon banner is 1128x191 (5.9:1) — and cropping
+ * one to the card's 16:9 frame throws away two thirds of its width,
+ * which on these banners is where the words are. So a cover wider than
+ * 2.2:1 keeps its own shape, clamped at 5:1 so a freak panorama cannot
+ * turn the card into a hairline. Narrower covers keep the 16:9 frame the
+ * dashboard preview shows.
+ *
+ * Global because the markup is built as a string in lib/events.ts and
+ * the handler has to exist before those images decode.
+ */
+function fitCover(img: HTMLImageElement): void {
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  if (!w || !h) return;
+  const ratio = w / h;
+  if (ratio <= 2.2) return;
+  const box = img.parentElement;
+  if (box) box.style.aspectRatio = `${Math.min(ratio, 5)}`;
+}
+(window as unknown as { fitCover: typeof fitCover }).fitCover = fitCover;
+
 async function init() {
   wireNavToggle();
+
+  // Started here, beside the bundle fetch and never awaited before it.
+  // The "Start here" band it feeds is the only content on 8 of the 12
+  // chapters, and ~16 KB gzipped for both calls is less than one cover
+  // image. A lazy fetch would mean those eight sites render empty until
+  // somebody clicks a tab.
+  const curriculum = startCurriculumFetch();
 
   const params =
     typeof window !== "undefined"
@@ -2930,32 +2341,18 @@ async function init() {
   }
   applySectionToggles(sectionsToApply);
 
-  // Render everything from the bundle + config (or bundled fallbacks
-  // when unresolved). Same pipeline for both preview and normal mode
-  // now — the difference is only in which overrides were layered above.
+  // The flyer takeover owns the whole document when ?event= names a
+  // real event. Resolved before anything renders so the landing page's
+  // work — four bands, the doors, a curriculum wait — is never done
+  // behind an event nobody will see it under.
+  const eventId = eventFromSearch(window.location.search);
+  const isFlyer = Boolean(eventId) && !isPreview;
+
+  // Identity and chrome: every load gets these, flyer included. The
+  // takeover reads .nav__brand and #page-header, and its title bar says
+  // the chapter's name.
+  chapterAcronym = (remote?.hub_acronym ?? config.hub_acronym ?? "").trim() || "us";
   renderIdentity(remote, bundle?.chapter ?? null);
-  renderHeroActions(remote);
-  renderPillars();
-  renderPageCtaBands();
-  // Sponsor inquiry modal — mounted once; triggered via the
-  // `#sponsor` hash route which the hero's partner CTA points to.
-  // Always the configured chapter, never the preview slug: a diverted
-  // sponsor lead is the part of finding 6 that costs real money.
-  setupSponsorModal(
-    configuredSlug || null,
-    bundle?.chapter?.name ?? remote?.hub_name ?? config.hub_name,
-    remote,
-  );
-  wireSponsorHashRoute();
-  renderAbout(remote?.about ?? null);
-  renderStats(bundle?.chapter ?? null, bundle?.projects ?? []);
-  renderEvents(bundle?.events ?? [], remote?.tagline ?? null);
-  renderLeaderboard(bundle?.leaderboard ?? []);
-  renderBadges(bundle?.badges ?? []);
-  renderMerch(bundle?.merch ?? []);
-  renderProjects(bundle?.projects ?? []);
-  renderOfficers(remote?.officers ?? [], remote !== null);
-  renderSocialFeed(bundle?.social_feeds);
   renderSocials(remote?.social_links ?? {});
   renderHeroNetwork();
   // The chapter's own mark: its uploaded logo if it has one, else the
@@ -2966,27 +2363,132 @@ async function init() {
     logoUrl,
     remote?.hub_acronym ?? config.hub_acronym ?? null,
   );
+  // Sponsor inquiry modal — mounted once; triggered via the
+  // `#sponsor` hash route which the hero's partner CTA points to.
+  // Always the configured chapter, never the preview slug: a diverted
+  // sponsor lead is the part of finding 6 that costs real money.
+  setupSponsorModal(
+    configuredSlug || null,
+    bundle?.chapter?.name ?? remote?.hub_name ?? config.hub_name,
+    remote,
+  );
+  wireSponsorHashRoute();
 
-  // Learning tree iframes the content repo's tree page — fire-and-
-  // forget since the iframe handles its own load / timeout states.
-  loadLearningTree();
+  // Drop every destination whose data is empty, BEFORE the nav is built
+  // from the DOM. A tab that opens on nothing is the render this whole
+  // pass exists to prevent.
+  pruneEmptySections(bundle);
 
-  // Wire the multi-page tabs AFTER all sections have rendered — so
-  // pagesWithContent() sees the final DOM + data state and can hide
-  // tabs whose sections are all empty/toggled-off.
-  const pages = pagesWithContent(sectionsToApply);
-  const eventId = eventFromSearch(window.location.search);
-  if (eventId && !isPreview) {
+  if (isFlyer) {
+    // No landing page, no views, and no learning tree: the takeover
+    // hides [data-page] and injects its own main. loadLearningTree()
+    // used to fire here and point an iframe at the content site behind
+    // an event the visitor is reading.
+    const pages = pagesWithContent(sectionsToApply);
     renderPageNav(pages, "");
     mountEventPage({
-      eventId,
+      eventId: eventId!,
       chapterSlug: bundle?.chapter.slug ?? slug,
       chapterName: bundle?.chapter.name ?? remote?.hub_name ?? config.hub_name,
+      // events=all is what makes this resolve for a past event. Before
+      // it, every shared archive link opened as "Event — MSOE AI Club".
       title: bundle?.events.find((event) => event.id === eventId)?.title,
     });
-  } else {
-    wirePageRouting(pages);
+    return;
   }
+
+  // Learning tree iframes the content repo's tree page — fire-and-
+  // forget since the iframe handles its own load / timeout states. Only
+  // the fallback link is wired here; the iframe's src and its 8-second
+  // timer wait for the Learn tab (activateLearningTree).
+  loadLearningTree();
+
+  // The nav is built from the DOM after the prune, so it lists exactly
+  // the rooms that have something in them: MSOE 6 tabs, ROAR 4, NTUA 2.
+  //
+  // This is computed BEFORE the hero and the CTA bands render, because
+  // both of them link to destinations. A button pointing at a tab that
+  // does not exist is the bug class the hero's own default CTA was
+  // rewritten to kill; the partner band was still shipping one.
+  const pages = pagesWithContent(sectionsToApply);
+  const livePages = new Set(pages.map((p) => p.key));
+
+  renderHeroActions(remote, bundle?.events ?? [], livePages);
+  const heroPrinted = renderStats(bundle?.chapter ?? null, bundle?.projects ?? []);
+  renderTermLine(bundle?.events ?? []);
+  renderPageCtaBands(livePages);
+
+  if (bundle) {
+    // The curriculum call went out beside the bundle and has had the
+    // bundle's whole round trip to land, so this is normally already
+    // resolved. Raced anyway: the Learn door must not be the reason a
+    // chapter's front page waits on a third-party endpoint.
+    const floor = await Promise.race([
+      curriculum,
+      new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 1500)),
+    ]);
+    const lessons = {
+      count: floor?.path.length ?? 0,
+      first: floor?.path[0]?.title ?? "",
+    };
+
+    // Every integer on the landing page is printed exactly once. Three
+    // components can claim the same one — the hero strip, the door, the
+    // band head — and on MSOE all three did: "59 Events" in the
+    // masthead, "59 events since 2023" on the door 130px below it, and
+    // "All 59 events →" a band further down, every pair inside one
+    // 900px screen. The strip wins because it is the club's own claim
+    // about its scale; the door keeps its live line and the band head
+    // reads "All events →". On a chapter with no strip (ROAR, NTUA)
+    // nothing is suppressed and the doors carry the counts.
+    const printed = new Set([
+      ...renderDoors(bundle, pages, lessons, heroPrinted),
+      ...heroPrinted,
+    ]);
+    renderEventsBand(bundle, printed);
+    renderPeopleBand(bundle);
+    renderProjectsBand(bundle, printed);
+
+    // Views mount on tab entry and read this.
+    viewCtx = viewContext(bundle, slug, window.location.pathname);
+  } else {
+    // No bundle: the demo site and a preview of a slug the dashboard
+    // does not know. There is no chapter data for a band to sample, and
+    // a synthesised empty one would be the template pretending to be a
+    // chapter — which renderUnderConstruction exists to refuse.
+    document.getElementById("doors-band")?.remove();
+    ["band-events", "band-people", "band-projects"].forEach((id) =>
+      document.getElementById(id)?.remove(),
+    );
+  }
+
+  wirePageRouting(pages);
+
+  // The floor band, last and async. It is the one band that renders
+  // identically on a three-year-old chapter and a two-week-old one, so
+  // it is also the only one that can fail to arrive — and when it does,
+  // the band goes with it rather than leaving a head over nothing.
+  void renderStartHereBand(document.getElementById("band-learn-inner"), {
+    isFloor:
+      (bundle?.events ?? []).length === 0 &&
+      (bundle?.config?.officers ?? []).length === 0,
+  }).then((ok) => {
+    if (!ok) {
+      hideSection("learning_tree", "home");
+      return;
+    }
+    // Reveal the head that just arrived; the rows under it never
+    // animate, per the one-reveal-per-band rule.
+    document
+      .getElementById("band-learn-inner")
+      ?.querySelector(".band-head")
+      ?.classList.add("rv");
+    initReveal(document.getElementById("band-learn") ?? document);
+  });
+
+  initReveal();
+  drawTermRule();
+  renderFooterNetworkStats();
 
   // Preview + edit mode → attach clickable "Edit here" pills to every
   // section that maps to a dashboard route. Dashboard parent listens
@@ -2994,4 +2496,17 @@ async function init() {
   if (editMode) enableEditOverlays();
 }
 
-init();
+/* The `finally` is load-bearing. `.is-booting` blanks the hero so the
+   template's placeholder name never flashes as this chapter's; if
+   init() throws anywhere above — a malformed bundle, a DOM the fork
+   changed — an unguarded blank hero is a permanently empty page, which
+   is strictly worse than the flash it was added to fix.
+
+   `body.is-ready` is the same class the boot assembly animates from, so
+   this line both un-blanks the hero and starts motion 1. */
+init()
+  .catch((err) => console.error("[ALL hub] render failed", err))
+  .finally(() => {
+    document.body.classList.remove("is-booting");
+    document.body.classList.add("is-ready");
+  });

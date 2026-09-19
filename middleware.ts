@@ -297,8 +297,25 @@ export default async function middleware(
     if (!slug) return passThrough;
 
     const enc = encodeURIComponent(slug);
+    // The whole archive, but ONLY for a shared event link.
+    //
+    // chapterHead() looks the shared event up in `data.events`, and the
+    // default window is upcoming-only — so every past event unfurled as
+    // "Event — {chapter}" rather than its own title. `events=all` fixes
+    // that, and doubles the payload from ~30 KB to ~135 KB raw.
+    //
+    // This fetch runs on EVERY request inside a 2 s timeout and only the
+    // event branch reads `data.events`, so paying that on a plain page
+    // load would be spending the edge's budget to fix an unfurl nobody
+    // asked for. Built conditionally, against the same uuid shape
+    // chapterHead validates with.
+    const sharedEvent = url.searchParams.get("event")?.trim().toLowerCase() ?? "";
+    const bundleQuery =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(sharedEvent)
+        ? "?events=all&events_limit=200"
+        : "";
     const [chapter, member] = await Promise.allSettled([
-      fetch(`${DASHBOARD_ORIGIN}/api/public/chapter/${enc}/bundle`, {
+      fetch(`${DASHBOARD_ORIGIN}/api/public/chapter/${enc}/bundle${bundleQuery}`, {
         signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
       }),
       fetch(`${DASHBOARD_ORIGIN}/api/public/member/${enc}`, {

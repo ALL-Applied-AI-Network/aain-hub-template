@@ -35,8 +35,10 @@
     </div>
   </nav>
 
-  <!-- ══ Page header (non-home pages only; main.ts populates on
-       page change) ══════════════════════════════════════════════ -->
+  <!-- ══ Page header — the ONLY head on a destination. Every section
+       inside a destination drops its own .section__head, so a visitor
+       reads the page's name once instead of twice 200px apart.
+       main.ts::showPage populates it on page change. ═════════════ -->
   <div class="page-header" id="page-header" hidden>
     <div class="page-header__inner">
       <div class="page-header__kicker" id="page-header-kicker"></div>
@@ -45,13 +47,29 @@
     </div>
   </div>
 
-  <!-- ══ Hero ══════════════════════════════════════════════════════ -->
+  <!-- ══════════════════════════════════════════════════════════════
+       THE LANDING PAGE
+
+       A front door: who this is, what is next, and a sample of each
+       room behind the nav. Every block carries data-page="home"; the
+       ones that sample a destination also carry that destination's
+       data-section, so an officer switching "events" off in Customize
+       removes the Home band, the Events view and the Events tab in one
+       pass with no extra code.
+
+       Home has zero .section__kicker. Six uppercase eyebrows at even
+       intervals down one page is the drumbeat; Home band heads use the
+       quieter .band-head instead.
+       ══════════════════════════════════════════════════════════════ -->
+
+  <!-- ══ 1 — Masthead ══════════════════════════════════════════════ -->
   <header class="hero" id="hero" data-section="hero" data-page="home">
     <div class="hero__glow" aria-hidden="true"></div>
     <!-- Neural-network decoration: main.ts::renderHeroNetwork generates
          nodes + connecting edges, inheriting --color-primary +
          --color-accent via currentColor so the whole pattern recolors
-         when the eboard changes their theme. -->
+         when the eboard changes their theme. Drawn once and left
+         alone — the three infinite keyframes it used to run are gone. -->
     <svg
       class="hero__network"
       id="hero-network"
@@ -65,124 +83,179 @@
     <div class="hero__inner">
       <div class="hero__eyebrow" id="hero-university">My University</div>
       <h1 class="hero__title" id="hero-title">My AI Club</h1>
-      <p class="hero__subtitle" id="hero-subtitle">A student-run applied AI community.</p>
+      <!-- Empty unless the chapter wrote a tagline. There is no
+           description fallback any more: "A student-run applied AI
+           community." was live on MSOE and was the loudest
+           generated-for-us tell on the property. -->
+      <p class="hero__subtitle" id="hero-subtitle"></p>
       <div class="hero__actions" id="hero-actions"></div>
     </div>
-    <div class="hero__stats" id="hero-stats" aria-hidden="true">
-      <div class="hero__stat"><span class="hero__stat-num" data-stat="members">—</span><span class="hero__stat-label">Members</span></div>
-      <div class="hero__stat"><span class="hero__stat-num" data-stat="events">—</span><span class="hero__stat-label">Events run</span></div>
-      <div class="hero__stat"><span class="hero__stat-num" data-stat="projects">—</span><span class="hero__stat-label">Projects shipped</span></div>
-    </div>
+    <!-- Outside .hero__inner because the boot animation staggers it on
+         its own beat, next to the stat strip. -->
+    <p class="term-line" id="term-line"></p>
+    <!-- renderStats fills this from the chapter's own integers and
+         hides it when fewer than two survive. Ships empty so a fetch
+         that never lands shows no ghost numbers. -->
+    <div class="hero__stats" id="hero-stats" aria-hidden="true"></div>
     <a href="https://all-ai-network.org" target="_blank" rel="noopener" class="hero__attribution">
       <span class="hero__attribution-dot"></span>
       Powered by ALL Applied AI Network
     </a>
   </header>
 
-  <!-- ══ "What we do" pillars — 4-up explainer on home ═════════════ -->
-  <!-- Sits directly under the hero so anyone landing cold gets the
-       whole value prop in one screen: what this organization does,
-       who it's for, and how the recognition system works. Content is
-       hardcoded on the template today; main.ts::renderPillars
-       populates the grid. -->
-  <!-- No data-section attribute — pillars are a hardcoded decoration,
-       not a toggleable/data-driven section. Eboards can't disable them
-       from Customize, and they don't influence pagesWithContent. -->
-  <section class="section section--pillars" id="pillars" data-page="home">
+  <!-- ══ 2 — The doors ═════════════════════════════════════════════
+       Four cards, each carrying the club's own integer and a live line
+       out of the bundle. Replaces the four hardcoded "what we do"
+       pillars, which said the same four things on all twelve sites.
+       No data-section: a door is a view onto a destination, not a
+       section an eboard toggles — main.ts::renderDoors drops any door
+       whose destination is not in pagesWithContent(). -->
+  <section class="band" id="doors-band" data-page="home">
     <div class="section__inner">
-      <div class="section__head">
-        <div>
-          <div class="section__kicker">What we do</div>
-          <h2 class="section__title">A chapter built around four things</h2>
-        </div>
-        <p class="section__desc">
-          Weekly events to show up, real projects to build, a full curriculum
-          to learn from, and a recognition system that remembers every time
-          you contributed.
-        </p>
-      </div>
-      <div class="pillars-grid" id="pillars-grid" role="list"></div>
+      <div class="doors" id="doors-grid" role="list"></div>
     </div>
   </section>
 
-  <!-- ══ About ═════════════════════════════════════════════════════ -->
-  <section class="section" id="about" data-section="about" data-page="team">
+  <!-- ══ 3 — Band: What's on → Events ══════════════════════════════
+       The next event as a wide feature card, and the three most recent
+       nights under it as rows. Filled by main.ts::renderEventsBand. -->
+  <section class="band" id="band-events" data-page="home" data-section="events"></section>
+
+  <!-- ══ 4 — Band: The people → Officers + Members ═════════════════
+       Two blocks under one head. They carry their own data-section so
+       `?off=leaderboard` removes the standings and leaves the officer
+       strip — and so pagesWithContent can tell a chapter with officers
+       from one with a board. -->
+  <section class="band" id="band-people" data-page="home">
+    <div class="section__inner">
+      <div id="band-officers" data-page="home" data-section="officers"></div>
+      <div class="standings" id="band-standings" data-page="home" data-section="leaderboard"></div>
+    </div>
+  </section>
+
+  <!-- ══ 5 — Band: What we've built → Projects ═════════════════════
+       Three cards from the newest year group, each with the byline —
+       the students who built it. Omitted entirely when the chapter has
+       no projects: no empty state, no "coming soon". -->
+  <section class="band" id="band-projects" data-page="home" data-section="projects"></section>
+
+  <!-- ══ 6 — Band: Start here → Learn ══════════════════════════════
+       Six lessons from the network's base curriculum, with real
+       thumbnails. This band is the floor: it is the one place a
+       two-week-old chapter is indistinguishable from a three-year-old
+       one, and on 8 of the 12 chapters it is the only content on the
+       page. views/learn.ts::renderStartHereBand fills the inner. -->
+  <section class="band" id="band-learn" data-page="home" data-section="learning_tree">
+    <div class="section__inner" id="band-learn-inner"></div>
+  </section>
+
+  <!-- ══ 7 — Close: partner band ═══════════════════════════════════
+       main.ts::renderPageCtaBands populates it from PAGE_CTA_BANDS by
+       data-page. No data-section: a hardcoded decoration, outside the
+       eboard's section toggles. -->
+  <section class="page-cta-band" data-page="home"></section>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       THE FIVE DESTINATIONS
+
+       Every section below is `id="sec-" + its data-section value`.
+       An element id that also reads as a router page key ("#events",
+       "#projects", "#officers", "#merch") makes the browser's own
+       fragment scrolling fire alongside the hash router on a tab
+       click — live today on #merch. The hero keeps id="hero": it is
+       not a page key and #hero is not a route.
+
+       The ten ids the dashboard's Customize tab detects this template
+       by — nav-hub-name, nav-acronym, nav-logo-img, hero-university,
+       hero-title, hero-subtitle, footer-socials, footer-hub-name,
+       footer-logo-img, footer-university — are outside this scheme and
+       must never be renamed.
+
+       Each destination section is empty markup: its view fills it on
+       first entry to the tab (src/lib/view.ts). With ?events=all that
+       is 59 event rows, 41 project cards and 27 badge tiles which no
+       longer enter the DOM before first paint.
+       ══════════════════════════════════════════════════════════════ -->
+
+  <!-- ══ Events — #events ══════════════════════════════════════════ -->
+  <section class="section" id="sec-events" data-section="events" data-page="events">
+    <div class="section__inner" id="events-view"></div>
+  </section>
+
+  <!-- ══ Projects — #projects ══════════════════════════════════════ -->
+  <section class="section" id="sec-projects" data-section="projects" data-page="projects">
+    <div class="section__inner" id="projects-view"></div>
+  </section>
+
+  <section class="page-cta-band" data-page="projects"></section>
+
+  <!-- ══ Learn — #learn ════════════════════════════════════════════
+       views/learn.ts inserts a native .learn-index above the canvas;
+       the canvas itself, its lazy iframe and its 8-second fallback are
+       untouched. tree.html is a maintained pan-and-zoom app in the
+       content repo — re-implementing 96 nodes and 121 edges here would
+       be a second application that drifts. -->
+  <section class="section section--learn" id="sec-learn" data-section="learning_tree" data-page="learn">
+    <div class="section__inner">
+      <div class="learn-tree-wrap">
+        <iframe
+          id="learn-tree-frame"
+          class="learn-tree-frame"
+          title="Interactive learning tree"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+        ></iframe>
+        <div class="learn-tree-fallback" id="learn-tree-fallback" hidden>
+          <div class="content-grid" id="learning-grid">
+            <div class="loading">Loading curriculum…</div>
+          </div>
+          <p class="section__footer">
+            <a href="#" id="tree-link" class="link link--arrow" target="_blank" rel="noopener">
+              Open the full interactive tree
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="page-cta-band" data-page="learn"></section>
+
+  <!-- ══ Officers — #officers ══════════════════════════════════════
+       Ben asked for this tab by name. The whole roster at full size in
+       API order (President first by role_order), with the chapter's own
+       About under it. views/officers.ts fills both. -->
+  <section class="section section--alt" id="sec-officers" data-section="officers" data-page="officers">
+    <div class="section__inner">
+      <div class="officers-grid" id="officers-grid" role="list"></div>
+    </div>
+  </section>
+
+  <section class="section" id="sec-about" data-section="about" data-page="officers">
     <div class="section__inner section__inner--narrow">
-      <div class="section__kicker">About us</div>
-      <h2 class="section__title" id="about-title">Who we are</h2>
       <div class="about-content" id="about-content"></div>
     </div>
   </section>
 
-  <!-- ══ Events ════════════════════════════════════════════════════ -->
-  <section class="section section--alt" id="events" data-section="events" data-page="home">
+  <section class="page-cta-band" data-page="officers"></section>
+
+  <!-- ══ Members — #members ════════════════════════════════════════
+       Earn points → get recognised → redeem is one story, so the board,
+       the badges and the merch shelf are one destination. A Merch tab
+       was empty on 11 of 12 chapters, and a tab that is usually empty
+       is worse than no tab. views/members.ts fills all three. -->
+  <section class="section" id="sec-leaderboard" data-section="leaderboard" data-page="members">
     <div class="section__inner">
-      <div class="section__head">
-        <div>
-          <div class="section__kicker">What's next</div>
-          <h2 class="section__title">Upcoming events</h2>
-        </div>
-        <p class="section__desc" id="events-desc">
-          Live from the dashboard. As the eboard adds events, they show up here.
-        </p>
-      </div>
-      <div class="events-grid" id="events-grid" role="list"></div>
+      <div id="leaderboard-content"></div>
     </div>
   </section>
 
-  <!-- ══ Socials ═══════════════════════════════════════════════════
-       Latest public posts synced from the chapter's linked accounts
-       (dashboard → Website → Social feed). Self-hides until a feed has
-       been synced. -->
-  <section class="section" id="socials" data-section="socials" data-page="home">
+  <section class="section section--alt" id="sec-badges" data-section="badges" data-page="members">
     <div class="section__inner">
-      <div class="section__head">
-        <div>
-          <div class="section__kicker">On our socials</div>
-          <h2 class="section__title">Latest posts</h2>
-        </div>
-        <p class="section__desc" id="socials-desc">
-          Fresh from the club's LinkedIn and Instagram.
-        </p>
-      </div>
-      <div class="socials-grid" id="socials-grid" role="list"></div>
-    </div>
-  </section>
-
-  <!-- ══ Leaderboard ═══════════════════════════════════════════════ -->
-  <section class="section" id="leaderboard" data-section="leaderboard" data-page="home">
-    <div class="section__inner">
-      <div class="section__head">
-        <div>
-          <div class="section__kicker">Top members</div>
-          <h2 class="section__title">Leaderboard</h2>
-        </div>
-        <p class="section__desc">
-          Points from event check-ins, project contributions, and recognitions.
-        </p>
-      </div>
-      <div class="leaderboard" id="leaderboard-content"></div>
-    </div>
-  </section>
-
-  <!-- ══ Badges ════════════════════════════════════════════════════ -->
-  <section class="section section--alt" id="badges" data-section="badges" data-page="home">
-    <div class="section__inner">
-      <div class="section__head">
-        <div>
-          <div class="section__kicker">Points &amp; recognition</div>
-          <h2 class="section__title">How it all works</h2>
-        </div>
-        <p class="section__desc">
-          Show up, build things, get recognized. Here's the system.
-        </p>
-      </div>
-
-      <!-- Three-column explainer above the badges grid, replacing the
-           "Badges" section that used to live on Team. Gives chapters
-           a lightweight way to teach newcomers what the numbers on
-           the leaderboard mean without sending them to a separate
-           page. -->
+      <!-- Three-column explainer above the badge wall: what the numbers
+           on the board actually mean. views/members.ts keeps these
+           cards verbatim and gates them on there being points or badges
+           to explain. -->
       <div class="points-explainer">
         <div class="points-explainer__card">
           <div class="points-explainer__icon" aria-hidden="true">
@@ -213,219 +286,25 @@
         </div>
       </div>
 
-      <h3 class="section__subhead">Every badge we award</h3>
       <div class="badges-grid" id="badges-grid" role="list"></div>
-
-      <!-- ══ Beyond your chapter: the living résumé ══════════════════
-           The hidden value of being in an ALL chapter — every check-in,
-           every project, every badge becomes a verified credential on
-           your living résumé at dashboard.all-ai-network.org. The
-           chapter leaderboard is local; the profile follows you across
-           every chapter, and only surfaces to recruiters when the
-           member toggles talent-visibility on.
-           ═══════════════════════════════════════════════════════ -->
-      <div class="network-profile-callout">
-        <div class="network-profile-callout__head">
-          <span class="network-profile-callout__badge">Living résumé</span>
-          <h3 class="network-profile-callout__title">
-            Every point you earn here builds a verified record that follows you across the network.
-          </h3>
-          <p class="network-profile-callout__desc">
-            Points on this leaderboard are local. The credentials behind them —
-            event check-ins, projects shipped, badges earned — live on your
-            <strong>ALL Applied AI Network profile</strong>, a verified record
-            of what you&rsquo;ve actually done that travels with you to every
-            chapter. Sponsors browse those profiles when they&rsquo;re hiring,
-            and active members across the network graduated into starting
-            salaries <strong>38% above their non-member peers.</strong><sup class="network-profile-callout__fnref">*</sup>
-            You stay in control: your profile is only discoverable to
-            recruiters when you flip on <em>talent visibility</em> in your
-            member settings.
-          </p>
-        </div>
-        <div class="network-profile-callout__grid">
-          <div class="network-profile-callout__item">
-            <div class="network-profile-callout__item-icon" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            </div>
-            <div class="network-profile-callout__item-title">Verified events</div>
-            <p class="network-profile-callout__item-desc">Every QR check-in becomes a timestamped credential — not self-reported.</p>
-          </div>
-          <div class="network-profile-callout__item">
-            <div class="network-profile-callout__item-icon" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
-            </div>
-            <div class="network-profile-callout__item-title">Real projects</div>
-            <p class="network-profile-callout__item-desc">Hackathon wins, research papers, Innovation Lab work — linked to your profile.</p>
-          </div>
-          <div class="network-profile-callout__item">
-            <div class="network-profile-callout__item-icon" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            </div>
-            <div class="network-profile-callout__item-title">Sponsor discovery</div>
-            <p class="network-profile-callout__item-desc">Recruiters across the network find your profile when they&rsquo;re hiring — opt-in only.</p>
-          </div>
-        </div>
-
-        <!-- ══ Where this leads — concrete outcome proof ══════════════
-             Two hard data points that make the "showing up → industry
-             outcomes" chain literal for students who haven't internalized
-             it yet (Brett's MSOE→UWM feedback). Named cohort + named
-             company on one side, network-wide salary delta on the other,
-             closing with the behavior that actually drives it: QR check-in
-             at every event. The 38% number reuses the methodology footnote
-             already linked at the top of the callout — same source, same
-             asterisk, no duplicate citation. -->
-        <div class="network-profile-callout__outcomes">
-          <h4 class="network-profile-callout__outcomes-title">Where this leads.</h4>
-          <div class="network-profile-callout__outcome-grid">
-            <div class="network-profile-callout__outcome-card">
-              <div class="network-profile-callout__outcome-eyebrow">MSOE &times; Juno &middot; Spring 2025 Innovation Lab</div>
-              <p class="network-profile-callout__outcome-stat">
-                Juno hired <strong>7 MSOE students</strong> directly from this Innovation Lab cohort.
-              </p>
-              <p class="network-profile-callout__outcome-desc">
-                Their company <strong>tripled in value</strong> on the projects those students shipped during the program.
-              </p>
-            </div>
-            <div class="network-profile-callout__outcome-card">
-              <div class="network-profile-callout__outcome-eyebrow">Network-wide, Spring 2025</div>
-              <p class="network-profile-callout__outcome-stat">
-                Active members graduate into starting salaries
-                <strong>38% higher<sup class="network-profile-callout__fnref" title="Spring 2025 graduate outcomes among active members — see methodology note below.">*</sup></strong>
-                than their non-member peers.
-              </p>
-              <p class="network-profile-callout__outcome-desc">
-                Measured across every chapter, every major — not just MSOE, not just CS.
-              </p>
-            </div>
-          </div>
-          <p class="network-profile-callout__outcomes-cta">
-            <span class="network-profile-callout__outcomes-cta-icon" aria-hidden="true">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3z"/><path d="M20 14v3"/><path d="M14 20h7"/></svg>
-            </span>
-            Check in at every event you attend &mdash; that&rsquo;s how your living résumé builds itself.
-          </p>
-        </div>
-
-        <div class="network-profile-callout__actions">
-          <a
-            href="https://dashboard.all-ai-network.org/me/profile"
-            class="network-profile-callout__cta link--arrow"
-            target="_blank"
-            rel="noopener"
-          >
-            Manage your profile
-          </a>
-          <span class="network-profile-callout__cta-note">
-            Talent visibility is off by default — flip it on when you&rsquo;re ready.
-          </span>
-        </div>
-        <p class="network-profile-callout__footnote">
-          <sup>*</sup> ALL Applied AI Network Spring 2025 graduate outcomes
-          among active members (&ge;2 events in a semester or &ge;1 project event),
-          across all majors. <a href="https://all-ai-network.org" target="_blank" rel="noopener">Read more on the network home page</a>.
-        </p>
-      </div>
     </div>
   </section>
 
-  <!-- ══ Merch ═════════════════════════════════════════════════════ -->
-  <section class="section" id="merch" data-section="merch" data-page="merch">
+  <section class="section" id="sec-merch" data-section="merch" data-page="members">
     <div class="section__inner">
-      <div class="section__head">
-        <div>
-          <div class="section__kicker">Rewards shop</div>
-          <h2 class="section__title">Merch</h2>
-        </div>
-        <p class="section__desc">
-          Earn points, redeem at an event. See any eboard member to claim.
-        </p>
-      </div>
       <div class="merch-grid" id="merch-grid" role="list"></div>
     </div>
   </section>
 
-  <!-- ══ Merch page CTA band — see Team band for the pattern ══════ -->
-  <section class="page-cta-band" data-page="merch"></section>
-
-  <!-- ══ Officers ══════════════════════════════════════════════════ -->
-  <section class="section section--alt" id="officers" data-section="officers" data-page="team">
-    <div class="section__inner">
-      <div class="section__head">
-        <div>
-          <div class="section__kicker">Leadership</div>
-          <h2 class="section__title">Meet the eboard</h2>
-        </div>
-      </div>
-      <div class="officers-grid" id="officers-grid" role="list"></div>
-    </div>
-  </section>
-
-  <!-- ══ Team page CTA band ═══════════════════════════════════════
-       Always paired with the team page so a sponsor or speaker
-       scrolling to the bottom has a clear "get in touch" next step.
-       main.ts::renderPageCtaBands populates the inner content based
-       on the `data-page` attribute; we keep the markup lightweight
-       so the slot's a no-op if the copy map doesn't list the page.
-       No data-section: this is a hardcoded decoration, not a
-       toggleable data-driven section. -->
-  <section class="page-cta-band" data-page="team"></section>
-
-  <!-- ══ Learning Tree (CDN content) ══════════════════════════════ -->
-  <!-- ══ Projects — chapter-editable showcase ════════════════════ -->
-  <section class="section" id="projects" data-section="projects" data-page="projects">
-    <div class="section__inner">
-      <div class="section__head">
-        <div>
-          <div class="section__kicker">Our work</div>
-          <h2 class="section__title">Projects</h2>
-        </div>
-        <p class="section__desc">
-          A running showcase of what members have built — Innovation Labs cohorts, hackathon winners, research collaborations.
-        </p>
-      </div>
-      <div class="projects-grid" id="projects-grid" role="list"></div>
-    </div>
-  </section>
-
-  <!-- ══ Projects page CTA band — see Team band for the pattern ═══ -->
-  <section class="page-cta-band" data-page="projects"></section>
-
-  <!-- ══ Learn page — full-height tree visualization ══════════════ -->
-  <section class="section section--learn" id="learning" data-section="learning_tree" data-page="learn">
-    <div class="section__inner">
-      <div class="learn-tree-wrap">
-        <iframe
-          id="learn-tree-frame"
-          class="learn-tree-frame"
-          title="Interactive learning tree"
-          loading="lazy"
-          referrerpolicy="no-referrer-when-downgrade"
-        ></iframe>
-        <div class="learn-tree-fallback" id="learn-tree-fallback" hidden>
-          <div class="content-grid" id="learning-grid">
-            <div class="loading">Loading curriculum…</div>
-          </div>
-          <p class="section__footer">
-            <a href="#" id="tree-link" class="link link--arrow" target="_blank" rel="noopener">
-              Open the full interactive tree
-            </a>
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ══ Learn page CTA band — see Team band for the pattern ══════ -->
-  <section class="page-cta-band" data-page="learn"></section>
+  <section class="page-cta-band" data-page="members"></section>
 
   <!-- ══ Footer ════════════════════════════════════════════════════
-       footer__aain block is populated at runtime by main.ts from the
-       public network-stats endpoint on aain-api — chapters_active and
-       members_total drive the "N chapters · M+ members" line so every
-       chapter fork stays in sync with reality automatically. Falls
-       back to the static text below if the fetch fails. -->
+       #footer-network-stats is populated by
+       main.ts::renderFooterNetworkStats from the public network-stats
+       endpoint, on idle — chapters_active and members_total drive the
+       "N chapters · M members across the network" line so every chapter
+       fork stays in sync with reality. The static line below is what
+       ships and what stays if the fetch fails. -->
   <footer class="footer">
     <div class="footer__inner">
       <div class="footer__brand">
