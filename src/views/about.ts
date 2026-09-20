@@ -43,8 +43,9 @@ import type { Officer } from "../lib/bundle";
 import { officerInitials } from "../lib/format";
 import { escapeAttr, escapeHtml } from "../lib/html";
 import { renderInlineMarkdown } from "../lib/markdown";
-import { safeHttpUrl } from "../lib/net";
+import { mailtoHref, safeHttpUrl } from "../lib/net";
 import { registerView, type ViewCtx } from "../lib/view";
+import { renderBadgeWall } from "./members";
 
 /**
  * The inner container a block renders into, created if index.html did
@@ -76,16 +77,9 @@ function viewHost(
   return inner;
 }
 
-/**
- * A mailto is only built for a value that looks like one address. The
- * field is officer-entered and stored raw, so whitespace in it would
- * let a second header ride along inside the href.
- */
-function mailtoHref(raw: string | null | undefined): string | null {
-  const v = (raw ?? "").trim();
-  if (!/^[^\s<>"'@,;]+@[^\s<>"'@,;]+\.[^\s<>"'@,;]+$/.test(v)) return null;
-  return `mailto:${v}`;
-}
+/* mailtoHref moved to lib/net.ts: the join band renders a chapter's
+   own address as a community link and has to accept exactly what this
+   page accepts. */
 
 /* Icon marks for the two account links. Copied rather than imported:
    main.ts keeps SOCIAL_ICONS private for its 18px footer row, and a
@@ -256,9 +250,31 @@ function renderRoster(ctx: ViewCtx): void {
     </div>`;
 }
 
+/**
+ * The badge wall, under the roster.
+ *
+ * It was a band on Home, where 27 tiles sat between the board and
+ * everything else on the one screen Ben wanted the people on. What a
+ * member can earn is a fact about the club rather than about the
+ * standings, so it reads here — after the people who award them, and
+ * on the page a visitor opens to find out what the club is.
+ *
+ * The section is markup in index.html rather than a div built here, so
+ * an eboard switching "badges" off in Customize removes it at boot and
+ * this function finds nothing to fill.
+ */
+function renderBadges(ctx: ViewCtx): void {
+  const host = ctx.el("badges-view");
+  if (!host) return;
+  if (!renderBadgeWall(host, ctx.bundle)) {
+    ctx.el("sec-badges")?.remove();
+  }
+}
+
 export function mountAboutView(ctx: ViewCtx): void {
   renderAbout(ctx);
   renderRoster(ctx);
+  renderBadges(ctx);
 }
 
 registerView("about", mountAboutView);

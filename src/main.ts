@@ -19,14 +19,24 @@ import { eventFromSearch, eventPageHref, mountEventPage } from "./event-page";
 import type {
   ChapterBundle,
   EventRow,
+  FeatureBlockRow,
   HubConfig,
   LocalContentEntry,
+  Officer,
   ProjectRow,
   RemoteConfig,
 } from "./lib/bundle";
-import { formatCount, monthDay, plural } from "./lib/format";
-import { safeHttpUrl } from "./lib/net";
+import { formatCount, monthDay, officerInitials, plural } from "./lib/format";
+import { DASHBOARD_ORIGIN, mailtoHref, safeHttpUrl } from "./lib/net";
 import { renderGridEmpty } from "./lib/primitives";
+import { renderInlineMarkdown, renderRichMarkdown } from "./lib/markdown";
+import {
+  communityHref,
+  linksFromSocial,
+  platformIcon,
+  platformMeta,
+  type CommunityLink,
+} from "./lib/platforms";
 import { latestPastEvent, nextEvent } from "./lib/events";
 import { termLineParts } from "./lib/season";
 import { MOUNT, viewContext, type ViewCtx } from "./lib/view";
@@ -43,24 +53,27 @@ import "./views/events";
 import "./views/projects";
 import "./views/learn";
 import "./views/sponsor";
-/* Named imports from the same view modules. Two different jobs:
-
-   - Home samples the Projects room, and a sample rendered by a second
-     copy of the renderer is a sample that drifts from the room, so it
-     borrows renderProjectCard rather than reimplementing a card.
-   - The board, the badge wall and the merch shelf have no room to
-     sample any more. views/members.ts stopped registering a view in
-     this pass; it is four functions that fill a host element, and Home
-     is the only caller. */
-import { deriveYearFilters, renderProjectCard } from "./views/projects";
+/* Explore's Projects block names the newest project and its builders.
+   Both come from the Projects room's own helpers — the year sort it
+   uses to decide which group is newest, and the byline renderer that
+   knows what to do with an advisor and with a fourth name — so the
+   block and the room can never disagree about whose work it is. */
 import {
-  hasRecognition,
-  renderBadgeWall,
-  renderBoard,
-  renderMerch,
-  renderNetworkLine,
-} from "./views/members";
-import { renderStartHereBand, startCurriculumFetch } from "./views/learn";
+  deriveYearFilters,
+  renderByline,
+  type ProjectWithMembers,
+} from "./views/projects";
+/* The board is Home's: views/members.ts registers no view, and these
+   two functions are all Home needs from it. The badge wall went to
+   About and the merch shelf to an Explore block, so neither is
+   imported here any more. */
+import { renderBoard, scoredRows } from "./views/members";
+/* The curriculum floor feeds the "learning tree" Explore block. The
+   fetch still starts at boot beside the bundle — that block is the one
+   thing on the page that renders identically on a three-year-old
+   chapter and a two-week-old one, and a lazy fetch would leave the
+   eight empty chapters with three blocks. */
+import { startCurriculumFetch, type CurriculumFloor } from "./views/learn";
 /* The sponsor page is told which chapter it acts for, rather than
    reading it from the view context: ViewCtx.slug honours the preview
    ?slug= param and a partner's message must always reach the chapter
@@ -81,8 +94,6 @@ document.body.classList.add("is-booting");
 
 declare const __HUB_CONFIG__: HubConfig;
 
-const DASHBOARD_ORIGIN = "https://dashboard.all-ai-network.org";
-
 /* ──────────────────────────────────────────────────────────────────
    Page structure — fixed for v1. Each section's data-page attribute
    in index.html maps it to one of these; sections not listed here
@@ -101,23 +112,25 @@ interface Page {
    that reorders per chapter is a nav nobody can learn.
 
    sections[] lists only *data-driven* sections — the ones an eboard can
-   toggle off, or that vanish when their data array is empty. The doors
-   strip and the per-page CTA bands are not here: they carry data-page
-   but deliberately no data-section, so they sit outside the toggle
-   system and cannot keep an otherwise-empty page alive.
+   toggle off, or that vanish when their data array is empty. The
+   per-page CTA bands are not here: they carry data-page but
+   deliberately no data-section, so they sit outside the toggle system
+   and cannot keep an otherwise-empty page alive.
 
-   Home's list names the sections that actually live on the landing
-   page. Three of them — leaderboard, badges, merch — exist ONLY there
-   now: the Members destination is gone, because the board is the front
-   page rather than a room off it. `projects` and `learning_tree` are
-   the two keys a home band still shares with a destination, which is
-   why pagesWithContent() and hideSection() are both page-scoped.
+   Home's list is three keys now. `leaderboard` is the people band and
+   `about` is its left column — the landing page's two halves, each
+   toggleable from Customize on its own. The bands that used to share
+   `projects`, `badges`, `merch` and `learning_tree` with a destination
+   are gone: Explore reads those records rather than sampling their
+   sections, so no home band can keep a destination's tab alive any
+   more. (pagesWithContent() and hideSection() stay page-scoped
+   regardless — `about` is on both Home and the About page.)
 
    `hero` is in Home's list and is always in the DOM, so Home is the
    one page that can never lose its tab. That is deliberate: a site
    with no Home is not a site. */
 const PAGES: Page[] = [
-  { key: "home", label: "Home", sections: ["hero", "leaderboard", "badges", "merch", "projects", "learning_tree"] },
+  { key: "home", label: "Home", sections: ["hero", "leaderboard", "about"] },
   // Promoted from a home section to a destination: MSOE has run 59
   // events over three years and this site rendered one of them. Home
   // no longer samples it at all — the hero's next-event CTA and the
@@ -147,11 +160,16 @@ const SECTION_EDIT_INFO: Record<
   { path: string; label: string; kind: "internal" | "external" }
 > = {
   hero: { path: "/website", label: "Customize → Identity", kind: "internal" },
-  // The doors strip + per-page CTA bands intentionally aren't here —
-  // they're decorations without data-section, so the click-to-edit
-  // overlay never finds them and there's nothing for the eboard to
-  // tweak per-section in the dashboard.
+  // The per-page CTA bands intentionally aren't here — they're
+  // decorations without data-section, so the click-to-edit overlay
+  // never finds them and there's nothing for the eboard to tweak
+  // per-section in the dashboard.
   about: { path: "/website", label: "Customize → About", kind: "internal" },
+  // Both new to this pass, and both point at Customize rather than at
+  // a record page: an Explore block and a community link are written
+  // on the website form, not derived from events or members.
+  explore: { path: "/website", label: "Customize → Explore", kind: "internal" },
+  community: { path: "/website", label: "Customize → Community", kind: "internal" },
   events: { path: "/events", label: "Events page", kind: "internal" },
   leaderboard: { path: "/people", label: "Members page", kind: "internal" },
   badges: { path: "/awards", label: "Badges & Awards", kind: "internal" },
@@ -343,11 +361,33 @@ function applyFavicon(logoUrl: string | null) {
   link.href = logoUrl;
 }
 
+/** A logo that can hold the hero's left half.
+ *
+ *  The slot is 300px square now, and at that size the shape of the file
+ *  is the whole design. MSOE's uploaded logo is a 2732×2048 JPEG of
+ *  their mark on an opaque black field: at 116px it read as a small
+ *  dark tile and nobody minded, and at 300px it is a 300px black
+ *  rectangle on a near-black hero, letterboxed inside a square box.
+ *  A logo that is far from square, or too small to be drawn at 300
+ *  without softening, is not a logo we can show at this size — and the
+ *  brain mark in the chapter's own colours is a better answer than a
+ *  bad crop of the chapter's own file. Measured from the decoded image
+ *  rather than from the URL, because the bundle says nothing about
+ *  either. */
+function logoFitsHeroSlot(img: HTMLImageElement): boolean {
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  if (!w || !h) return true; // an SVG with no intrinsic size: trust it
+  const ratio = w / h;
+  return ratio >= 0.8 && ratio <= 1.25 && w >= 160;
+}
+
 /** The hero mark: the chapter's uploaded logo when it has one, otherwise
  *  the generated brain in its colours. The brain is the fallback, not a
  *  competitor, so a chapter that took the trouble to upload a logo sees
- *  that logo front and centre. If the image fails to load we fall back to
- *  the brain rather than leave the hero with a broken-image icon. */
+ *  that logo front and centre. If the image fails to load — or turns
+ *  out to be the wrong shape for the slot — we fall back to the brain
+ *  rather than leave the hero with a broken image or a black slab. */
 function renderHeroMark(
   el: HTMLElement | null,
   logoUrl: string | null,
@@ -364,6 +404,9 @@ function renderHeroMark(
   img.alt = "";
   img.decoding = "async";
   img.onerror = () => renderBrainMark(el, acronym);
+  img.onload = () => {
+    if (!logoFitsHeroSlot(img)) renderBrainMark(el, acronym);
+  };
   img.src = logoUrl;
   el.replaceChildren(img);
 }
@@ -390,6 +433,26 @@ function setText(id: string, text: string | null | undefined) {
     return;
   }
   el.textContent = text;
+}
+
+/**
+ * The one sentence that is true of every chapter in the network.
+ *
+ * It is not a fallback tagline, and the difference matters: the
+ * template used to say "A student-run applied AI community." under a
+ * real club's name, which is a slogan nobody wrote, for a club it does
+ * not describe. This is a fact — who runs it, where, and what it is
+ * part of — assembled from the chapter's own two fields. It goes in
+ * the hero because all three live test chapters have tagline = null,
+ * and a masthead that reads mark | pill | name | buttons never answers
+ * the question a visitor arrived with.
+ *
+ * The clause about the university goes when there is no university,
+ * rather than becoming "the student-run applied AI club at ,".
+ */
+function chapterSentence(hubName: string, university: string): string {
+  const where = university.trim() ? ` at ${university.trim()}` : "";
+  return `${hubName} is the student-run applied AI club${where}, and a chapter of the ALL Applied AI Network.`;
 }
 
 function renderIdentity(
@@ -422,10 +485,14 @@ function renderIdentity(
   setText("nav-acronym", hubAcronym);
   setText("nav-hub-name", hubName);
   setText("hero-title", hubName);
-  setText("hero-subtitle", tagline);
+  // The chapter's own words when it wrote any, the true sentence when
+  // it did not. Never both, and never nothing: this is the paragraph
+  // the reference hero has and this one did not.
+  setText("hero-subtitle", tagline || chapterSentence(hubName, university));
   setText("hero-university", university);
   setText("footer-hub-name", hubName);
   setText("footer-university", university);
+  setText("footer-about", tagline || chapterSentence(hubName, university));
 
   // Long-name guard, measured from the content and not the viewport.
   // ROAR's hub_name is "Rose Organization for AI Readiness" — 34
@@ -451,17 +518,26 @@ function renderIdentity(
  * class and drops the visitor straight into the flyer, where join,
  * RSVP and teams actually live:
  *
+ *   a standing invite      → "Join {acronym}"      → join_url
  *   a future event exists  → "Join our next event" → ?event={id}
  *   any event exists       → "See what we ran"     → #events
- *   neither                → "Become a partner"    → #sponsor
+ *   neither                → "Start the curriculum" / "Become a partner"
  *
- * One default button, not three. `.hero__actions:empty` collapses the
- * row if even that cannot be resolved.
+ * The invite leads because it is the one button that does what the
+ * page is for: joining there creates the membership and the member is
+ * on the board on the next load.
+ *
+ * ONE secondary, and only when it goes somewhere the primary does not:
+ * the next event's flyer, or the eboard 600px below. `#band-people` is
+ * scrolled to by hand rather than linked to, so the hash router never
+ * fires and the URL stays clean.
  */
 function renderHeroActions(
   remote: RemoteConfig | null,
+  chapter: ChapterBundle["chapter"] | null,
   events: EventRow[],
   livePages: Set<string>,
+  peopleBandShown: boolean,
 ) {
   const container = document.getElementById("hero-actions");
   if (!container) return;
@@ -497,9 +573,18 @@ function renderHeroActions(
     authored(remote?.cta_tertiary_label, remote?.cta_tertiary_href, "ghost-accent"),
   ].filter((b): b is HeroCta => b !== null);
 
+  const next = nextEvent(events);
+  const joinUrl = safeHttpUrl(chapter?.join_url ?? "");
+
   if (!buttons.length) {
-    const next = nextEvent(events);
-    if (next) {
+    if (joinUrl) {
+      buttons.push({
+        label: `Join ${chapterAcronym}`,
+        href: joinUrl,
+        style: "primary",
+        authored: false,
+      });
+    } else if (next) {
       buttons.push({
         label: "Join our next event",
         href: eventPageHref(next.id, window.location.pathname),
@@ -523,6 +608,28 @@ function renderHeroActions(
       // fork has no Sponsor tab and this button would go nowhere.
       buttons.push({ label: "Become a partner", href: "#sponsor", style: "primary", authored: false });
     }
+
+    // The secondary, once, and only where it adds a destination. A
+    // chapter whose primary already IS the next event does not get a
+    // button to the next event beside it.
+    const primary = buttons[0];
+    if (primary) {
+      if (next && primary.label !== "Join our next event") {
+        buttons.push({
+          label: `Next event · ${monthDay(next.date, next.timezone)}`,
+          href: eventPageHref(next.id, window.location.pathname),
+          style: "ghost",
+          authored: false,
+        });
+      } else if (peopleBandShown) {
+        buttons.push({
+          label: "Meet the eboard",
+          href: "#band-people",
+          style: "ghost",
+          authored: false,
+        });
+      }
+    }
   }
 
   for (const b of buttons) {
@@ -544,10 +651,30 @@ function renderHeroActions(
     if (!href) continue;
     a.href = href;
     // Only true externals open in a new tab — anchor + mailto + tel
-    // stay in the current window.
-    if (/^https?:\/\//.test(href)) {
+    // stay in the current window. The standing invite is the one
+    // absolute URL that does NOT: joining is the thing the visitor
+    // came to do, and handing them a second tab to do it in leaves
+    // this page behind them as litter.
+    if (/^https?:\/\//.test(href) && href !== joinUrl) {
       a.target = "_blank";
       a.rel = "noopener noreferrer";
+    } else if (href === joinUrl) {
+      a.rel = "noopener";
+    }
+    // #band-people is a place on this page, not a route. Scrolled by
+    // hand so the hash router never sees it and the URL a visitor
+    // might share stays the page's own.
+    if (href === "#band-people") {
+      a.addEventListener("click", (e) => {
+        // preventDefault FIRST. Bailing before it let the browser
+        // navigate to #band-people on a page that no longer has one:
+        // getValidPageFromHash falls back to Home and the visitor gets
+        // a changed URL and no movement, which reads as a dead button.
+        e.preventDefault();
+        document
+          .getElementById("band-people")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
     }
     a.textContent = b.label;
     container.appendChild(a);
@@ -569,14 +696,11 @@ interface PageCtaBandCopy {
   secondary?: { label: string; href: string };
 }
 
+/* Home has no band. It ended on a two-button pitch at a sponsor, which
+   is the wrong last word on a page a prospective MEMBER is reading —
+   the join band is the close now, and the one line a partner needs is
+   an aside inside it. The Members band went with the Members page. */
 const PAGE_CTA_BANDS: Record<string, PageCtaBandCopy> = {
-  home: {
-    kicker: "Get in touch",
-    title: "Sponsoring, speaking, or hiring?",
-    desc: "The eboard reads this inbox, and it survives every handover.",
-    primary: { label: "Become a partner", href: "#sponsor" },
-    secondary: { label: "Meet the officers", href: "#about" },
-  },
   projects: {
     kicker: "Build with us",
     title: "Want to ship a project with the chapter?",
@@ -591,11 +715,9 @@ const PAGE_CTA_BANDS: Record<string, PageCtaBandCopy> = {
     primary: { label: "Become a partner", href: "#sponsor" },
     secondary: { label: "See our projects", href: "#projects" },
   },
-  // Learn has no band. "Learn should just be the learning tree" — a
-  // full-bleed canvas with a two-button pitch bolted under it is the
-  // page saying one more thing after the thing it is for. The Members
-  // band went with the Members page; the board is on Home, under
-  // Home's own band.
+  // Learn has no band either: "Learn should just be the learning tree"
+  // — a full-bleed canvas with a two-button pitch bolted under it is
+  // the page saying one more thing after the thing it is for.
 };
 
 /** Every secondary CTA on these bands points at a destination, and on
@@ -676,13 +798,22 @@ function renderPageCtaBands(livePages: Set<string>) {
  * two entries are left, because a strip is a comparison and one number
  * is not one. Labels are singular at 1.
  *
- * MSOE: 596 Members · 59 Events · 41 Projects.
+ * A third law arrives with the people band: every integer is printed
+ * once per screen, and the board's head now prints the members count
+ * 600px below this strip on the same screen. So when the board renders
+ * rows, the BOARD owns that integer and the strip gives it up — the
+ * head is where it means something, because it is sitting on top of
+ * the names it counts. This reverses the old "the strip wins" rule for
+ * that one entry, deliberately.
+ *
+ * MSOE: 59 Events · 41 Projects (the board carries 595 members).
  * ROAR: one entry survives → no strip.
  * NTUA: none survive → no strip.
  */
 function renderStats(
   chapter: ChapterBundle["chapter"] | null,
   projects: ProjectRow[],
+  boardOwnsMembers: boolean,
 ): Set<string> {
   const strip = document.getElementById("hero-stats") as HTMLElement | null;
   const shown = new Set<string>();
@@ -691,7 +822,7 @@ function renderStats(
   if (!chapter) return shown;
 
   const entries: { key: string; n: number; one: string; many: string }[] = [
-    { key: "members", n: chapter.member_count, one: "Member", many: "Members" },
+    { key: "members", n: boardOwnsMembers ? 0 : chapter.member_count, one: "Member", many: "Members" },
     { key: "events", n: chapter.event_count, one: "Event", many: "Events" },
     { key: "projects", n: projects.length, one: "Project", many: "Projects" },
   ].filter((s) => s.n >= 1);
@@ -793,307 +924,950 @@ function pruneEmptySections(bundle: ChapterBundle | null) {
   if (!officers.length) hideSection("officers");
   if (!about) hideSection("about", "about");
 
-  // leaderboard / badges / merch are deliberately absent from this
-  // list. They are Home-only now, and Home keeps its tab on `hero`
-  // whatever they do — so nothing here affects the nav, and deciding
-  // them early would cost the board its one honest empty state
-  // ("Points start showing up here once members check in at an
-  // event."), which a destination could not have shown but a home band
-  // can. renderBoardBands() drops each of the three bands on the
-  // render that found nothing.
+  // `leaderboard` is deliberately absent from this list. It is Home's
+  // people band, Home keeps its tab on `hero` whatever the board does,
+  // and deciding it early would cost the board its one honest empty
+  // state ("Points start showing up here once members check in at an
+  // event.") — which a destination could not have shown but the front
+  // page can. renderPeopleBand() decides, on the render that found
+  // nothing.
+  //
+  // `badges` is absent for a different reason: the wall is on About
+  // now, its section ships empty like every other destination block,
+  // and views/about.ts removes it when the chapter awards none.
 }
 
 /* ──────────────────────────────────────────────────────────────────
    THE LANDING PAGE
 
-   A front door: who this is, the board, and a way into each room
-   behind the nav.
+   Ben's brief was one sentence: the leaderboard and "About Us" front
+   and centre, "because that's what people care about — what the
+   organization is and the people who are a part of it". So the page is
+   five things and no more:
 
-   Two kinds of block live here now. The board, the badge wall and the
-   merch shelf are WHOLE — there is no Members destination behind them
-   any more, so nothing is being sampled and nothing is truncated.
-   Projects and Start here are still samples, and each is rendered by
-   the destination's own renderer (renderProjectCard,
-   renderStartHereBand) so the sample and the room can never disagree
-   about what a project card looks like.
+     the split hero        who this is, in one sentence and one button
+     the people band       the eboard and the board, side by side
+     Explore               what the club does, with pictures
+     Ready to join         the invite, the channels, one cited number
+     the footer            every room, and the network's line
 
-   The Events band is gone. It was the best-looking thing on the page
-   and that was the problem: three rows of feed sat between a visitor
-   and the club's own record, on the one screen where the record should
-   lead. Events is its own destination, the hero still says what is
-   next, and the Events door carries the title and the date.
+   What left, and where it went: the doors strip (the hero strip and
+   Explore's live lines carry the same facts once), the points
+   explainer (the board's own note and the Network block say it in a
+   line each), the badge wall (About, under the roster), the merch
+   shelf (Explore's Rewards block), the projects band and the Start
+   here band (Explore's Projects and learning-tree blocks), and Home's
+   partner band (one aside inside the join band).
+
+   The rule that governs every renderer below: a block with nothing
+   true to say is REMOVED, never emptied. Nothing on this page is a
+   sample of a room any more, so nothing is truncated towards one.
    ────────────────────────────────────────────────────────────────── */
 
-/** The Projects band samples three cards. More than that is not a
- *  sample, it is the destination rendered twice. */
-const BAND_ROWS = 3;
+/**
+ * Officer tiles the faces grid shows before the last one becomes the
+ * overflow link: three rows of three at 88px.
+ *
+ * The size is the ruling — a tile has to read as a person at arm's
+ * length, which 72px does not — and the count is what the size then
+ * costs. At six tiles MSOE's column was two rows and a link beside a
+ * 735px board, which is 380px of dead column: the void this band was
+ * redesigned to remove, moved to the other side. Nine keeps every
+ * face at 88px, ends the two columns within a row of each other, and
+ * puts eight of the thirteen people Ben wanted front and centre on
+ * the page instead of five.
+ */
+const FACE_TILES = 9;
 
-/** The band head: a quiet title on the left, a way into the room on the
- *  right. No .section__kicker anywhere on this page — six uppercase
- *  eyebrows at even intervals down one page is the drumbeat. */
-function bandHead(title: string, link: { label: string; href: string }): string {
+/** Names on the Rewards block's line before it becomes a +N. */
+const REWARD_NAMES = 3;
+
+/** Explore blocks a chapter may author. Past this it is a page, not a
+ *  section of one. */
+const MAX_FEATURES = 6;
+
+/** The two photographs every chapter's Explore falls back to. They are
+ *  real rooms at real chapters — and NOT at this one, which is what
+ *  the caption is for. An uncaptioned photograph on a club's own page
+ *  claims to be the club. */
+const DEFAULT_PHOTOS = {
+  events: {
+    src: "/explore/project-kickoff.jpg",
+    caption: "A speaker night at a network chapter.",
+  },
+  projects: {
+    src: "/explore/build-night.jpg",
+    caption: "Students demoing their project at a network chapter.",
+  },
+};
+
+/** The network's own page of numbers — where the one percentage on
+ *  this page is explained. */
+const IMPACT_URL = "https://all-ai-network.org/impact.html";
+
+/* ── The people band ─────────────────────────────────────────────── */
+
+/** What the band needs that is not in the bundle: which chapter to
+ *  page the board against, which rooms exist, and the standing invite
+ *  (already scheme-checked, so the empty board's button and the hero's
+ *  cannot disagree about whether there is one). */
+interface PeopleBandCtx {
+  slug: string;
+  livePages: Set<string>;
+  joinUrl: string | null;
+}
+
+/** One officer tile: a face or a monogram, a name, and a role when
+ *  they have one. ROAR's single officer has role: "" — a grey line
+ *  with nothing in it under a name reads as a rendering bug. */
+function renderFace(o: Officer, href: string): string {
+  const name = escapeHtml(o.name);
+  const photo = o.image_url ? safeHttpUrl(o.image_url) : null;
+  // Eager under ?still=1: a capture stitches the page from the top and
+  // a lazy portrait two screens down is a grey circle in the
+  // screenshot, which is exactly the render being compared.
+  // A portrait that 404s leaves a fixed-size empty circle in a grid of
+  // faces, which reads as the page failing rather than as an officer
+  // who has not uploaded one — so it falls back to the same monogram
+  // an officer with no portrait at all gets. Same guard the group
+  // photo and the hero mark already have.
+  const initials = officerInitials(o.name);
+  const avatar = photo
+    ? `<img src="${escapeAttr(photo)}" alt="" loading="${isCaptureStill() ? "eager" : "lazy"}" decoding="async" data-initials="${escapeAttr(initials)}" onerror="this.parentElement.setAttribute('aria-hidden','true');this.parentElement.textContent=this.dataset.initials" />`
+    : escapeHtml(initials);
+  const role = (o.role ?? "").trim();
   return `
-    <div class="band-head rv">
-      <h2 class="band-head__title">${escapeHtml(title)}</h2>
-      <a class="band-head__link" href="${escapeAttr(link.href)}">${escapeHtml(link.label)} <span aria-hidden="true">→</span></a>
-    </div>`;
-}
-
-/** Fill a band's interior, or remove the band. A band that renders its
- *  head and then nothing is the empty grid this pass exists to kill. */
-function fillBand(id: string, inner: string): HTMLElement | null {
-  const band = document.getElementById(id);
-  if (!band) return null;
-  if (!inner) {
-    band.remove();
-    return null;
-  }
-  band.innerHTML = `<div class="section__inner">${inner}</div>`;
-  return band;
-}
-
-/* ── 2 — The doors ────────────────────────────────────────────────── */
-
-interface Door {
-  key: string;
-  name: string;
-  href: string;
-  n: number;
-  /** Singular / plural unit, plus any " since 2023" suffix. */
-  unit: string;
-  /** One live line out of the bundle — a real title or a real name. */
-  line: string;
-}
-
-/** The year this chapter's record starts, when the record is long
- *  enough for a start to mean anything. Under twelve months, "since
- *  2026" on a chapter founded in March says nothing. */
-function sinceYear(events: EventRow[]): number | null {
-  if (!events.length) return null;
-  const times = events.map((e) => new Date(e.date).getTime()).filter(Number.isFinite);
-  if (!times.length) return null;
-  const first = Math.min(...times);
-  const span = Math.max(...times) - first;
-  const TWELVE_MONTHS = 365 * 24 * 60 * 60 * 1000;
-  return span < TWELVE_MONTHS ? null : new Date(first).getFullYear();
-}
-
-function renderDoor(d: Door, heroPrinted: Set<string>): string {
-  // Law 2: never headline a one. ROAR's Events door reads
-  // "Events / Welcome Back Wednesday · Sep 2 →", never a giant 1.
-  //
-  // And never twice: the stat strip sits ~150px above this row, so on
-  // MSOE the hero said "59 Events · 41 Projects" and the doors said
-  // "59 events since 2023" and "41 projects" in the same glance. The
-  // strip owns the integers it prints; a door that would repeat one
-  // keeps its name and its live line, which is the more useful half
-  // of the card anyway.
-  const count =
-    d.n >= 2 && !heroPrinted.has(d.key)
-      ? `<div><span class="door__n">${escapeHtml(formatCount(d.n))}</span><span class="door__unit">${escapeHtml(d.unit)}</span></div>`
-      : "";
-  return `
-    <a class="door" href="${escapeAttr(d.href)}" role="listitem">
-      <div class="door__name">${escapeHtml(d.name)}</div>
-      ${count}
-      ${d.line ? `<div class="door__line">${escapeHtml(d.line)}</div>` : ""}
+    <a class="face" href="${escapeAttr(href)}" role="listitem">
+      <span class="face__avatar" aria-hidden="${photo ? "false" : "true"}">${avatar}</span>
+      <span class="face__name">${name}</span>
+      ${role ? `<span class="face__role">${escapeHtml(role)}</span>` : ""}
     </a>`;
 }
 
 /**
- * Four cards carrying the club's own integers, each a way into a room.
- * Returns the set of destination keys that printed a numeral, so the
- * band heads below do not print the same integer again a hundred pixels
- * further down the same screen.
+ * The picture at the top of the left column: the chapter's group photo
+ * if it uploaded one, otherwise its officers as faces.
  *
- * A door whose destination is not in `pages` does not render, and fewer
- * than two doors omits the strip — one door is a link, not a choice.
- * Members is deliberately not a door: the standings band IS the door to
- * it, and five doors on a 375px phone is two rows of squint.
+ * The faces grid is 3×2 at 88px rather than the 4×2 at 72px it started
+ * as. A tile has to read as a person at arm's length or the column is
+ * a contact sheet — and MSOE's roster is 13 people of whom three have
+ * no portrait, so at 72px those three are monogram chips in a grid of
+ * faces. Role order is the API's (President first, by role_order) and
+ * is never re-sorted to put the photographed officers first: that
+ * would be the site editing the eboard.
+ *
+ * Nothing at all when there is neither a photo nor an officer. There
+ * is no placeholder portrait and there never will be.
  */
-function renderDoors(
-  bundle: ChapterBundle,
-  pages: Page[],
-  lessons: { count: number; first: string },
-  heroPrinted: Set<string>,
-): Set<string> {
-  const printed = new Set<string>();
-  const grid = document.getElementById("doors-grid");
-  const band = document.getElementById("doors-band");
-  if (!grid || !band) return printed;
-
-  const live = new Set(pages.map((p) => p.key));
-  const events = bundle.events ?? [];
-  const projects = bundle.projects ?? [];
-  const officers = bundle.config?.officers ?? [];
-  const doors: Door[] = [];
-
-  if (live.has("events") && events.length) {
-    const lead = nextEvent(events) ?? latestPastEvent(events);
-    const year = sinceYear(events);
-    doors.push({
-      key: "events",
-      name: "Events",
-      href: "#events",
-      n: events.length,
-      unit: events.length === 1 ? "event" : `events${year ? ` since ${year}` : ""}`,
-      // Title AND date, which this door did not carry before. The
-      // "What's on" band used to sit two screens down with the date on
-      // a feature card and a "Last time" label on a past one; with the
-      // band gone this door is the only thing on Home that says WHEN,
-      // and a bare title reads as upcoming even when it is the most
-      // recent night the chapter ran. The date settles that without a
-      // label. .door__line clamps to two lines, so a long title keeps
-      // the date.
-      line: lead ? `${lead.title} · ${monthDay(lead.date, lead.timezone)}` : "",
-    });
+function renderPeoplePicture(cfg: RemoteConfig, href: string): string {
+  const photo = cfg.group_photo_url ? safeHttpUrl(cfg.group_photo_url) : null;
+  if (photo) {
+    // A group photo that 404s leaves a 4:3 empty frame at the top of
+    // the column, which reads as the page failing rather than as a
+    // chapter that has not uploaded one. The handler is wired in
+    // renderPeopleBand rather than inline, because when the photo was
+    // the ONLY thing in this column its death has to take the column —
+    // and possibly the band — with it. See wirePeoplePhoto.
+    return `<figure class="people__photo"><img src="${escapeAttr(photo)}" alt="" loading="eager" decoding="async" data-people-photo /></figure>`;
   }
 
-  if (live.has("projects") && projects.length) {
-    doors.push({
-      key: "projects",
-      name: "Projects",
-      href: "#projects",
-      n: projects.length,
-      unit: projects.length === 1 ? "project" : "projects",
-      line: projects[0]?.title ?? "",
-    });
+  const officers = cfg.officers ?? [];
+  if (!officers.length) return "";
+
+  // One or two people in a three-column grid is one face and two
+  // holes, so they lie down instead.
+  if (officers.length <= 2) {
+    return `<div class="faces faces--row" role="list">${officers
+      .map((o) => renderFace(o, href))
+      .join("")}</div>`;
   }
 
-  if (live.has("about") && officers.length) {
-    const lead = officers[0];
-    const role = (lead?.role ?? "").trim();
-    doors.push({
-      // The door is named for the room it opens, and the room is now
-      // About — but what is behind it that a visitor wants is the
-      // people, so the integer and the live line are still the
-      // officers'. "About / 13 officers / Brett Storoe, President".
-      key: "about",
-      name: "About",
-      href: "#about",
-      n: officers.length,
-      unit: officers.length === 1 ? "officer" : "officers",
-      // An empty role renders nothing rather than a dangling comma:
-      // ROAR's one officer has role: "".
-      line: lead ? (role ? `${lead.name}, ${role}` : lead.name) : "",
-    });
-  }
-
-  if (live.has("learn") && lessons.count) {
-    doors.push({
-      key: "learn",
-      name: "Learn",
-      href: "#learn",
-      n: lessons.count,
-      unit: lessons.count === 1 ? "lesson" : "lessons",
-      line: lessons.first,
-    });
-  }
-
-  if (doors.length < 2) {
-    band.remove();
-    return printed;
-  }
-
-  grid.innerHTML = doors.map((d) => renderDoor(d, heroPrinted)).join("");
-  for (const d of doors) if (d.n >= 2) printed.add(d.key);
-  return printed;
+  // Only when the roster genuinely outruns the grid. At exactly
+  // FACE_TILES the naive subtraction yields 1, and the grid trades a
+  // named officer for a "+1" chip that stands for nobody it could not
+  // have shown.
+  const overflow =
+    officers.length > FACE_TILES ? officers.length - (FACE_TILES - 1) : 0;
+  const shown = overflow > 0 ? officers.slice(0, FACE_TILES - 1) : officers.slice(0, FACE_TILES);
+  const more =
+    overflow > 0
+      ? `<a class="face face--more" href="${escapeAttr(href)}" role="listitem">
+           <span class="face__avatar" aria-hidden="true">+${overflow}</span>
+           <span class="face__name">All officers</span>
+         </a>`
+      : "";
+  return `<div class="faces" role="list">${shown
+    .map((o) => renderFace(o, href))
+    .join("")}${more}</div>`;
 }
 
-/* ── 3, 4, 5 — The board, and the recognition that hangs off it ──── */
+/**
+ * The left column: the people, the chapter's own paragraph, and the
+ * way to all of them.
+ *
+ * The paragraph is `config.about` and nothing else. The one true
+ * sentence is in the hero now, and printing it here as well would be
+ * the same sentence twice, 600px apart, on every chapter that has not
+ * written an About yet — which today is all twelve.
+ */
+function renderEboardColumn(bundle: ChapterBundle, livePages: Set<string>): boolean {
+  const host = document.getElementById("eboard-host");
+  if (!host) return false;
+  const cfg = bundle.config;
+  const officers = cfg?.officers ?? [];
+  const about = (cfg?.about ?? "").trim();
+  // Every link out of this column goes to the roster, so all of them
+  // go when the roster has no page to be on.
+  const href = livePages.has("about") ? "#about" : "";
+
+  const picture = renderPeoplePicture(cfg, href || "#");
+  const paragraph = about
+    ? `<div class="people__about">${about
+        .split(/\n{2,}/)
+        .filter((p) => p.trim())
+        .map((p) => `<p>${renderInlineMarkdown(p)}</p>`)
+        .join("")}</div>`
+    : "";
+
+  // "and how to reach them" is checked against the cards rather than
+  // against the roster existing: ROAR's one officer has no email and
+  // no LinkedIn, and the offer would be false there.
+  const link =
+    officers.length && href
+      ? `<p class="people__links"><a class="link--arrow" href="${href}">${
+          officers.some(officerIsReachable)
+            ? "Every officer, and how to reach them"
+            : "Every officer"
+        }</a></p>`
+      : "";
+
+  if (!picture && !paragraph && !link) return false;
+  host.innerHTML = `${picture}${paragraph}${link}`;
+  return true;
+}
 
 /**
- * The three recognition bands, in the order a visitor reads them: the
- * standings, what there is to earn, and what the points buy.
+ * Give up the eboard column — and the band with it when the board was
+ * not carrying anything either.
  *
- * This is the whole board, not the top five. It used to be a sample
- * inside a "The people" band shared with an officer strip, with a
- * "Full leaderboard →" link to the Members tab. Both of those are
- * gone: officers are people and live on About, and Members stopped
- * being a destination because the board belongs on the front page. A
- * sample with nowhere to link to is just a truncated board.
- *
- * Each block reports whether it had anything to say, and a band whose
- * block was silent is removed rather than left as a head over nothing.
- * `hosts` collects the ones that spoke so the closing sentence can be
- * appended to whichever turned out to be last.
+ * Shared by the ordinary "nothing to show" path and by the group
+ * photo's error handler, which can arrive at the same state one round
+ * trip after everybody else has decided the page.
  */
-function renderBoardBands(bundle: ChapterBundle) {
-  const hosts: HTMLElement[] = [];
+function collapseEboardColumn(boardRendered: boolean): void {
+  document.getElementById("people-eboard")?.remove();
+  if (boardRendered) {
+    // One column left standing spans the band at the board's own
+    // measure rather than sitting in a half-width track with a hole
+    // beside it.
+    document.getElementById("people")?.classList.add("people--solo");
+    return;
+  }
+  document.getElementById("band-people")?.remove();
+  // The hero's secondary button scrolls to this band by id. A band
+  // that removed itself must not leave a button to nowhere behind it.
+  document
+    .querySelectorAll('#hero-actions a[href="#band-people"]')
+    .forEach((a) => a.remove());
+}
+
+/**
+ * The group photo can 404 after renderEboardColumn has already counted
+ * it as something to show.
+ *
+ * On a chapter whose column is the photo and nothing else — no
+ * officers, no About — that leaves "Meet the eboard" as a head over an
+ * empty column, which is precisely the state the band-removal rule
+ * exists to prevent. So the failure takes the column with it, and the
+ * band too when the board beside it is only a note.
+ */
+function wirePeoplePhoto(boardRendered: boolean): void {
+  const img = document.querySelector<HTMLImageElement>("img[data-people-photo]");
+  const host = document.getElementById("eboard-host");
+  if (!img || !host) return;
+  const fail = () => {
+    img.closest(".people__photo")?.remove();
+    if (!host.children.length) collapseEboardColumn(boardRendered);
+  };
+  // Already resolved (cache, or a capture's eager decode): naturalWidth
+  // is the only thing that says which way it went.
+  if (img.complete) {
+    if (!img.naturalWidth) fail();
+    return;
+  }
+  img.addEventListener("error", fail, { once: true });
+}
+
+/**
+ * The band, both columns.
+ *
+ * Returns whether the board took ownership of the members count, so
+ * the hero's stats strip knows not to print it twice. The removal
+ * is the interesting case — on a chapter with no officers, no group
+ * photo, no About paragraph and nobody on the board, the band would
+ * render "Meet the eboard" over one sentence and "The board" over a
+ * note, which is two headings and no people. A visitor reads that as
+ * the template talking about itself. NTUA is exactly that chapter, and
+ * there Explore becomes the first band under the hero.
+ *
+ * ROAR keeps the band on one real officer, a note and a Join button,
+ * because every one of those three is true.
+ */
+function renderPeopleBand(bundle: ChapterBundle, ctx: PeopleBandCtx): boolean {
+  const band = document.getElementById("band-people");
+  if (!band) return false;
 
   const boardHost = document.getElementById("board-host");
-  const state = boardHost ? renderBoard(boardHost, bundle) : "none";
-  if (state === "none") document.getElementById("band-board")?.remove();
-  // "note" is the one-line empty state ("Points start showing up here
-  // once members check in at an event."). It keeps the band, because
-  // it names the fix — but it is not the foot of a recognition story,
-  // so the closing sentence does not hang off it.
-  if (state === "board" && boardHost) hosts.push(boardHost);
+  const state = boardHost
+    ? renderBoard(boardHost, bundle, {
+        slug: ctx.slug,
+        joinUrl: ctx.joinUrl,
+        acronym: chapterAcronym,
+        settled: motionSettled(),
+      })
+    : "note";
 
-  // The explainer answers the question the board above it just raised,
-  // so it goes when there is nothing to explain. Its third card names a
-  // rewards shop by name, and 11 of the 12 chapters do not have one —
-  // a card describing a shop that does not exist is the template
-  // talking about itself.
-  const explainer = document.getElementById("points-explainer");
-  if (explainer) {
-    if (!hasRecognition(bundle)) explainer.remove();
-    else if (!(bundle.merch ?? []).length) {
-      explainer.querySelector('[data-needs="merch"]')?.remove();
+  // The eboard column can be gone before this runs: `about` is one of
+  // the keys Customize toggles, and applySectionToggles removes every
+  // element carrying it.
+  const eboardCol = document.getElementById("people-eboard");
+  const filled = eboardCol ? renderEboardColumn(bundle, ctx.livePages) : false;
+
+  if (!filled) {
+    collapseEboardColumn(state === "board");
+    if (state !== "board") return false;
+  }
+
+  // The members claim, on the head of the object it counts. Only when
+  // the board actually rendered rows: over a note it would be a count
+  // of members none of whom are visible under it.
+  const total = bundle.chapter?.member_count ?? 0;
+  const ownsMembers = state === "board" && total >= 2;
+  if (ownsMembers) setText("board-total", plural(total, "member"));
+
+  if (filled) {
+    wirePeoplePhoto(state === "board");
+    if (state === "board") fitBoardToColumn();
+  }
+  return ownsMembers;
+}
+
+/**
+ * End the two columns on the same line.
+ *
+ * The board is a scroller with a max-height, and 600px of it beside
+ * MSOE's six face tiles and one link left 235px of dead column under
+ * the eboard — the same hole the reference's own two-column band does
+ * not have. So the scroller is measured against the column beside it
+ * rather than set to a constant.
+ *
+ * Two floors under that, and they are not negotiable: eight rows,
+ * because a board you cannot scan is not a board, and the natural
+ * height of however many rows there are, because a six-row board must
+ * never grow a scrollbar (WSU's whole board is seven members, and a
+ * scrollbar there says there is more when there is not). The cap stays
+ * 600px. Desktop only — below 900px the columns are stacked and below
+ * 640px there is no scroller at all.
+ */
+function fitBoardToColumn(): void {
+  const eboard = document.getElementById("people-eboard");
+  const eboardHead = eboard?.querySelector<HTMLElement>(".band-head");
+  const eboardHost = document.getElementById("eboard-host");
+  const boardCol = document.getElementById("people-board");
+  const board = boardCol?.querySelector<HTMLElement>(".board");
+  const scroller = board?.querySelector<HTMLElement>(".board__scroll");
+  const head = boardCol?.querySelector<HTMLElement>(".band-head");
+  const rows = scroller?.querySelectorAll<HTMLElement>("[data-lb-row]");
+  if (!eboard || !eboardHost || !board || !scroller || !head || !rows?.length) return;
+  if (window.matchMedia?.("(max-width: 899px)").matches) return;
+
+  // What the frame costs before a single row: the search box, the
+  // sticky head and the status line.
+  const chrome = board.offsetHeight - scroller.offsetHeight;
+  const headBlock = head.offsetHeight + 24; /* .band-head--lead margin */
+  /* The eboard column's own CONTENT, not its box. `.people` is
+     `align-items: stretch` (which is what makes the two columns end
+     level in the first place), so #people-eboard has already been
+     stretched to the grid row — which is the taller of the two
+     columns, which is usually this board. Measuring that box made the
+     target a function of the board's current height, so `h` could only
+     ever grow: the whole function was inert. The head and the host are
+     the column's two real children, so their heights are the number
+     this wants. */
+  const eboardBlock =
+    (eboardHead ? eboardHead.offsetHeight + 24 : 0) + eboardHost.offsetHeight;
+  const target = eboardBlock - headBlock - chrome;
+
+  const eighth = rows[Math.min(7, rows.length - 1)];
+  const floor = eighth.offsetTop + eighth.offsetHeight;
+  const natural = scroller.scrollHeight;
+
+  const h = Math.min(Math.max(target, Math.min(floor, natural)), 600);
+  board.style.setProperty("--board-h", `${Math.round(h)}px`);
+}
+
+/* ── Explore ─────────────────────────────────────────────────────── */
+
+interface FeatureImage {
+  src: string;
+  /** Says a photograph is from somewhere else. Chapter-authored
+   *  pictures never have one. */
+  caption?: string;
+  /** Drawn inside the box rather than cropped to fill it: a logo. */
+  contain?: boolean;
+  /** Where to go when this picture turns out not to be a picture —
+   *  see wireFeatureImages. */
+  fallback?: { src: string; caption: string };
+}
+
+interface Feature {
+  title: string;
+  subtitle: string;
+  /** Markdown; rendered with the same pass event descriptions get. */
+  body: string;
+  image: FeatureImage | null;
+  /** One line of this chapter's own live data, already escaped. */
+  live?: string;
+  link?: { label: string; href: string };
+}
+
+function renderFeature(f: Feature, i: number): string {
+  const fallback = f.image?.fallback;
+  const photo = f.image
+    ? `<figure class="feature__figure">
+         <div class="feature__photo${f.image.contain ? " feature__photo--contain" : ""}">
+           <img src="${escapeAttr(f.image.src)}" alt="" loading="${
+             isCaptureStill() ? "eager" : "lazy"
+           }" decoding="async"${
+             fallback
+               ? ` data-fallback="${escapeAttr(fallback.src)}" data-fallback-caption="${escapeAttr(fallback.caption)}"`
+               : ""
+           } />
+         </div>
+         ${f.image.caption ? `<figcaption class="feature__caption">${escapeHtml(f.image.caption)}</figcaption>` : ""}
+       </figure>`
+    : "";
+  // The photo changes sides down the column so the page has a rhythm
+  // rather than a left margin of pictures. Below 900px there is one
+  // column and the flip is meaningless, which the stylesheet handles.
+  const flip = f.image && i % 2 === 1 ? " feature--flip" : "";
+  const bare = f.image ? "" : " feature--bare";
+  const link = f.link
+    ? `<a class="feature__link link--arrow" href="${escapeAttr(f.link.href)}"${
+        /^https?:/.test(f.link.href) ? ` target="_blank" rel="noopener noreferrer"` : ""
+      }>${escapeHtml(f.link.label)}</a>`
+    : "";
+  return `
+    <div class="feature${flip}${bare}" role="listitem">
+      ${photo}
+      <div class="feature__body">
+        <h3 class="feature__title">${escapeHtml(f.title)}</h3>
+        ${f.subtitle ? `<p class="feature__sub">${escapeHtml(f.subtitle)}</p>` : ""}
+        <div class="feature__text">${renderRichMarkdown(f.body)}</div>
+        ${f.live ? `<p class="feature__live">${f.live}</p>` : ""}
+        ${link}
+      </div>
+    </div>`;
+}
+
+/**
+ * The block's picture has to survive a 4:3 frame, and a cover is not
+ * always a photograph.
+ *
+ * MSOE's next event carries the 1128×191 network banner as its cover —
+ * a 5.9:1 strip with words on it. Cropped to 4:3 that is a black tile
+ * with half a letter in it, which is worse than no picture and much
+ * worse than a real photograph of a real room. So a cover wider than
+ * 2.2:1 (lib events already calls that a banner rather than a photo,
+ * see fitCover) hands the slot to the default photograph, and so does
+ * a cover that fails to load at all.
+ *
+ * Measured from the decoded image because nothing in the bundle says
+ * what shape a cover is.
+ *
+ * A picture with no fallback to hand — an authored block's own
+ * image_url, the learning tree's thumbnail, the rewards photo — gets
+ * the other half of this: its figure goes and the block's text spans
+ * the row, exactly as a block with no picture renders. The alternative
+ * is a bordered, empty 4:3 box, which is the empty photo frame §12
+ * forbids.
+ */
+function wireFeatureImages(host: HTMLElement): void {
+  host.querySelectorAll<HTMLImageElement>(".feature__figure img").forEach((img) => {
+    if (img.dataset.fallback === undefined) {
+      const drop = () => {
+        const feature = img.closest<HTMLElement>(".feature");
+        img.closest(".feature__figure")?.remove();
+        feature?.classList.remove("feature--flip");
+        feature?.classList.add("feature--bare");
+      };
+      if (img.complete) {
+        if (!img.naturalWidth) drop();
+      } else {
+        img.addEventListener("error", drop, { once: true });
+      }
+      return;
+    }
+    const swap = (force: boolean) => {
+      const ratio = img.naturalWidth && img.naturalHeight
+        ? img.naturalWidth / img.naturalHeight
+        : 0;
+      if (!force && ratio && ratio <= 2.2) return;
+      const src = img.dataset.fallback;
+      const caption = img.dataset.fallbackCaption ?? "";
+      if (!src) return;
+      delete img.dataset.fallback;
+      img.src = src;
+      const figure = img.closest("figure");
+      if (figure && caption && !figure.querySelector(".feature__caption")) {
+        figure.insertAdjacentHTML(
+          "beforeend",
+          `<figcaption class="feature__caption">${escapeHtml(caption)}</figcaption>`,
+        );
+      }
+    };
+    if (img.complete && img.naturalWidth) swap(false);
+    else {
+      img.addEventListener("load", () => swap(false), { once: true });
+      img.addEventListener("error", () => swap(true), { once: true });
+    }
+  });
+}
+
+/** An authored block, or null when the chapter left it unusable. A
+ *  block is its title: without one there is nothing to head it with. */
+function authoredFeature(row: FeatureBlockRow, livePages: Set<string>): Feature | null {
+  const title = (row.title ?? "").trim();
+  if (!title) return null;
+  const image = row.image_url ? safeHttpUrl(row.image_url) : null;
+  const href = (row.link_href ?? "").trim();
+  const label = (row.link_label ?? "").trim();
+  // A hash link is checked against the pages that exist, an absolute
+  // one against its scheme. Anything else is dropped rather than
+  // rendered as a button into nowhere.
+  const target = href.startsWith("#")
+    ? ctaTargetLives(href, livePages)
+      ? href
+      : null
+    : safeHttpUrl(href);
+  return {
+    title,
+    subtitle: (row.subtitle ?? "").trim(),
+    body: (row.body ?? "").trim(),
+    // An officer's own photo of their own club is never captioned:
+    // the caption exists to say a picture is from somewhere else.
+    image: image ? { src: image } : null,
+    link: target && label ? { label, href: target } : undefined,
+  };
+}
+
+/**
+ * The four default blocks, plus Rewards when there is a shelf.
+ *
+ * Every sentence here is either true of the NETWORK or read off this
+ * chapter's live data. That rule is why the Events copy does not name
+ * a cadence: the draft said "ALL chapters run on a two-week rhythm",
+ * and a chapter that meets monthly reads its own front page telling it
+ * otherwise. Anything we would have to guess at is not printed.
+ */
+function defaultFeatures(
+  bundle: ChapterBundle,
+  livePages: Set<string>,
+  floor: CurriculumFloor | null,
+  boardAbove: boolean,
+): Feature[] {
+  const events = bundle.events ?? [];
+  const projects = bundle.projects ?? [];
+  const merch = bundle.merch ?? [];
+  const hubName = bundle.config?.hub_name ?? bundle.chapter?.name ?? config.hub_name;
+  const out: Feature[] = [];
+
+  /* 1 — Events. */
+  const next = nextEvent(events);
+  const past = latestPastEvent(events);
+  const lead = next ?? past;
+  const eventCover = lead?.image_url ? safeHttpUrl(lead.image_url) : null;
+  out.push({
+    title: "Events",
+    subtitle: "Something to show up to",
+    // "the board above" is a reference to something on this page, so
+    // it is only made when the page has one: on a chapter with no
+    // officers and nobody scored, the people band removed itself and
+    // Explore is the first band under the hero.
+    body:
+      "Chapters run speakers, workshops and build nights through the term, with projects going on between them. Every event has a QR check-in, and checking in is what puts your name on " +
+      (boardAbove ? "the board above." : "the chapter's board."),
+    image: eventCover
+      ? { src: eventCover, fallback: DEFAULT_PHOTOS.events }
+      : { src: DEFAULT_PHOTOS.events.src, caption: DEFAULT_PHOTOS.events.caption },
+    live: lead
+      ? `${next ? "Next up" : "Most recent"}: <strong>${escapeHtml(lead.title)}</strong> · ${escapeHtml(
+          monthDay(lead.date, lead.timezone),
+        )}`
+      : undefined,
+    link: livePages.has("events") ? { label: "All events", href: "#events" } : undefined,
+  });
+
+  /* 2 — Projects. The newest year group's first project, which is the
+     same pick the old projects band led with. */
+  const newestYear = projects.length ? deriveYearFilters(projects)[0]?.year ?? null : null;
+  const pool = newestYear
+    ? projects.filter((p) => (p.year ?? "").trim() === newestYear)
+    : projects;
+  const newest = (pool.length ? pool : projects)[0] ?? null;
+  const projectCover = newest?.image_url ? safeHttpUrl(newest.image_url) : null;
+  const byline = newest ? renderByline((newest as ProjectWithMembers).members ?? []) : "";
+  out.push({
+    title: "Projects",
+    subtitle: "Build something you can point to",
+    // The second sentence names a room, so it is only written on a
+    // chapter that has that room — the same rule the Events copy
+    // honours with its boardAbove branch. ROAR and NTUA have no
+    // Projects tab and were being told where their finished work
+    // lives.
+    body:
+      "Small teams take a real problem for a term — a sponsor's brief, a competition, a research question — and ship something with their names on it" +
+      (livePages.has("projects")
+        ? ". Finished work lives on the Projects page, credited to the students who built it, and on each builder's network profile."
+        : ", credited on each builder's network profile."),
+    image: projectCover
+      ? { src: projectCover, fallback: DEFAULT_PHOTOS.projects }
+      : { src: DEFAULT_PHOTOS.projects.src, caption: DEFAULT_PHOTOS.projects.caption },
+    live: newest
+      ? `Latest: <strong>${escapeHtml(newest.title)}</strong>${byline ? ` — ${escapeHtml(byline)}` : ""}`
+      : undefined,
+    link: livePages.has("projects") ? { label: "All projects", href: "#projects" } : undefined,
+  });
+
+  /* 3 — The learning tree. The one block that renders the same on a
+     three-year-old chapter and a two-week-old one. */
+  const lessons = floor?.path ?? [];
+  const firstLesson = lessons[0] ?? null;
+  const thumb = firstLesson?.thumbnail ? safeHttpUrl(firstLesson.thumbnail) : null;
+  out.push({
+    title: "The learning tree",
+    subtitle: "A path from zero to shipping",
+    // The count is only printed when the curriculum actually resolved.
+    // A guessed number of free lessons is a number somebody counts.
+    body: `${
+      lessons.length ? `${lessons.length} free lessons` : "Free lessons"
+    }, self-paced, from what AI actually is through setting up an editor and writing your first program, to training and deploying models. It is the same path every chapter in the network teaches, and officers add their own lessons on top.`,
+    image: thumb ? { src: thumb } : null,
+    live: firstLesson
+      ? `Starts with: <strong>${escapeHtml(firstLesson.title)}</strong>${
+          firstLesson.estimated_minutes
+            ? ` · ${escapeHtml(String(firstLesson.estimated_minutes))} min`
+            : ""
+        }`
+      : undefined,
+    link: livePages.has("learn")
+      ? { label: "Open the learning tree", href: "#learn" }
+      : undefined,
+  });
+
+  /* 4 — The network. */
+  out.push({
+    title: "The network",
+    subtitle: "One record, every chapter",
+    body: `${hubName} is a chapter of the ALL Applied AI Network. Your check-ins, projects and badges here also land on your ALL profile, which travels with you between chapters and is what sponsors browse when they are hiring.`,
+    image: { src: "/all-logo-transparent.png", contain: true },
+    link: { label: "See the network", href: IMPACT_URL },
+  });
+
+  /* 5 — Rewards, only where there is a shelf: 1 chapter of 12. */
+  if (merch.length) {
+    const named = merch
+      .slice(0, REWARD_NAMES)
+      .map((m) => `<strong>${escapeHtml(m.name)}</strong>`)
+      .join(", ");
+    const rest = merch.length - REWARD_NAMES;
+    const photo = merch
+      .flatMap((m) => (m.images?.length ? m.images : m.image_url ? [m.image_url] : []))
+      .map((u) => safeHttpUrl(u))
+      .find((u): u is string => !!u);
+    out.push({
+      title: "Rewards",
+      subtitle: "What the points are for",
+      // Not "points buy things": half of MSOE's shelf carries
+      // cost_points: 0 and a cost_text like "Participate in and
+      // Complete a MAIC Research Group" — which is why renderMerchCard
+      // prefers cost_text over the price at all. And no cadence: we do
+      // not know when this chapter meets.
+      body: "Some of the shelf is bought with the points you earn at events, and some of it is earned by doing the thing itself.",
+      image: photo ? { src: photo } : null,
+      live: `On the shelf: ${named}${rest > 0 ? ` +${rest}` : ""}`,
+    });
+  }
+
+  return out;
+}
+
+/**
+ * Explore: the chapter's own blocks, or the defaults.
+ *
+ * "Authored means authored" — one block written in Customize replaces
+ * all five defaults rather than joining them, because a chapter that
+ * started writing its own page should not find ours appended to it.
+ */
+function renderExplore(
+  bundle: ChapterBundle,
+  livePages: Set<string>,
+  floor: CurriculumFloor | null,
+): void {
+  const band = document.getElementById("band-explore");
+  const host = document.getElementById("features-host");
+  if (!band || !host) return;
+
+  const authored = (bundle.config?.feature_blocks ?? [])
+    .slice(0, MAX_FEATURES)
+    .map((row) => authoredFeature(row, livePages))
+    .filter((f): f is Feature => f !== null);
+
+  // Read off the DOM rather than recomputed: renderPeopleBand has
+  // already run and is the only thing that decides this, so asking it
+  // beats keeping a second copy of its rule in step with it.
+  const features = authored.length
+    ? authored
+    : defaultFeatures(bundle, livePages, floor, !!document.getElementById("band-people"));
+
+  if (!features.length) {
+    band.remove();
+    return;
+  }
+
+  const acronym = (bundle.config?.hub_acronym ?? "").trim();
+  setText("explore-title", acronym ? `Explore ${acronym}` : "What we do");
+  host.innerHTML = features.map(renderFeature).join("");
+  wireFeatureImages(host);
+  // The capture recipe waits for this: a screenshot taken before
+  // Explore renders is a screenshot of a page with a hole in it.
+  host.dataset.ready = "1";
+}
+
+/* ── Community links ─────────────────────────────────────────────── */
+
+/**
+ * Every channel this chapter points people at, in the eboard's own
+ * order, deduped and scheme-checked.
+ *
+ * Three sources, in precedence order. `community_links` is the list
+ * officers now edit, and the API folds the legacy seven-key
+ * `social_links` blob into it — but only on an API that has shipped
+ * the field, so this falls back to folding it in itself. The baked
+ * `config.links` comes last and only fills gaps: it exists for a fork
+ * running its own hub.config.json, and a live chapter's own dashboard
+ * must always win over a value compiled into the bundle.
+ */
+function communityLinks(remote: RemoteConfig | null): CommunityLink[] {
+  const rows: CommunityLink[] = [
+    ...(remote?.community_links ?? []).map((r) => ({
+      platform: (r.platform ?? "").trim().toLowerCase(),
+      url: (r.url ?? "").trim(),
+      label: (r.label ?? "")?.trim() || null,
+    })),
+  ];
+  if (!rows.length) rows.push(...linksFromSocial(remote?.social_links));
+  rows.push(...linksFromSocial(config.links));
+
+  const seen = new Set<string>();
+  const out: CommunityLink[] = [];
+  for (const row of rows) {
+    if (!row.platform || !row.url) continue;
+    if (seen.has(row.platform)) continue;
+    // An address is not a URL and must never be trusted as an href:
+    // the mailto: is built here from a value that parses as one
+    // address, exactly as the officer cards build theirs.
+    const ok =
+      row.platform === "email" ? mailtoHref(row.url) : safeHttpUrl(communityHref(row));
+    if (!ok) continue;
+    seen.add(row.platform);
+    out.push({ ...row, url: ok });
+  }
+  // Join-type first, in the eboard's order within each group: a
+  // visitor reading this row is deciding whether to join, and an
+  // Instagram link is not that decision.
+  const rank = (l: CommunityLink) => (platformMeta(l.platform).kind === "join" ? 0 : 1);
+  return out.sort((a, b) => rank(a) - rank(b));
+}
+
+/** The buttons in the join band. Join-type gets the label and the
+ *  tint; everything else is a mark and a word. */
+function renderCommunityLinks(links: CommunityLink[]): string {
+  return links
+    .map((l) => {
+      const meta = platformMeta(l.platform);
+      const join = meta.kind === "join";
+      const label = l.label || (join ? meta.verb : meta.label);
+      return `
+        <a class="plink ${join ? "plink--join" : "plink--follow"}" href="${escapeAttr(l.url)}"
+           ${l.platform === "email" ? "" : `target="_blank" rel="noopener noreferrer"`}
+           aria-label="${escapeAttr(label)}">
+          <span class="plink__icon" aria-hidden="true">${platformIcon(l.platform)}</span>
+          <span class="plink__label">${escapeHtml(label)}</span>
+        </a>`;
+    })
+    .join("");
+}
+
+/* ── Ready to join ───────────────────────────────────────────────── */
+
+/**
+ * The close: the invite, the channels, the partner aside, and the one
+ * number on this page that is a percentage.
+ *
+ * The description is written from what the chapter actually has, in
+ * four cases, because "Join our Discord" on a chapter with no Discord
+ * is the failure this whole pass is about.
+ */
+function renderJoin(
+  bundle: ChapterBundle,
+  livePages: Set<string>,
+  links: CommunityLink[],
+  joinUrl: string | null,
+): void {
+  const band = document.getElementById("band-join");
+  if (!band) return;
+
+  const events = bundle.events ?? [];
+  const joinLinks = links.filter((l) => platformMeta(l.platform).kind === "join");
+  const next = nextEvent(events);
+
+  let desc: string;
+  if (joinUrl) {
+    desc = `Joining takes a minute and puts your name on the board.${
+      joinLinks.length
+        ? " Then pick a channel below and you will hear about the next event."
+        : ""
+    }`;
+  } else if (joinLinks.length) {
+    desc = `The fastest way in is the ${platformMeta(joinLinks[0].platform).label}: that is where the next event is announced.`;
+  } else if (next) {
+    // Not "come to the next event": the button 40px under this one
+    // already says that, and the same sentence twice in a row is the
+    // duplication Ben rejected on the last pass. This one carries what
+    // the button cannot — that there is nothing else to do.
+    desc = "There is no application. Turn up, check in, and your name is on the board.";
+  } else if (events.length) {
+    // The chapter has run events but has nothing on the calendar, so
+    // there is no "next event" to send anyone to and the sentence
+    // above would be promising one. ROAR is exactly here: one event,
+    // in September, and no invite.
+    desc = "Turning up is the whole application — the next event is announced here.";
+  } else {
+    desc = "The first members are joining now. Check back for the invite, or start the curriculum meanwhile.";
+  }
+  const descEl = document.getElementById("join-desc");
+  if (descEl) {
+    // The one case with a link in it: on a chapter with nothing else
+    // to offer, the curriculum is the offer.
+    descEl.innerHTML =
+      !joinUrl && !joinLinks.length && !events.length && livePages.has("learn")
+        ? desc.replace(
+            "start the curriculum",
+            `<a href="#learn">start the curriculum</a>`,
+          )
+        : escapeHtml(desc);
+  }
+
+  const actions = document.getElementById("join-actions");
+  if (actions) {
+    if (joinUrl) {
+      actions.innerHTML = `<a class="btn btn--primary" href="${escapeAttr(joinUrl)}" rel="noopener">Join ${escapeHtml(chapterAcronym)}</a>`;
+    } else if (joinLinks.length) {
+      const first = joinLinks[0];
+      const meta = platformMeta(first.platform);
+      actions.innerHTML = `<a class="btn btn--primary" href="${escapeAttr(first.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(first.label || meta.verb)}</a>`;
+    } else if (next) {
+      actions.innerHTML = `<a class="btn btn--primary" href="${escapeAttr(
+        eventPageHref(next.id, window.location.pathname),
+      )}">Come to our next event</a>`;
     }
   }
 
-  const badgesHost = document.getElementById("badges-host");
-  const badges = badgesHost ? renderBadgeWall(badgesHost, bundle) : false;
-  if (badges && badgesHost) hosts.push(badgesHost);
-  // The band carries the explainer as well as the wall, so a chapter
-  // with points but no badges keeps it.
-  if (!badges && !document.getElementById("points-explainer")) {
-    document.getElementById("band-recognition")?.remove();
+  // The button above is one of these; showing it twice in a row is the
+  // duplication Ben rejected on the last pass. But it is only ever
+  // links[0] when there IS a join-kind link to promote (communityLinks
+  // sorts those first) — with a join_url, or with nothing but
+  // follow/contact channels, the button is not from this list at all
+  // and the slice was deleting a real Instagram or email row that then
+  // appeared nowhere in the band.
+  const rest = joinUrl || !joinLinks.length ? links : links.slice(1);
+  const linksEl = document.getElementById("join-links");
+  if (linksEl) linksEl.innerHTML = renderCommunityLinks(rest);
+
+  const aside = document.getElementById("join-aside");
+  if (aside && livePages.has("sponsor")) {
+    aside.innerHTML = `Sponsoring, speaking, or hiring? <a class="link--arrow" href="#sponsor">Write to the eboard</a>`;
   }
 
-  const merchHost = document.getElementById("merch-host");
-  const merch = merchHost ? renderMerch(merchHost, bundle) : false;
-  if (merch && merchHost) hosts.push(merchHost);
-  else document.getElementById("band-merch")?.remove();
-
-  // One sentence closes the recognition story, under whichever of the
-  // three blocks turned out to be the last one standing. A chapter
-  // with no recognition at all gets no sentence and no band.
-  const last = hosts[hosts.length - 1];
-  if (last) renderNetworkLine(last);
+  /* The one percentage on the page, and the only claim on it the
+     chapter did not make itself. It sits last in the band, under a
+     hairline, because it is the answer to "why join" at the moment of
+     joining — and it is set at body size, not in grey small print: a
+     cited outcome that reads as legal boilerplate is a cited outcome
+     nobody reads. */
+  const proof = document.getElementById("proof");
+  if (proof) {
+    proof.innerHTML =
+      "Across the network, active members graduated into starting salaries " +
+      "<strong>38% above their non-member peers.</strong><sup>*</sup>";
+  }
+  const note = document.getElementById("proof-note");
+  if (note) {
+    note.innerHTML =
+      `<sup>*</sup> ALL Applied AI Network Spring 2025 graduate outcomes among active members — ` +
+      `two or more events in a semester, or one project event — across every chapter and every major. ` +
+      `<a href="${IMPACT_URL}" target="_blank" rel="noopener">Methodology on the network site</a>.`;
+  }
 }
 
-/* ── 5 — What we've built ────────────────────────────────────────── */
+/* ── The footer ──────────────────────────────────────────────────── */
 
-function renderProjectsBand(bundle: ChapterBundle, printed: Set<string>) {
-  const projects = bundle.projects ?? [];
-  // No empty state and no "coming soon": a club with no projects simply
-  // has no projects band on its front page.
-  if (!projects.length) return;
+/**
+ * Brand, every room, the channels, and the network's line.
+ *
+ * It replaces a footer that was a logo, seven hand-drawn social icons
+ * and an attribution: a visitor who read to the bottom of the page had
+ * nowhere to go from there. The quick links are the live pages in
+ * PAGES order, which is the nav's order — a second ordering of the
+ * same six rooms is a second thing to learn.
+ */
+function renderFooter(pages: Page[], links: CommunityLink[], joinUrl: string | null): void {
+  const list = document.getElementById("footer-links");
+  if (list) {
+    const rooms = pages
+      .map((p) => `<li><a href="#${escapeAttr(p.key)}">${escapeHtml(p.label)}</a></li>`)
+      .join("");
+    const join = joinUrl
+      ? `<li><a href="${escapeAttr(joinUrl)}" rel="noopener">Join ${escapeHtml(chapterAcronym)}</a></li>`
+      : "";
+    list.innerHTML = `${rooms}${join}`;
+  }
 
-  // The newest year group, in bundle order — which is the order
-  // officers arranged them in. deriveYearFilters already knows how to
-  // sort a free-text year field and which strings it cannot parse.
-  const newest = deriveYearFilters(projects)[0]?.year ?? null;
-  const pool = newest ? projects.filter((p) => (p.year ?? "").trim() === newest) : projects;
-  const shown = (pool.length ? pool : projects).slice(0, BAND_ROWS);
-
-  const link =
-    projects.length >= 2
-      ? {
-          label: printed.has("projects") ? "All projects" : `All ${plural(projects.length, "project")}`,
-          href: "#projects",
-        }
-      : { label: "See the project", href: "#projects" };
-
-  fillBand(
-    "band-projects",
-    bandHead("What we've built", link) +
-      `<div class="projects-grid rv-group" role="list">
-         ${shown.map((p) => renderProjectCard(p, window.location.pathname)).join("")}
-       </div>`,
-  );
+  const socials = document.getElementById("footer-socials");
+  const follow = document.getElementById("footer-follow");
+  if (!socials) return;
+  if (!links.length) {
+    // #footer-socials is one of the ten ids the dashboard detects this
+    // template by, so the element survives even when its column does
+    // not — it moves into the brand column, empty, where the :empty
+    // rule collapses it.
+    if (follow && follow.parentElement) {
+      const inner = follow.parentElement;
+      inner.querySelector(".footer__brand")?.appendChild(socials);
+      follow.remove();
+      inner.classList.add("footer__inner--no-follow");
+    }
+    return;
+  }
+  socials.innerHTML = links
+    .map((l) => {
+      const meta = platformMeta(l.platform);
+      return `<a class="footer-social" href="${escapeAttr(l.url)}"${
+        l.platform === "email" ? "" : ` target="_blank" rel="noopener noreferrer"`
+      } aria-label="${escapeAttr(meta.label)}" title="${escapeAttr(meta.label)}">${platformIcon(l.platform)}</a>`;
+    })
+    .join("");
 }
 
 /**
@@ -1109,55 +1883,13 @@ function safeCtaHref(raw: string): string | null {
   return safeHttpUrl(h);
 }
 
-/* ──────────────────────────────────────────────────────────────────
-   Social links footer
-   ────────────────────────────────────────────────────────────────── */
-
-const SOCIAL_ICONS: Record<string, string> = {
-  discord: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.32 4.37a19.79 19.79 0 0 0-4.89-1.52.07.07 0 0 0-.08.04c-.2.38-.43.87-.59 1.26a18.27 18.27 0 0 0-5.52 0c-.17-.39-.4-.88-.6-1.26a.08.08 0 0 0-.08-.04 19.74 19.74 0 0 0-4.89 1.52.07.07 0 0 0-.03.03C.44 9.05-.27 13.58.1 18.06a.1.1 0 0 0 .04.07 19.9 19.9 0 0 0 6 3.03.08.08 0 0 0 .09-.03c.46-.63.87-1.3 1.23-2a.07.07 0 0 0-.04-.11 13.1 13.1 0 0 1-1.88-.9.08.08 0 0 1-.01-.13c.13-.1.25-.2.37-.3a.08.08 0 0 1 .08-.01c3.93 1.8 8.18 1.8 12.07 0a.08.08 0 0 1 .08.01c.12.1.24.2.37.3a.08.08 0 0 1-.01.13 12.3 12.3 0 0 1-1.88.9.08.08 0 0 0-.04.11c.37.7.78 1.37 1.24 2a.08.08 0 0 0 .08.03 19.84 19.84 0 0 0 6-3.03.08.08 0 0 0 .04-.07c.44-5.18-.73-9.67-3.1-13.66a.06.06 0 0 0-.03-.03zM8.02 15.33c-1.18 0-2.16-1.09-2.16-2.42s.95-2.42 2.16-2.42c1.21 0 2.18 1.1 2.16 2.42 0 1.33-.95 2.42-2.16 2.42zm7.97 0c-1.18 0-2.15-1.09-2.15-2.42s.95-2.42 2.15-2.42c1.22 0 2.19 1.1 2.16 2.42 0 1.33-.94 2.42-2.16 2.42z"/></svg>`,
-  github: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.73.5.77 5.46.77 11.73c0 4.96 3.22 9.17 7.68 10.66.56.1.77-.24.77-.54v-2.06c-3.13.68-3.79-1.3-3.79-1.3-.51-1.3-1.25-1.64-1.25-1.64-1.02-.7.08-.68.08-.68 1.13.08 1.72 1.16 1.72 1.16 1 1.72 2.63 1.22 3.27.93.1-.72.39-1.22.72-1.5-2.5-.28-5.12-1.25-5.12-5.55 0-1.23.44-2.23 1.16-3.02-.12-.28-.5-1.43.11-2.97 0 0 .94-.3 3.09 1.15a10.8 10.8 0 0 1 5.62 0c2.15-1.46 3.09-1.15 3.09-1.15.61 1.54.23 2.69.11 2.97.72.79 1.16 1.79 1.16 3.02 0 4.31-2.63 5.26-5.14 5.54.4.35.76 1.03.76 2.07v3.07c0 .3.21.65.78.54 4.45-1.49 7.67-5.7 7.67-10.66C23.23 5.46 18.27.5 12 .5z"/></svg>`,
-  instagram: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37a4 4 0 1 1-7.914 1.172A4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>`,
-  linkedin: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM8.34 18.34V9.67H5.67v8.67zM7 8.5a1.54 1.54 0 1 0 0-3.08 1.54 1.54 0 0 0 0 3.08zm11.34 9.84v-4.75c0-2.53-1.35-3.7-3.15-3.7-1.45 0-2.1.8-2.47 1.37V9.67h-2.68s.03.76 0 8.67h2.68v-4.84c0-.24.02-.48.09-.65.18-.48.62-.98 1.35-.98.96 0 1.34.73 1.34 1.8v4.67z"/></svg>`,
-  twitter: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`,
-  youtube: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.498 6.186a3 3 0 0 0-2.11-2.12C19.505 3.545 12 3.545 12 3.545s-7.504 0-9.389.521A3 3 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3 3 0 0 0 2.11 2.12c1.885.521 9.389.521 9.389.521s7.504 0 9.389-.521a3 3 0 0 0 2.11-2.12C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12z"/></svg>`,
-  email: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></svg>`,
-};
-
-const SOCIAL_LABELS: Record<string, string> = {
-  discord: "Discord",
-  github: "GitHub",
-  instagram: "Instagram",
-  linkedin: "LinkedIn",
-  twitter: "Twitter / X",
-  youtube: "YouTube",
-  email: "Email",
-};
-
-function renderSocials(links: Record<string, string>) {
-  const container = document.getElementById("footer-socials");
-  if (!container) return;
-
-  // Merge remote over bundled so a fresh fork has something.
-  const merged: Record<string, string> = { ...(config.links ?? {}) };
-  for (const [k, v] of Object.entries(links)) {
-    if (v) merged[k] = v;
-  }
-
-  const entries = Object.entries(merged).filter(([, v]) => v);
-  if (!entries.length) {
-    container.innerHTML = "";
-    return;
-  }
-
-  container.innerHTML = entries
-    .map(([key, url]) => {
-      const href = key === "email" ? `mailto:${url}` : url;
-      const icon = SOCIAL_ICONS[key] ?? SOCIAL_ICONS.email;
-      const label = SOCIAL_LABELS[key] ?? key;
-      return `<a class="footer-social" href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttr(label)}" title="${escapeAttr(label)}">${icon}</a>`;
-    })
-    .join("");
-}
+/* The SOCIAL_ICONS / SOCIAL_LABELS maps and renderSocials are gone.
+   Seven hand-traced glyphs for seven platforms — one of them still
+   labelled "Twitter / X" — have become the sixteen real marks in
+   lib/platform-icons.ts, and the footer row is rendered by
+   renderFooter above from the same community list the join band uses.
+   One list, two surfaces; a chapter can no longer have a Discord in
+   its footer and not in its join band. */
 
 /* ──────────────────────────────────────────────────────────────────
    Learning / Workshops / Playbooks — CDN content
@@ -2121,8 +2853,8 @@ async function init() {
 
   // The flyer takeover owns the whole document when ?event= names a
   // real event. Resolved before anything renders so the landing page's
-  // work — four bands, the doors, a curriculum wait — is never done
-  // behind an event nobody will see it under.
+  // work — the people band, the board, Explore, a curriculum wait — is
+  // never done behind an event nobody will see it under.
   const eventId = eventFromSearch(window.location.search);
   const isFlyer = Boolean(eventId) && !isPreview;
 
@@ -2131,7 +2863,6 @@ async function init() {
   // the chapter's name.
   chapterAcronym = (remote?.hub_acronym ?? config.hub_acronym ?? "").trim() || "us";
   renderIdentity(remote, bundle?.chapter ?? null);
-  renderSocials(remote?.social_links ?? {});
   renderHeroNetwork();
   // The chapter's own mark: its uploaded logo if it has one, else the
   // generated brain in its colours. Acronym (used by the brain) falls back
@@ -2205,78 +2936,61 @@ async function init() {
   const pages = pagesWithContent(sectionsToApply);
   const livePages = new Set(pages.map((p) => p.key));
 
-  renderHeroActions(remote, bundle?.events ?? [], livePages);
-  const heroPrinted = renderStats(bundle?.chapter ?? null, bundle?.projects ?? []);
+  const joinUrl = safeHttpUrl(bundle?.chapter?.join_url ?? "");
+
+  /* The people band renders BEFORE the hero, and the hero then reads
+     the page rather than re-deciding it.
+
+     Both of the hero's facts are facts about this band: whether it
+     gets a "Meet the eboard" button, and whether the board below has
+     taken ownership of the members count. Predicting them from bundle
+     data meant predicting renderPeopleBand's own rule AND every way
+     the band can disappear that the bundle does not know about —
+     `applySectionToggles` removing [data-section="leaderboard"] is one,
+     a group_photo_url that is not an http URL is another. Both shipped
+     as a button to a band that was not there. The band's return value
+     and the band's presence in the DOM cannot disagree with the band. */
+  const boardOwnsMembers = bundle
+    ? renderPeopleBand(bundle, { slug, livePages, joinUrl })
+    : false;
+  const peopleBandShown = Boolean(document.getElementById("band-people"));
+
+  renderHeroActions(remote, bundle?.chapter ?? null, bundle?.events ?? [], livePages, peopleBandShown);
+  renderStats(bundle?.chapter ?? null, bundle?.projects ?? [], boardOwnsMembers);
   renderTermLine(bundle?.events ?? []);
   renderPageCtaBands(livePages);
+
+  const links = communityLinks(remote);
 
   if (bundle) {
     // The curriculum call went out beside the bundle and has had the
     // bundle's whole round trip to land, so this is normally already
-    // resolved. Raced anyway: the Learn door must not be the reason a
-    // chapter's front page waits on a third-party endpoint.
+    // resolved. Raced anyway: the learning-tree block must not be the
+    // reason a chapter's front page waits on a third-party endpoint —
+    // it renders without the count and without a thumbnail if the race
+    // is lost, and every other block is already on the page.
     const floor = await Promise.race([
       curriculum,
       new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 1500)),
     ]);
-    const lessons = {
-      count: floor?.path.length ?? 0,
-      first: floor?.path[0]?.title ?? "",
-    };
-
-    // Every integer on the landing page is printed exactly once. Three
-    // components could claim the same one — the hero strip, the door,
-    // the band head — and on MSOE all three did: "59 Events" in the
-    // masthead, "59 events since 2023" on the door 130px below it, and
-    // "All 59 events →" a band further down, every pair inside one
-    // 900px screen. The strip wins because it is the club's own claim
-    // about its scale; the door keeps its live line, and the Projects
-    // band head reads "All projects →". On a chapter with no strip
-    // (ROAR, NTUA) nothing is suppressed and the doors carry the
-    // counts.
-    const printed = new Set([
-      ...renderDoors(bundle, pages, lessons, heroPrinted),
-      ...heroPrinted,
-    ]);
-    renderBoardBands(bundle);
-    renderProjectsBand(bundle, printed);
+    renderExplore(bundle, livePages, floor);
+    renderJoin(bundle, livePages, links, joinUrl);
 
     // Views mount on tab entry and read this.
     viewCtx = viewContext(bundle, slug, window.location.pathname);
   } else {
     // No bundle: the demo site and a preview of a slug the dashboard
-    // does not know. There is no chapter data for a band to sample, and
-    // a synthesised empty one would be the template pretending to be a
-    // chapter — which renderUnderConstruction exists to refuse.
-    document.getElementById("doors-band")?.remove();
-    ["band-board", "band-recognition", "band-merch", "band-projects"].forEach(
-      (id) => document.getElementById(id)?.remove(),
+    // does not know. There is no chapter data for any of the three
+    // bands, and a synthesised empty one would be the template
+    // pretending to be a chapter — which renderUnderConstruction
+    // exists to refuse.
+    ["band-people", "band-explore", "band-join"].forEach((id) =>
+      document.getElementById(id)?.remove(),
     );
   }
 
+  renderFooter(pages, links, joinUrl);
   wirePageRouting(pages);
-
-  // The floor band, last and async. It is the one band that renders
-  // identically on a three-year-old chapter and a two-week-old one, so
-  // it is also the only one that can fail to arrive — and when it does,
-  // the band goes with it rather than leaving a head over nothing.
-  void renderStartHereBand(document.getElementById("band-learn-inner"), {
-    isFloor:
-      (bundle?.events ?? []).length === 0 &&
-      (bundle?.config?.officers ?? []).length === 0,
-  }).then((ok) => {
-    if (!ok) {
-      hideSection("learning_tree", "home");
-      return;
-    }
-    // Reveal the head that just arrived; the rows under it never
-    // animate, per the one-reveal-per-band rule.
-    document
-      .getElementById("band-learn-inner")
-      ?.querySelector(".band-head")
-      ?.classList.add("rv");
-    initReveal(document.getElementById("band-learn") ?? document);
-  });
 
   initReveal();
   drawTermRule();

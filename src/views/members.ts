@@ -33,12 +33,13 @@
    - No bar, no percentage of the leader, no count-up. The points are
      the claim; a bar behind them is a second, made-up claim about the
      distance between two students.
-   - 20 rows is the whole public board (the bundle's leaderboard query
-     has no consent filter, so this renders exactly what already
-     ships). The board is therefore bounded, and it renders whole:
-     there is no "show more", because the board IS the page's
-     centrepiece and truncating it would also give the search box rows
-     it could not find.
+   - The board is everyone, not a cap. The bundle carries the first
+     page and the chapter's own total, and the rest pages in from
+     /api/public/chapter/{slug}/leaderboard as the viewer reaches the
+     end of it — so a member can find their own name whether they are
+     3rd or 431st, which is the whole reason the board is the front
+     page. A bundle that predates that total is handled by NOT
+     inventing one: see boardTotal() below.
 */
 
 import type {
@@ -50,16 +51,37 @@ import type {
 } from "../lib/bundle";
 import { plural } from "../lib/format";
 import { escapeAttr, escapeHtml } from "../lib/html";
+import { DASHBOARD_ORIGIN } from "../lib/net";
 import { renderBadgeIcon } from "../lib/primitives";
-
-/** Where a member manages the profile their points travel on. */
-const PROFILE_URL = "https://dashboard.all-ai-network.org/me/profile";
 
 /** Board rows at which the search box earns its place. Below this the
  *  whole board is on one screen and a search box is furniture; at or
  *  above it a member scanning for their own name is scrolling. It sits
  *  inside the board frame and filters from the very first row. */
 const SEARCH_AT = 8;
+
+/** Rows per later page. The endpoint caps `limit` at 100. */
+const PAGE_SIZE = 100;
+
+/** Rows a phone shows before "Show everyone". There is no inner
+ *  scroller at that width — a scroll box in the middle of a page
+ *  catches the thumb on iOS and the page stops moving — so the board
+ *  is collapsed by CSS and this is the number the CSS cuts at. Keep
+ *  the two in step: hub.css `.board__rows > .board__row:nth-child(n+13)`. */
+const PHONE_ROWS = 12;
+
+/** Rows below which the status row says nothing. A foot that counts to
+ *  six under a board of six is the board reading itself back. */
+const STATUS_AT = 10;
+
+/** Search that has to wait for the rest of the board debounces at this;
+ *  a keystroke is not a query. */
+const SEARCH_DEBOUNCE_MS = 150;
+
+/** Hits at which a search highlights the rows it found. Above this the
+ *  filter IS the answer and highlighting most of the board says
+ *  nothing. */
+const HIGHLIGHT_AT = 3;
 
 /** Rows a board needs before "the leaders" is a meaningful group. On a
  *  two-row board, marking the top row marks half the board. */
@@ -237,13 +259,17 @@ export function renderBoardRow({ row, rank, lead }: RankedRow): string {
       ? `<span class="chip">${escapeHtml(plural(row.events_attended, "event"))}</span>`
       : "";
   const marks = renderRowBadges(row.badges);
-  const meta = marks || events ? `<div class="board__marks">${marks}${events}</div>` : "";
+  // Ranks 2 and 3 get a brighter numeral and nothing else. It is the
+  // quietest possible way to say "the top of the board is here" on a
+  // board you can now scroll 595 rows down, and it is rank-based, so a
+  // tie on 3 brightens several rows rather than picking one of them.
+  const top = !lead && (rank === 2 || rank === 3) ? " board__row--top" : "";
   return `
-    <li class="board__row${lead ? " board__row--lead" : ""}" data-lb-row data-name="${escapeAttr(fold(row.name))}">
+    <li class="board__row${lead ? " board__row--lead" : ""}${top}" data-lb-row data-name="${escapeAttr(fold(row.name))}">
       <span class="board__rank"><span class="visually-hidden">Rank </span>${rank}</span>
       <span class="board__who">
         <span class="board__name">${escapeHtml(row.name)}</span>
-        ${meta}
+        <div class="board__marks">${marks}${events}</div>
       </span>
       <span class="board__pts">${row.points.toLocaleString()}<span class="visually-hidden"> ${row.points === 1 ? "pt" : "pts"}</span></span>
     </li>
@@ -251,86 +277,116 @@ export function renderBoardRow({ row, rank, lead }: RankedRow): string {
 }
 
 /**
- * Wire the search box over the rows already on the page. Filtering sets
- * style.display rather than the hidden attribute: `.board__row {
- * display: grid }` is an author rule and beats the UA's `[hidden] {
- * display: none }` at the same specificity, so a hidden row would stay
- * visible.
+ * Ranks that continue across pages.
  *
- * The filter runs once on wiring as well as on input, because a
- * restored form value (back button, bfcache) arrives without an event
- * and would otherwise show the full board under a typed query.
+ * rankByPoints ranks an array it can see all of. The board appends 100
+ * rows at a time, and the row after the 50th has to know what the 50th
+ * scored or the 51st restarts at rank 1. This keeps the three values
+ * that decide the next rank and nothing else.
+ *
+ * Correct only while the pages arrive in the server's own order, which
+ * is the contract the endpoint offers: points desc, name asc, id asc,
+ * the same order the bundle's first page is in.
  */
-function wireSearch(scope: HTMLElement, total: number): void {
-  const input = scope.querySelector<HTMLInputElement>(".lb-search");
-  const note = scope.querySelector<HTMLElement>("[data-lb-empty]");
-  if (!input || !note) return;
-  const rows = Array.from(scope.querySelectorAll<HTMLElement>("[data-lb-row]"));
-  const apply = () => {
-    const q = fold(input.value);
-    let hits = 0;
-    for (const row of rows) {
-      const match = !q || (row.dataset.name ?? "").includes(q);
-      row.style.display = match ? "" : "none";
-      if (match) hits++;
-    }
-    note.hidden = hits > 0;
-  };
-  note.textContent = `No member by that name in the top ${total}.`;
-  input.addEventListener("input", apply);
-  apply();
+function rankStream(seed: RankedRow[]) {
+  const last = seed[seed.length - 1];
+  let position = seed.length;
+  let lastPoints = last?.row.points ?? Number.POSITIVE_INFINITY;
+  let lastRank = last?.rank ?? 0;
+  return (rows: LeaderboardRow[]): RankedRow[] =>
+    rows.map((row) => {
+      position++;
+      const rank = row.points === lastPoints ? lastRank : position;
+      lastPoints = row.points;
+      lastRank = rank;
+      // `tied` and `lead` are the first page's business: a row this far
+      // down the board is neither, because the rows are points-descending
+      // and rank 1 was decided 50 rows ago.
+      return { row, rank, tied: false, lead: false };
+    });
+}
+
+/**
+ * How many members the board holds, or null when nobody has told us.
+ *
+ * `leaderboard_total` is the chapter's consent-gated board count and is
+ * the only honest source for it. A bundle served by an API that
+ * predates the field carries a page of rows and no total, and the
+ * answer there is not to guess one from `member_count` — that counts
+ * everybody, including the members who are not on the board — nor from
+ * the rows in hand, which would print "20 on the board" about a board
+ * whose size we do not know. With no total the board renders what it
+ * was given, says nothing about a total, and pages nowhere.
+ */
+function boardTotal(bundle: Bundle): number | null {
+  const n = bundle.leaderboard_total;
+  return typeof n === "number" && Number.isFinite(n) && n >= 1 ? n : null;
 }
 
 /** What `renderBoard` put in the host, so the composer knows whether
  *  the band around it has earned its place. */
-export type BoardState = "board" | "note" | "none";
+export type BoardState = "board" | "note";
+
+export interface BoardOptions {
+  /** The chapter to page against. */
+  slug: string;
+  /** The standing invite, for the button under the empty-board note. */
+  joinUrl: string | null;
+  /** "MAIC", or "us" — the word that goes after "Join". */
+  acronym: string;
+  /** True under ?still=1, reduced motion, or no IntersectionObserver.
+   *  Nothing then observes the end of the board and the later pages
+   *  arrive only when a visitor asks for them, which is what makes a
+   *  capture reproducible. */
+  settled: boolean;
+}
 
 /**
  * Fill `host` with the standings.
  *
- * Returns "board" when real rows rendered, "note" when the chapter has
- * events but nobody has scored yet (one sentence that names the fix,
- * and the fix is true for a visitor to read), and "none" when there is
- * nothing honest to say — a board with nobody on it, on a club that
- * has never run an event, is an accusation rather than a record. On
- * "none" the host is left empty and the caller should drop the band.
+ * Returns "board" when real rows rendered and "note" when they did not
+ * — one sentence that names the fix, plus the button that IS the fix
+ * when the chapter has a standing invite. There is no third answer on
+ * Home any more: the people band is the page's centrepiece, and a
+ * column that removes itself leaves the eboard sitting beside a hole.
  */
-export function renderBoard(host: HTMLElement, bundle: Bundle): BoardState {
-  const rows = scoredRows(bundle.leaderboard ?? []);
+export function renderBoard(
+  host: HTMLElement,
+  bundle: Bundle,
+  opts: BoardOptions,
+): BoardState {
+  const first = scoredRows(bundle.leaderboard ?? []);
 
-  if (!rows.length) {
-    if ((bundle.events ?? []).length > 0) {
-      host.innerHTML = `<p class="note">Points start showing up here once members check in at an event.</p>`;
-      return "note";
-    }
-    host.innerHTML = "";
-    return "none";
+  if (!first.length) {
+    // Two sentences, and which one is true depends on whether the
+    // chapter has ever run anything. Neither is an apology.
+    const note = (bundle.events ?? []).length
+      ? "Points start showing up here once members check in at an event."
+      : "The board fills in as members check in at events.";
+    const join = opts.joinUrl
+      ? `<a class="btn btn--primary" href="${escapeAttr(opts.joinUrl)}" rel="noopener">Join ${escapeHtml(opts.acronym)}</a>`
+      : "";
+    host.innerHTML = `
+      <div class="board board--note">
+        <p class="board__note">${escapeHtml(note)}</p>
+        ${join}
+      </div>`;
+    return "note";
   }
 
-  const ranked = rankByPoints(rows);
+  const ranked = rankByPoints(first);
+  const total = boardTotal(bundle);
+  const more = total !== null && total > first.length;
 
-  // "Top 20 of 595 members." — the board is a cap, and saying so is
-  // more honest than letting 20 names look like the whole chapter.
-  // Omitted when the board is everyone, and at one row, where the
-  // sentence would be counting to one.
-  const total = bundle.chapter?.member_count ?? 0;
-  const caption =
-    rows.length >= 2 && total > rows.length
-      ? `Top ${rows.length} of ${plural(total, "member")}.`
-      : "";
-
-  // The search lives inside the frame rather than floating above it:
-  // it is part of the object, and a board you can search says so on
-  // its face.
   const search =
-    rows.length >= SEARCH_AT
+    first.length >= SEARCH_AT
       ? `<div class="board__search">
-           <input type="search" class="lb-search" placeholder="Find your name" aria-label="Find your name" autocomplete="off" spellcheck="false" />
+           <input type="search" class="lb-search" placeholder="Find your name" aria-label="Find your name" aria-controls="board-rows" autocomplete="off" spellcheck="false" />
          </div>`
       : "";
 
   const header =
-    rows.length >= HEADER_AT
+    first.length >= HEADER_AT
       ? `<div class="board__head" aria-hidden="true">
            <span class="board__h board__h--rank">Rank</span>
            <span class="board__h">Member</span>
@@ -339,16 +395,357 @@ export function renderBoard(host: HTMLElement, bundle: Bundle): BoardState {
       : "";
 
   host.innerHTML = `
-    <div class="board">
+    <div class="board${more ? " board--more" : ""}" data-loaded="${first.length}"${
+      total !== null ? ` data-total="${total}"` : ""
+    }>
       ${search}
-      ${header}
-      <ol class="board__rows">${ranked.map(renderBoardRow).join("")}</ol>
-      <p class="board__empty" data-lb-empty hidden></p>
-      ${caption ? `<p class="board__foot">${escapeHtml(caption)}</p>` : ""}
-    </div>
-  `;
-  if (search) wireSearch(host, rows.length);
+      <div class="board__scroll" tabindex="0" role="region" aria-label="Leaderboard">
+        ${header}
+        <ol class="board__rows" id="board-rows">${ranked
+          .map(renderBoardRow)
+          .join("")}<li class="board__sentinel" aria-hidden="true"></li></ol>
+        <p class="board__empty" data-lb-empty hidden></p>
+      </div>
+      <p class="board__status" role="status" aria-live="polite"></p>
+    </div>`;
+
+  wireBoard(host, { ...opts, loaded: ranked, total });
   return "board";
+}
+
+/**
+ * Everything the board does after it is on the page: the status line,
+ * the later pages, the phone's collapse, and the search.
+ *
+ * One function because all four share the same three numbers (loaded,
+ * total, expanded) and splitting them meant passing that state around
+ * or reading it back out of the DOM.
+ */
+function wireBoard(
+  host: HTMLElement,
+  opts: BoardOptions & { loaded: RankedRow[]; total: number | null },
+): void {
+  const board = host.querySelector<HTMLElement>(".board");
+  const scroller = host.querySelector<HTMLElement>(".board__scroll");
+  const list = host.querySelector<HTMLOListElement>(".board__rows");
+  const sentinel = host.querySelector<HTMLElement>(".board__sentinel");
+  const status = host.querySelector<HTMLElement>(".board__status");
+  const note = host.querySelector<HTMLElement>("[data-lb-empty]");
+  if (!board || !scroller || !list || !status || !note) return;
+
+  const { slug, total } = opts;
+  let loaded = opts.loaded.length;
+  let nextRank = rankStream(opts.loaded);
+  let inFlight: Promise<boolean> | null = null;
+  let allPromise: Promise<void> | null = null;
+  let failed = false;
+  let exhausted = total === null;
+  /* Phones do not get the inner scroller, so they get a collapse
+     instead — and the control that opens it is the same control that
+     loads the rest, because on a phone those are one gesture's worth
+     of intent. matchMedia rather than a resize listener on the body:
+     one query, one change event, and it is the same 640px the
+     stylesheet cuts at. */
+  const phone = window.matchMedia?.("(max-width: 640px)");
+  let expanded = false;
+
+  const rowEls = () =>
+    Array.from(list.querySelectorAll<HTMLElement>("[data-lb-row]"));
+
+  const collapsedOnPhone = () =>
+    !expanded && phone?.matches === true && rowEls().length > PHONE_ROWS;
+
+  const remaining = () => (total === null ? 0 : Math.max(0, total - loaded));
+
+  /** The foot: what is on the board, and the one control that changes
+   *  it. Never a zero, and nothing at all under a board short enough
+   *  to be read whole. */
+  const paintStatus = () => {
+    if (failed) {
+      status.innerHTML = `<span data-lb-count>${escapeHtml(
+        `Showing ${loaded} of ${total}`,
+      )}</span><a href="#" data-lb-all>Couldn't load the rest — retry</a>`;
+      return;
+    }
+    const canLoad = remaining() > 0 && !exhausted;
+    const canExpand = collapsedOnPhone();
+    if (!canLoad && !canExpand) {
+      // `total` or nothing. Falling back to `loaded` printed the API's
+      // page size as a board size — "595 members" on the head and "20
+      // on the board" in the foot, on the same screen, about the same
+      // group. See boardTotal: with no total the board says nothing
+      // about one.
+      status.innerHTML =
+        total !== null && total > STATUS_AT
+          ? `<span data-lb-count>${escapeHtml(`${total} on the board`)}</span>`
+          : "";
+      return;
+    }
+    // Same rule for the count on the control: the phone's collapse can
+    // need a "Show everyone" on a board whose size nobody has told us,
+    // and there the control goes out without a claim attached to it.
+    const count =
+      total === null
+        ? ""
+        : `<span data-lb-count>${escapeHtml(
+            `Showing ${canExpand ? PHONE_ROWS : loaded} of ${total}`,
+          )}</span>`;
+    status.innerHTML = `${count}<a href="#" data-lb-all>Show everyone</a>`;
+  };
+
+  /** The fade at the scroller's floor: on while there is anything
+   *  below the fold, off at the true end. */
+  const paintFade = () => {
+    const below =
+      scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight > 8;
+    board.classList.toggle("board--more", below || remaining() > 0);
+  };
+
+  const append = (rows: LeaderboardRow[]) => {
+    if (!rows.length) return;
+    const html = nextRank(rows).map(renderBoardRow).join("");
+    sentinel?.insertAdjacentHTML("beforebegin", html);
+    loaded += rows.length;
+    board.dataset.loaded = String(loaded);
+  };
+
+  /** One page. Resolves true when it landed, false when it did not —
+   *  and a page that did not land stops the automatic paging rather
+   *  than retrying into a dead endpoint on every scroll tick. */
+  const loadPage = (): Promise<boolean> => {
+    if (inFlight) return inFlight;
+    if (exhausted || remaining() <= 0) return Promise.resolve(true);
+    const url =
+      `${DASHBOARD_ORIGIN}/api/public/chapter/${encodeURIComponent(slug)}` +
+      `/leaderboard?offset=${loaded}&limit=${PAGE_SIZE}`;
+    inFlight = fetch(url)
+      .then((res) => {
+        if (!res.ok) throw new Error(String(res.status));
+        return res.json() as Promise<{ rows?: LeaderboardRow[] }>;
+      })
+      .then((data) => {
+        const rows = Array.isArray(data?.rows) ? data.rows : [];
+        const scored = scoredRows(rows);
+        append(scored);
+        // Rows are points-descending, so a page that came back short,
+        // empty, or with an unscored row on the end is the last page
+        // there is — whatever the total said. Marking it exhausted is
+        // what stops the observer asking again for ever.
+        if (!rows.length || scored.length < rows.length || rows.length < PAGE_SIZE) {
+          exhausted = true;
+        }
+        failed = false;
+        return true;
+      })
+      .catch(() => {
+        // Keep every row already on the page, keep the count honest,
+        // and turn the control into the retry. The one thing this must
+        // never do is blank the board or print a zero.
+        failed = true;
+        return false;
+      })
+      .finally(() => {
+        inFlight = null;
+        paintStatus();
+        paintFade();
+      });
+    return inFlight;
+  };
+
+  /** Every remaining page, in order. Shared so a search and a click on
+   *  "Show everyone" at the same moment make one run of requests. */
+  const loadAll = (): Promise<void> => {
+    if (allPromise) return allPromise;
+    allPromise = (async () => {
+      while (!exhausted && remaining() > 0) {
+        const ok = await loadPage();
+        if (!ok) break;
+      }
+      allPromise = null;
+    })();
+    return allPromise;
+  };
+
+  /* ── The search ──────────────────────────────────────────────── */
+
+  const input = host.querySelector<HTMLInputElement>(".lb-search");
+  let highlighted: HTMLElement[] = [];
+
+  const clearHighlight = () => {
+    for (const row of highlighted) {
+      row.classList.remove("board__row--you");
+      row.querySelector("[data-lb-ctx]")?.remove();
+    }
+    highlighted = [];
+  };
+
+  const applyFilter = () => {
+    if (!input) return;
+    const q = fold(input.value);
+    clearHighlight();
+    const rows = rowEls();
+    const hits: HTMLElement[] = [];
+    for (const row of rows) {
+      // style.display, not [hidden]: `.board__row { display: grid }` is
+      // an author rule and beats the UA's `[hidden] { display: none }`
+      // at the same specificity, so a hidden row would stay visible.
+      const match = !q || (row.dataset.name ?? "").includes(q);
+      row.style.display = match ? "" : "none";
+      if (match && q) hits.push(row);
+    }
+    list.classList.remove("is-filtering");
+    void list.offsetWidth;
+    list.classList.add("is-filtering");
+
+    if (!q) {
+      note.hidden = true;
+      scroller.scrollTop = 0;
+      paintStatus();
+      paintFade();
+      return;
+    }
+    if (!hits.length) {
+      // Only the whole board can be told it does not contain somebody.
+      // `run()` deliberately stops pulling pages once one has failed,
+      // so this can be 150 rows of 595 — and "no member named X on the
+      // board" there is a falsehood printed directly under a status
+      // line saying the rest could not load.
+      note.textContent =
+        failed || remaining() > 0
+          ? `Not in the rows loaded so far — retry to search the rest.`
+          : `No member named "${input.value.trim()}" on the board.`;
+      note.hidden = false;
+      return;
+    }
+    note.hidden = true;
+    if (hits.length <= HIGHLIGHT_AT) {
+      for (const row of hits) row.classList.add("board__row--you");
+      highlighted = hits;
+    }
+    // One hit is the case this box exists for: a member found herself.
+    // The link puts her back on the board with the rows above and
+    // below her, which is the thing a rank means.
+    if (hits.length === 1) {
+      const marks = hits[0].querySelector(".board__marks");
+      marks?.insertAdjacentHTML(
+        "beforeend",
+        `<a class="board__ctx" href="#" data-lb-ctx>Show in context</a>`,
+      );
+    }
+    scroller.scrollTop = 0;
+  };
+
+  if (input) {
+    let timer = 0;
+    const run = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        const q = input.value.trim();
+        if (q && remaining() > 0 && !failed) {
+          // Searching a board that is 50 rows deep and 595 long finds
+          // the 50. Pull the rest first and say so, rather than
+          // reporting "no member named …" about somebody who is on it.
+          note.textContent = `Searching all ${total}…`;
+          note.hidden = false;
+          // The phone's collapse hides matches too, so a search always
+          // opens the board.
+          expanded = true;
+          board.classList.add("board--expanded");
+          void loadAll().then(applyFilter);
+          return;
+        }
+        expanded = expanded || q.length > 0;
+        board.classList.toggle("board--expanded", expanded);
+        applyFilter();
+      }, SEARCH_DEBOUNCE_MS);
+    };
+    input.addEventListener("input", run);
+    // A restored form value (back button, bfcache) arrives without an
+    // event and would otherwise show the whole board under a query.
+    if (input.value.trim()) run();
+  }
+
+  /* ── The controls ────────────────────────────────────────────── */
+
+  status.addEventListener("click", (e) => {
+    const link = (e.target as HTMLElement | null)?.closest("[data-lb-all]");
+    if (!link) return;
+    e.preventDefault();
+    failed = false;
+    expanded = true;
+    board.classList.add("board--expanded");
+    paintStatus();
+    void loadAll();
+  });
+
+  list.addEventListener("click", (e) => {
+    const link = (e.target as HTMLElement | null)?.closest("[data-lb-ctx]");
+    if (!link) return;
+    e.preventDefault();
+    const row = link.closest<HTMLElement>("[data-lb-row]");
+    link.remove();
+    if (input) input.value = "";
+    for (const el of rowEls()) el.style.display = "";
+    note.hidden = true;
+    // Scroll the SCROLLER, not the page: the visitor is reading the
+    // board and the page must not jump underneath them. On a phone
+    // there is no scroller, so the row is brought into the page's own
+    // view instead.
+    if (row) {
+      row.classList.add("board__row--you");
+      highlighted = [row];
+      if (scroller.scrollHeight > scroller.clientHeight) {
+        scroller.scrollTop =
+          row.offsetTop - scroller.clientHeight / 2 + row.offsetHeight / 2;
+      } else {
+        row.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+    }
+    paintFade();
+  });
+
+  scroller.addEventListener("scroll", paintFade, { passive: true });
+  phone?.addEventListener?.("change", () => {
+    paintStatus();
+    paintFade();
+  });
+
+  /* ── Paging on arrival at the end ────────────────────────────── */
+
+  if (!opts.settled && sentinel && remaining() > 0) {
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((en) => en.isIntersecting)) return;
+        // Not on a phone. There the board is collapsed to PHONE_ROWS
+        // and the sentinel is an <li> sitting in normal flow directly
+        // under row 12 — visible, and with `root: null` it intersects
+        // on the first scroll, so the page fetched 100 rows the
+        // collapsed board never showed. "Show everyone" is the phone's
+        // paging gesture (B4), and it is the only one.
+        if (phone?.matches === true) return;
+        if (failed || exhausted || remaining() <= 0) {
+          io.disconnect();
+          return;
+        }
+        void loadPage().then(() => {
+          if (exhausted || remaining() <= 0 || failed) io.disconnect();
+        });
+      },
+      {
+        // Always the scroller. It used to be the page on a phone,
+        // because there the board is not a scroll container and an
+        // element root that never scrolls never fires — but that is
+        // exactly how the phone ended up paging behind its own
+        // collapse. A phone does not page here at all now.
+        root: scroller,
+        rootMargin: "0px 0px 240px 0px",
+      },
+    );
+    io.observe(sentinel);
+  }
+
+  paintStatus();
+  paintFade();
 }
 
 /* ── Badges ──────────────────────────────────────────────────────── */
@@ -385,7 +782,7 @@ export function renderBadgeWall(host: HTMLElement, bundle: Bundle): boolean {
     .map(renderBadgeTile)
     .join("");
   host.innerHTML = `
-    ${blockHead("Every badge we award")}
+    ${blockHead("What members have earned")}
     <div class="badges-grid" role="list">${tiles}</div>
   `;
   return true;
@@ -472,6 +869,13 @@ function renderMerchCard(m: MerchRow): string {
  * What the points buy. Returns false and leaves the host empty when
  * the chapter sells nothing — merch is populated on 1 of the 12
  * chapters, so this is the usual answer.
+ *
+ * Nothing calls this today: the shelf left Home for the Explore
+ * "Rewards" block, which shows the first item's photo and three names
+ * rather than the whole gallery. Kept, rather than deleted with the
+ * band, because MSOE is the only chapter with a shelf and the shelf
+ * itself — photos, thumbnail switcher, stock — is worth more than one
+ * Explore block; it is waiting for a surface, not obsolete.
  */
 export function renderMerch(host: HTMLElement, bundle: Bundle): boolean {
   const items = bundle.merch ?? [];
@@ -508,18 +912,9 @@ export function renderMerch(host: HTMLElement, bundle: Bundle): boolean {
   return true;
 }
 
-/* ── The network line ────────────────────────────────────────────── */
-
-/**
- * One sentence, at the foot of the recognition story. It replaces the
- * ~100-line "living résumé" callout that used to sit on every
- * chapter's front page: same claim, no percentage, no named hiring
- * anecdote, no methodology footnote.
- */
-export function renderNetworkLine(host: HTMLElement): void {
-  if (host.querySelector(".members-network")) return;
-  host.insertAdjacentHTML(
-    "beforeend",
-    `<p class="members-network">Every check-in and project here also lands on your ALL Applied AI Network profile, which travels with you between chapters. <a class="link--arrow" href="${PROFILE_URL}" target="_blank" rel="noopener">Manage your profile</a></p>`,
-  );
-}
+/* renderNetworkLine is gone. It was one sentence hanging off whichever
+   recognition band rendered last, and there are no recognition bands:
+   the claim it made — your record here travels with you — is the body
+   of the Network block in Explore, which has a picture, a link and a
+   fixed position on the page instead of a home that moved per
+   chapter. */

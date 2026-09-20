@@ -50,27 +50,32 @@
   <!-- ══════════════════════════════════════════════════════════════
        THE LANDING PAGE
 
-       A front door: who this is, the board, and a way into each room
-       behind the nav. The board is not a sample of a room — it has no
-       room any more — so it renders whole and it is the largest thing
-       on the page. Events used to have a band here and does not: it is
-       its own destination, and a feed of three rows in front of the
-       board was the thing standing between a visitor and the club's
-       own record.
+       Five things, in this order, on every chapter: the split hero,
+       the people band, Explore, the join band, the footer. Ben's ask
+       was the two things a visitor actually came for — what the
+       organisation is, and the people in it — so the eboard and the
+       board share one screen directly under the masthead, and
+       everything that used to sit between them (the doors strip, the
+       points explainer, the badge wall, the merch shelf, the projects
+       band, the Start-here band) either moved to a room or became one
+       Explore block.
 
        Every block carries data-page="home"; the ones that also carry a
        data-section share it with the destination, so an officer
-       switching "projects" off in Customize removes the Home band, the
-       Projects view and the Projects tab in one pass with no extra
-       code.
+       switching "about" off in Customize removes the eboard column and
+       the About page in one pass with no extra code.
 
        Home has zero .section__kicker. Six uppercase eyebrows at even
        intervals down one page is the drumbeat; Home band heads use the
        quieter .band-head instead.
        ══════════════════════════════════════════════════════════════ -->
 
-  <!-- ══ 1 — Masthead ══════════════════════════════════════════════ -->
-  <header class="hero" id="hero" data-section="hero" data-page="home">
+  <!-- ══ 1 — Masthead ══════════════════════════════════════════════
+       Split: the mark on the left, the words on the right. The mark
+       used to be a 116px lozenge centred above the name, which is a
+       decoration; at 300px beside the copy it is the chapter's
+       identity, which is what the reference hero does with a logo. -->
+  <header class="hero hero--split" id="hero" data-section="hero" data-page="home">
     <div class="hero__glow" aria-hidden="true"></div>
     <!-- Neural-network decoration: main.ts::renderHeroNetwork generates
          nodes + connecting edges, inheriting --color-primary +
@@ -84,148 +89,102 @@
       preserveAspectRatio="xMidYMid slice"
       aria-hidden="true"
     ></svg>
-    <!-- The ALL mark, in this chapter's colours with its acronym.
-         Rendered by main.ts::renderBrainMark from the live config. -->
-    <div class="hero__mark" id="hero-mark" aria-hidden="true"></div>
-    <div class="hero__inner">
-      <div class="hero__eyebrow" id="hero-university">My University</div>
-      <h1 class="hero__title" id="hero-title">My AI Club</h1>
-      <!-- Empty unless the chapter wrote a tagline. There is no
-           description fallback any more: "A student-run applied AI
-           community." was live on MSOE and was the loudest
-           generated-for-us tell on the property. -->
-      <p class="hero__subtitle" id="hero-subtitle"></p>
-      <div class="hero__actions" id="hero-actions"></div>
+    <div class="hero__grid">
+      <!-- The chapter's uploaded logo, or the ALL mark in its colours
+           with its acronym. main.ts::renderHeroMark decides, and at
+           this size it also checks the logo's shape first — see the
+           comment there. -->
+      <div class="hero__mark" id="hero-mark" aria-hidden="true"></div>
+      <div class="hero__inner">
+        <div class="hero__eyebrow" id="hero-university">My University</div>
+        <h1 class="hero__title" id="hero-title">My AI Club</h1>
+        <!-- The chapter's tagline when it wrote one, otherwise the one
+             sentence that is true of every chapter in the network. The
+             hero is where a visitor asks "what is this", and all three
+             live test chapters have tagline = null — an empty element
+             here left the masthead as mark | pill | name | buttons and
+             never answered the question. -->
+        <p class="hero__subtitle" id="hero-subtitle"></p>
+        <div class="hero__actions" id="hero-actions"></div>
+        <p class="term-line" id="term-line"></p>
+        <!-- renderStats fills this from the chapter's own integers and
+             hides it when fewer than two survive. Ships empty so a
+             fetch that never lands shows no ghost numbers. -->
+        <div class="hero__stats" id="hero-stats" aria-hidden="true"></div>
+      </div>
     </div>
-    <!-- Outside .hero__inner because the boot animation staggers it on
-         its own beat, next to the stat strip. -->
-    <p class="term-line" id="term-line"></p>
-    <!-- renderStats fills this from the chapter's own integers and
-         hides it when fewer than two survive. Ships empty so a fetch
-         that never lands shows no ghost numbers. -->
-    <div class="hero__stats" id="hero-stats" aria-hidden="true"></div>
-    <a href="https://all-ai-network.org" target="_blank" rel="noopener" class="hero__attribution">
-      <span class="hero__attribution-dot"></span>
-      Powered by ALL Applied AI Network
-    </a>
   </header>
 
-  <!-- ══ 2 — The doors ═════════════════════════════════════════════
-       Four cards, each carrying the club's own integer and a live line
-       out of the bundle. Replaces the four hardcoded "what we do"
-       pillars, which said the same four things on all twelve sites.
-       No data-section: a door is a view onto a destination, not a
-       section an eboard toggles — main.ts::renderDoors drops any door
-       whose destination is not in pagesWithContent(). -->
-  <section class="band" id="doors-band" data-page="home">
+  <!-- ══ 2 — The people band ═══════════════════════════════════════
+       Two columns, one object: the eboard on the left, the board on
+       the right. This is the answer to "what the organization is and
+       the people who are a part of it" — the two things Ben asked to
+       be front and centre — so it is the first thing under the
+       masthead on every chapter.
+
+       data-section="leaderboard" on the band sends the preview edit
+       pill to the Members page; data-section="about" on the left
+       column sends its own pill to Customize → About. The column takes
+       that key rather than the hidden About page because first in
+       document order wins (see enableEditOverlays) and Home is the
+       page an officer is looking at while they edit.
+
+       main.ts::renderPeopleBand removes the whole band when there is
+       neither a person nor a scored row to show — a head over nothing
+       is the template talking about itself. -->
+  <section class="band band--people" id="band-people" data-page="home" data-section="leaderboard">
     <div class="section__inner">
-      <div class="doors" id="doors-grid" role="list"></div>
-    </div>
-  </section>
-
-  <!-- ══ 3 — Band: The board ═══════════════════════════════════════
-       The front page's centrepiece, and the whole board rather than a
-       sample of one: Events moved to its own destination and Members
-       stopped being a destination at all, so there is no "full
-       leaderboard →" room left to link to and nothing to truncate
-       towards. The bundle caps the board at 20 rows, so this is
-       bounded by construction.
-
-       Officers are deliberately NOT here. A board is a score members
-       earn by turning up and an eboard is not competing for one; they
-       are shown as people on About.
-
-       views/members.ts::renderBoard fills #board-host and reports
-       whether it had rows, a one-line note, or nothing — main.ts drops
-       the band on nothing. .board-band caps the head at the board's own
-       720px so the title sits over the object it names. -->
-  <section class="band" id="band-board" data-page="home" data-section="leaderboard">
-    <div class="section__inner">
-      <div class="board-band">
-        <div class="band-head rv">
-          <h2 class="band-head__title">The board</h2>
+      <div class="people" id="people">
+        <div class="people__col people__col--eboard" id="people-eboard" data-page="home" data-section="about">
+          <div class="band-head band-head--lead rv">
+            <h2 class="band-head__title">Meet the eboard</h2>
+          </div>
+          <div id="eboard-host"></div>
         </div>
-        <div id="board-host"></div>
+        <div class="people__col people__col--board" id="people-board">
+          <div class="band-head band-head--lead rv">
+            <h2 class="band-head__title">The board</h2>
+            <span class="band-head__n" id="board-total"></span>
+          </div>
+          <div id="board-host"></div>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- ══ 4 — Band: Recognition ═════════════════════════════════════
-       The three explainer cards answer the question the board above
-       just raised, then the wall shows what there is to earn.
-       views/members.ts::renderBadgeWall fills #badges-host.
-
-       The cards are markup rather than template strings because this
-       is the one block on the page whose copy is authored here and not
-       derived from the bundle. The third card is gated: it names a
-       rewards shop, and main.ts removes it on the 11 chapters that do
-       not have one. -->
-  <section class="band" id="band-recognition" data-page="home" data-section="badges">
+  <!-- ══ 3 — Explore ═══════════════════════════════════════════════
+       The chapter's own blocks when it authored any, otherwise four
+       defaults built from live data (the next event, the newest
+       project, the curriculum's first lesson, the network) plus a
+       Rewards block when there is a shelf. main.ts::renderExplore
+       fills #features-host and sets data-ready="1" on it, which the
+       ?still=1 capture recipe waits for. -->
+  <section class="band" id="band-explore" data-page="home" data-section="explore">
     <div class="section__inner">
-      <div class="points-explainer" id="points-explainer">
-        <div class="points-explainer__card">
-          <div class="points-explainer__icon" aria-hidden="true">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          </div>
-          <div class="points-explainer__title">Attend events</div>
-          <p class="points-explainer__desc">
-            Every workshop, speaker night, and hackathon awards points when you check in with the QR code. Show up, earn pts.
-          </p>
-        </div>
-        <div class="points-explainer__card">
-          <div class="points-explainer__icon" aria-hidden="true">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
-          </div>
-          <div class="points-explainer__title">Earn badges</div>
-          <p class="points-explainer__desc">
-            Finish coursework, ship a project, win a competition — each unlocks a badge that lives next to your name on the leaderboard forever.
-          </p>
-        </div>
-        <div class="points-explainer__card" data-needs="merch">
-          <div class="points-explainer__icon" aria-hidden="true">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-          </div>
-          <div class="points-explainer__title">Redeem rewards</div>
-          <p class="points-explainer__desc">
-            Spend points on merch from the Rewards shop — T-shirts, stickers, workshop vouchers. Redeem in person at any meeting.
-          </p>
-        </div>
+      <div class="band-head band-head--lead rv">
+        <h2 class="band-head__title" id="explore-title">Explore</h2>
       </div>
-
-      <div id="badges-host"></div>
+      <div class="features" id="features-host" role="list"></div>
     </div>
   </section>
 
-  <!-- ══ 5 — Band: Redeem → merch ══════════════════════════════════
-       Populated on 1 of the 12 chapters, so this band is usually
-       removed outright. views/members.ts::renderMerch fills it; the
-       one sentence that closes the recognition story is appended to
-       whichever of bands 3–5 turned out to be the last one. -->
-  <section class="band" id="band-merch" data-page="home" data-section="merch">
-    <div class="section__inner" id="merch-host"></div>
+  <!-- ══ 4 — Ready to join ═════════════════════════════════════════
+       One button to the chapter's standing invite, the channels it
+       actually runs, one line for anyone here to sponsor or hire, and
+       the network's one cited number. main.ts::renderJoin fills it. -->
+  <section class="band band--join" id="band-join" data-page="home" data-section="community">
+    <div class="section__inner">
+      <div class="join rv">
+        <h2 class="join__title">Ready to join?</h2>
+        <p class="join__desc" id="join-desc"></p>
+        <div class="join__actions" id="join-actions"></div>
+        <div class="plinks" id="join-links"></div>
+        <p class="join__aside" id="join-aside"></p>
+        <p class="proof" id="proof"></p>
+        <p class="proof__note" id="proof-note"></p>
+      </div>
+    </div>
   </section>
-
-  <!-- ══ 6 — Band: What we've built → Projects ═════════════════════
-       Three cards from the newest year group, each with the byline —
-       the students who built it. Omitted entirely when the chapter has
-       no projects: no empty state, no "coming soon". -->
-  <section class="band" id="band-projects" data-page="home" data-section="projects"></section>
-
-  <!-- ══ 7 — Band: Start here → Learn ══════════════════════════════
-       Six lessons from the network's base curriculum, with real
-       thumbnails. This band is the floor: it is the one place a
-       two-week-old chapter is indistinguishable from a three-year-old
-       one, and on 8 of the 12 chapters it is the only content on the
-       page. views/learn.ts::renderStartHereBand fills the inner. -->
-  <section class="band" id="band-learn" data-page="home" data-section="learning_tree">
-    <div class="section__inner" id="band-learn-inner"></div>
-  </section>
-
-  <!-- ══ 8 — Close: partner band ═══════════════════════════════════
-       main.ts::renderPageCtaBands populates it from PAGE_CTA_BANDS by
-       data-page. No data-section: a hardcoded decoration, outside the
-       eboard's section toggles. -->
-  <section class="page-cta-band" data-page="home"></section>
 
   <!-- ══════════════════════════════════════════════════════════════
        THE FIVE DESTINATIONS
@@ -314,6 +273,19 @@
     <div class="section__inner" id="officers-view"></div>
   </section>
 
+  <!-- The badge wall, under the roster. It used to be a band on Home,
+       where 27 tiles sat between the board and everything else; what a
+       member can earn is a fact about the club, so it reads here,
+       after the people who award them. Empty markup on purpose:
+       views/about.ts fills it on first entry to the tab, and an eboard
+       switching "badges" off in Customize removes this section at boot
+       before the view ever runs. It is deliberately NOT in the About
+       page's sections list — a chapter with badges but no officers and
+       no About text still has no About tab. -->
+  <section class="section" id="sec-badges" data-section="badges" data-page="about">
+    <div class="section__inner" id="badges-view"></div>
+  </section>
+
   <section class="page-cta-band" data-page="about"></section>
 
   <!-- ══ Sponsor — #sponsor ════════════════════════════════════════
@@ -345,13 +317,28 @@
   <footer class="footer">
     <div class="footer__inner">
       <div class="footer__brand">
-        <img id="footer-logo-img" class="footer__logo-img" alt="" hidden aria-hidden="true" />
-        <div>
-          <div class="footer__name" id="footer-hub-name">Hub</div>
-          <div class="footer__uni" id="footer-university">My University</div>
+        <div class="footer__brand-row">
+          <img id="footer-logo-img" class="footer__logo-img" alt="" hidden aria-hidden="true" />
+          <div>
+            <div class="footer__name" id="footer-hub-name">Hub</div>
+            <div class="footer__uni" id="footer-university">My University</div>
+          </div>
         </div>
+        <p class="footer__about" id="footer-about"></p>
       </div>
-      <div class="footer__socials" id="footer-socials"></div>
+      <nav class="footer__col" aria-label="Quick links">
+        <h3 class="footer__heading">Quick links</h3>
+        <ul class="footer__list" id="footer-links"></ul>
+      </nav>
+      <!-- main.ts::renderFooter removes this wrapper when the chapter
+           points nowhere, after moving #footer-socials (empty) into
+           the brand column: the id is one of the ten the dashboard
+           detects this template by and has to survive on every
+           chapter, but an empty "Follow" heading must not. -->
+      <div class="footer__col footer__col--follow" id="footer-follow">
+        <h3 class="footer__heading">Follow</h3>
+        <div class="footer__socials" id="footer-socials"></div>
+      </div>
       <div class="footer__aain">
         <a href="https://all-ai-network.org" class="link" target="_blank" rel="noopener">
           Powered by <strong>ALL Applied AI Network</strong>

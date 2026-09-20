@@ -260,11 +260,15 @@ code {
 }
 
 /* Rule A again, and no hover lift: the button is the chapter's colour,
-   flat. The gradient was the template's purple on nine of twelve sites. */
+   flat. The gradient was the template's purple on nine of twelve sites.
+
+   No drop shadow either. `0 4px 20px rgba(primary, 0.3)` is a glow, and
+   on ROAR — whose primary is pure #ff0000 — it is a red halo under the
+   one button on the masthead. A button is a rectangle of the chapter's
+   colour; the light it casts is the tell. */
 .btn--primary {
   background: var(--color-primary);
   color: white;
-  box-shadow: 0 4px 20px rgba(var(--color-primary-rgb), 0.3);
 }
 .btn--primary:hover {
   color: white;
@@ -443,15 +447,17 @@ code {
   margin-bottom: 1rem;
 }
 
+/* Flat --text-primary, not a gradient into transparency. A headline
+   that fades from white to 75% white down its own letterforms is the
+   single most generated-looking thing a page can do, and it is the
+   club's name it was doing it to. Rule A says the chapter's colour is
+   never a gradient; the same holds for its name. */
 .hero__title {
   font-size: clamp(2.75rem, 7vw, 5.25rem);
   font-weight: 800;
   line-height: 1.02;
   letter-spacing: -0.035em;
-  background: linear-gradient(180deg, var(--text-primary) 0%, rgba(245, 245, 247, 0.75) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--text-primary);
   margin-bottom: 0.9rem;
   text-wrap: balance;
 }
@@ -549,8 +555,8 @@ code {
 
 /* Rule A: the club's own integers are the loudest claim the page makes,
    so they are the club's own colour — flat, not a gradient into a hue
-   they never chose. Smaller than before because there are now four
-   doors carrying the same numbers twenty lines further down. */
+   they never chose. Smaller than before: the strip is a caption under
+   the hero sentence, not a headline of its own. */
 .hero__stat-num {
   font-size: clamp(1.5rem, 2.4vw, 1.9rem);
   font-weight: 800;
@@ -623,48 +629,13 @@ code {
 }
 html:not(.js-rv) .term-line::after { transform: scaleX(1); }
 
-.hero__attribution {
-  position: absolute;
-  bottom: 2rem;
-  left: 50%;
-  transform: translateX(-50%);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-  padding: 0.35rem 0.8rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: rgba(10, 10, 11, 0.6);
-  backdrop-filter: blur(8px);
-  z-index: 1;
-}
-.hero__attribution:hover {
-  color: var(--text-secondary);
-}
+/* .hero__attribution — deleted with its markup. The footer's "Powered
+   by ALL Applied AI Network" line is the one attribution, and a second
+   one in the masthead put the network's name on the chapter's own
+   screen above the chapter's. */
 
-.hero__attribution-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  box-shadow: 0 0 8px var(--color-primary);
-}
-
-/* On a phone the pill wraps to two lines, and two absolutely
-   positioned lines at bottom: 2rem land on top of the stat strip now
-   that the hero is only as tall as its contents. In the flow it is the
-   last row of a centred column and cannot collide with anything, so
-   the hero also stops reserving a gutter it no longer needs. */
 @media (max-width: 640px) {
   .hero { padding-bottom: 1.5rem; }
-  .hero__attribution {
-    position: static;
-    transform: none;
-    margin-top: 1.25rem;
-    max-width: 100%;
-  }
 }
 
 /* ══ Sections ══════════════════════════════════════════════════ */
@@ -814,98 +785,11 @@ html:not(.js-rv) .term-line::after { transform: scaleX(1); }
   .band-head { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
 }
 
-/* ── .doors — up to four destinations (Events, Projects, About,
-   Learn), each carrying the club's own integer and a live line out of
-   the bundle. Replaces the four pillar cards, which said the same four
-   things on all twelve sites.
-
-   A door whose destination is not in pagesWithContent() is not
-   rendered, a count of 1 drops the numeral (never headline a one) and
-   fewer than two doors omits the strip, so this only ever has to lay
-   out 2–4 cards. Two columns at 375px; one below 340px, where a
-   150px card cannot hold "About" and an officer's name and role. */
-.doors {
-  display: grid;
-  /* auto-FIT, not auto-fill: the count is 2, 3 or 4 and never more, so
-     an auto-fill track that no door lands in is 250px of dead space to
-     the right of MSOE's four — which reads as a card that failed to
-     render. Fitting divides the row between however many there are. */
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 1rem;
-}
-@media (max-width: 640px) {
-  .doors { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; }
-}
-@media (max-width: 340px) {
-  .doors { grid-template-columns: 1fr; }
-}
-
-.door {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  padding: 1.15rem 1.15rem 1.25rem;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  color: inherit;
-  transition: border-color 0.15s, background 0.15s;
-}
-.door:hover {
-  border-color: var(--border-strong);
-  background: var(--bg-surface-2);
-  color: inherit;
-}
-
-.door__name {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-.door__name::after {
-  content: "→";
-  color: var(--text-tertiary);
-  transition: transform 0.15s, color 0.15s;
-}
-.door:hover .door__name::after {
-  transform: translateX(2px);
-  color: var(--color-primary);
-}
-
-.door__n {
-  font-size: 1.35rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-primary);
-}
-.door__unit {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text-tertiary);
-  margin-left: 0.35rem;
-}
-
-/* The live line sits on the card's floor, not under whatever came
-   before it. A door that defers its numeral to the hero strip is two
-   rows shorter than its neighbours, and left top-aligned the four
-   cards read as four different components rather than one row. */
-.door__line {
-  margin-top: auto;
-  padding-top: 0.35rem;
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  line-height: 1.45;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
+/* The .doors family is gone with renderDoors. Four cards carrying the
+   club's own integers sat between the masthead and the board, which is
+   the one screen Ben asked to be the people; the hero strip already
+   prints those integers once and Explore's live lines carry the titles
+   and dates the cards' second row held. */
 
 /* ══ About ═════════════════════════════════════════════════════ */
 
@@ -1905,14 +1789,8 @@ html:not(.js-rv) .group__rule { transform: scaleY(1); }
    primary rank numeral, a treatment that names a group instead of a
    winner and so survives the tie intact. */
 
-/* The board band's head sits over the board, not over the page. The
-   frame is capped and centred below, and a .band-head laid out across
-   the section's full 1280px would hang "The board" off to the left of
-   the object it names. */
-.board-band {
-  max-width: 720px;
-  margin-inline: auto;
-}
+/* .board-band is gone: the board's head is the people band's own
+   .band-head--lead now, and the column is what caps the measure. */
 
 .board {
   max-width: 720px;
@@ -2015,6 +1893,10 @@ html:not(.js-rv) .group__rule { transform: scaleY(1); }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Always in the markup, because a search hit drops its "Show in
+   context" link in here and a row that has no badge and no check-in
+   count still has to have somewhere to put it. Empty it collapses, so
+   it costs those rows nothing. */
 .board__marks {
   display: flex;
   flex-wrap: wrap;
@@ -2022,6 +1904,7 @@ html:not(.js-rv) .group__rule { transform: scaleY(1); }
   gap: 0.35rem;
   margin-top: 0.35rem;
 }
+.board__marks:empty { display: none; }
 
 /* The points are the claim the board makes, so they are the loudest
    thing in the row — by size and contrast, in --text-primary. The
@@ -2047,16 +1930,9 @@ html:not(.js-rv) .group__rule { transform: scaleY(1); }
   display: none;
 }
 
-/* "Top 20 of 595 members." — the board is a cap, and it reads as a
-   footnote under the board rather than as a preamble above it. */
-.board__foot {
-  margin: 0;
-  padding: 0.7rem 1.15rem;
-  border-top: 1px solid var(--border);
-  background: var(--bg-subtle);
-  font-size: 0.8125rem;
-  color: var(--text-tertiary);
-}
+/* .board__foot — replaced by .board__status further down. The old foot
+   was a fixed sentence about a fixed cap ("Top 20 of 595 members.");
+   the board pages now, so its foot is a live count and a control. */
 
 /* At 390px the marks wrap to a second line on any member with a badge
    and a check-in count, and twenty rows of that is a very long board.
@@ -2070,8 +1946,7 @@ html:not(.js-rv) .group__rule { transform: scaleY(1); }
     padding: 0.65rem 0.8rem;
   }
   .board__search,
-  .board__empty,
-  .board__foot {
+  .board__empty {
     padding-left: 0.8rem;
     padding-right: 0.8rem;
   }
@@ -2094,15 +1969,10 @@ html:not(.js-rv) .group__rule { transform: scaleY(1); }
   margin-bottom: 0.35rem;
 }
 
-/* ── One sentence at the foot of Members, replacing the ~100-line
-   "Living résumé" callout: same claim, no percentage, no named hiring
-   story, no methodology footnote. */
-.members-network {
-  margin-top: 2.5rem;
-  font-size: 0.9rem;
-  line-height: 1.6;
-  color: var(--text-secondary);
-}
+/* .members-network — retired with renderNetworkLine. The claim it made
+   (your record here travels with you) is now the body of the Network
+   block in Explore, where it has a picture and a link instead of being
+   a sentence hanging off whichever band rendered last. */
 
 /* ── .lb-search — "Find your name", inside the board's frame and over
    every row from the first. font-size is 16px exactly: anything
@@ -2211,53 +2081,11 @@ html:not(.js-rv) .group__rule { transform: scaleY(1); }
   border-color: var(--border);
 }
 
-/* ── "How points work" — three cards on the Members page, above the
-   badge grid. Rendered only when the chapter has points or badges:
-   explaining a points system with no points in it is the template
-   talking about itself. */
-
-.points-explainer {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 0.85rem;
-  margin-bottom: 2.25rem;
-}
-
-.points-explainer__card {
-  padding: 1.25rem 1.35rem;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-
-.points-explainer__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: rgba(var(--color-primary-rgb), 0.1);
-  border: 1px solid rgba(var(--color-primary-rgb), 0.25);
-  color: var(--color-primary);
-}
-
-.points-explainer__title {
-  font-size: 0.98rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.01em;
-}
-
-.points-explainer__desc {
-  font-size: 0.83rem;
-  color: var(--text-secondary);
-  line-height: 1.55;
-  margin: 0;
-}
+/* The .points-explainer family is gone with the three cards. "Attend
+   events / Earn badges / Redeem rewards" explained a points system in
+   the space the board itself needed; the board's own empty note and
+   the Events block's last sentence each say one of those things, in
+   one line, where the thing being explained is visible. */
 
 /* A smaller heading used inside a section ("Every badge we award"
    under the explainer cards). Reads like a mid-section break. */
@@ -3029,50 +2857,114 @@ a.project-card:hover {
 
 /* ══ Footer ════════════════════════════════════════════════════ */
 
+/* margin-top is 0: the join band is the last thing above the footer
+   and carries its own 4rem of air, so the old 4rem was a second gap
+   on top of it. */
 .footer {
   border-top: 1px solid var(--border);
-  padding: 3rem 1.5rem 2.5rem;
+  padding: 3.5rem 1.5rem 2.5rem;
   background: rgba(0, 0, 0, 0.4);
-  margin-top: 4rem;
+  margin-top: 0;
 }
 
-/* Two-column desktop, three-row mobile. Socials go under the brand
-   so an empty socials slot doesn't leave a mid-row gap between
-   brand + attribution. */
+/* Brand · Quick links · Follow, with the network line across the
+   foot. A real footer, because the page now ends here rather than at
+   a partner band, and because a visitor who scrolled past the join
+   button is looking for a way into a room. */
 .footer__inner {
   max-width: 1280px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
   grid-template-areas:
-    "brand aain"
-    "socials aain";
-  gap: 0.75rem 2rem;
+    "brand links follow"
+    "aain aain aain";
+  gap: 2rem 2.5rem;
   align-items: start;
 }
 
 .footer__brand { grid-area: brand; }
-.footer__socials { grid-area: socials; justify-content: flex-start; }
+.footer__col { grid-area: links; }
+.footer__col--follow { grid-area: follow; }
 .footer__aain { grid-area: aain; }
 
+/* A chapter that points nowhere loses the Follow column, and the two
+   that are left share the row rather than leaving a third of the
+   footer empty on the right. */
+.footer__inner--no-follow {
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  grid-template-areas:
+    "brand links"
+    "aain aain";
+}
+
 /* When socials are empty (no dashboard links + no local config),
-   swallow the row so there's no hanging whitespace. */
+   swallow the row so there's no hanging whitespace. renderFooter has
+   usually already removed the wrapper; this covers the case where it
+   kept the element to preserve the marker id. */
 .footer__socials:empty { display: none; }
+
+.footer__heading {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.75rem;
+  letter-spacing: -0.005em;
+}
+
+/* Two columns, because six rooms in one column is a tower next to a
+   two-line brand block. */
+.footer__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem 1rem;
+  /* Capped so the two columns stay a pair of lists rather than two
+     words at opposite ends of a 520px track, which is what the
+     no-follow layout would otherwise give a three-room chapter. */
+  max-width: 20rem;
+}
+.footer__list a {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+.footer__list a:hover { color: var(--color-primary); }
+
+.footer__about {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--text-tertiary);
+  max-width: 40ch;
+  margin: 0;
+}
+.footer__about:empty { display: none; }
 
 @media (max-width: 720px) {
   .footer__inner {
     grid-template-columns: 1fr;
     grid-template-areas:
       "brand"
-      "socials"
+      "links"
+      "follow"
       "aain";
-    gap: 1.25rem;
+    gap: 1.75rem;
     text-align: center;
   }
   .footer__socials { justify-content: center; }
+  .footer__list { justify-items: center; }
+  .footer__about { margin-inline: auto; }
 }
 
 .footer__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.footer__brand-row {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -3100,8 +2992,16 @@ a.project-card:hover {
 .footer__socials {
   display: flex;
   gap: 0.6rem;
-  justify-content: center;
+  justify-content: flex-start;
   flex-wrap: wrap;
+}
+
+/* The vendored marks are 16×16 viewBoxes (Bootstrap Icons), so the
+   glyph is sized on the anchor rather than on the file. */
+.footer-social svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
 }
 
 .footer-social {
@@ -3121,17 +3021,27 @@ a.project-card:hover {
   border-color: var(--color-primary);
 }
 
+/* Across the foot now, under a hairline, rather than in a right-hand
+   column: the three columns above it are the chapter's, and the
+   network's line is a colophon under all of them. */
 .footer__aain {
-  text-align: right;
+  text-align: left;
   font-size: 0.82rem;
   color: var(--text-tertiary);
   line-height: 1.5;
-  align-self: center;
+  align-self: auto;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 @media (max-width: 720px) {
-  .footer__aain { text-align: center; align-self: auto; }
-  .footer__brand { justify-content: center; }
+  .footer__aain { text-align: center; justify-content: center; }
+  .footer__brand { align-items: center; }
+  .footer__brand-row { justify-content: center; }
 }
 
 .footer__aain strong {
@@ -3139,16 +3049,17 @@ a.project-card:hover {
 }
 
 .footer__sub {
-  margin-top: 0.25rem;
+  margin-top: 0;
   color: var(--text-tertiary);
 }
 
-/* Its own line. Inline inside a tertiary sentence it broke mid-phrase
-   ("…across the network See the / network →"), which reads as two
-   sentences colliding rather than a link. */
+/* Inline again, and on the same row as the ALL line rather than under
+   it: the two sit at opposite ends of one colophon now, so there is a
+   whole column of air between the sentence and its link and the
+   mid-phrase break the block display was added to fix cannot happen. */
 .footer__sub a {
-  display: block;
-  margin-top: 0.3rem;
+  display: inline;
+  margin: 0 0 0 0.35rem;
 }
 
 /* ══ Utility ══════════════════════════════════════════════════ */
@@ -3326,16 +3237,16 @@ a.project-card:hover {
 }
 .page-header__kicker:empty { display: none; }
 
+/* Flat, like .hero__title. The white→grey `background-clip: text`
+   gradient this used to carry is the same tell B1 called the single
+   most generated-looking thing a page can do, and it was the headline
+   on every subpage while the hero below it had already given it up. */
 .page-header__title {
   font-size: clamp(1.9rem, 3.5vw, 2.6rem);
   font-weight: 800;
   letter-spacing: -0.03em;
   color: var(--text-primary);
   margin: 0 0 0.5rem;
-  background: linear-gradient(180deg, var(--text-primary) 0%, rgba(245, 245, 247, 0.78) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
 }
 
 .page-header__desc {
@@ -4027,6 +3938,707 @@ body.is-holding {
 }
 
 /* ══════════════════════════════════════════════════════════════════
+   THE LANDING PAGE — split hero, the people band, Explore, the join
+   band.
+
+   Every colour below is a token or an rgba of --color-primary-rgb, so
+   the whole page recolours from Customize and ROAR's pure #ff0000
+   never lands anywhere as a fill except the primary button, the rank
+   numerals and the 2px rules. Nothing here lifts on hover, loops, or
+   draws a bar behind a number.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── The split hero ──────────────────────────────────────────────
+   5fr of mark against 7fr of words. The mark is the chapter's, and at
+   the old 116px it was a lozenge above the name rather than half the
+   masthead. */
+.hero--split {
+  padding: clamp(2.5rem, 6vh, 4.5rem) 1.5rem;
+  align-items: stretch;
+}
+
+.hero__grid {
+  position: relative;
+  z-index: 1;
+  max-width: 1180px;
+  margin: 0 auto;
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: clamp(1.5rem, 4vw, 4rem);
+  align-items: center;
+}
+
+.hero--split .hero__mark {
+  justify-content: center;
+  margin: 0;
+}
+.hero--split .hero__mark .bmark,
+.hero--split .hero__mark .hero__logo {
+  width: clamp(180px, 22vw, 300px);
+  height: clamp(180px, 22vw, 300px);
+  opacity: 1;
+}
+
+/* An uploaded logo at 300px is a 300px object on the page, and the
+   ones chapters upload are photographs of a mark on their own
+   background — MSOE's is a 2732×2048 JPEG with an opaque black field.
+   Rounding the corners makes that field a card rather than a slab;
+   renderHeroMark rejects the shapes rounding cannot save. */
+.hero--split .hero__mark .hero__logo {
+  border-radius: var(--radius-lg);
+}
+
+.hero--split .hero__inner {
+  max-width: 640px;
+  text-align: left;
+}
+.hero--split .hero__title { font-size: clamp(2.5rem, 5.2vw, 4.25rem); }
+.hero--split .hero__title--long { font-size: clamp(1.8rem, 3.6vw, 2.8rem); }
+.hero--split .hero__subtitle {
+  margin-left: 0;
+  margin-right: 0;
+  margin-bottom: 1.5rem;
+}
+.hero--split .hero__actions { justify-content: flex-start; }
+.hero--split .term-line {
+  justify-content: flex-start;
+  margin-top: 1.5rem;
+}
+.hero--split .hero__stats {
+  max-width: 520px;
+  margin-top: 1.25rem;
+}
+
+/* The mesh's hole moves with the copy: it is masked out of the middle
+   of the hero, and the middle of a split hero is where the words
+   start, not where the mark is. */
+.hero--split .hero__network {
+  mask-image: radial-gradient(ellipse 55% 75% at 62% 50%, transparent 8%, black 80%);
+  -webkit-mask-image: radial-gradient(ellipse 55% 75% at 62% 50%, transparent 8%, black 80%);
+}
+
+@media (max-width: 899px) {
+  .hero__grid {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+    justify-items: center;
+  }
+  .hero--split .hero__inner { text-align: center; }
+  .hero--split .hero__actions,
+  .hero--split .term-line { justify-content: center; }
+  .hero--split .hero__mark .bmark,
+  .hero--split .hero__mark .hero__logo {
+    width: clamp(112px, 30vw, 150px);
+    height: clamp(112px, 30vw, 150px);
+  }
+  .hero--split .hero__title { font-size: clamp(2.1rem, 9vw, 2.75rem); }
+  .hero--split .hero__title--long { font-size: clamp(1.5rem, 6.5vw, 2rem); }
+}
+
+/* Full-width buttons from 640 rather than 420: the split hero's CTA
+   row carries a label as long as "Next event · Oct 8" beside "Join
+   MAIC", and two of those wrap on any phone. */
+@media (max-width: 640px) {
+  .hero--split .hero__actions { flex-direction: column; align-items: stretch; }
+  .hero--split .hero__actions .btn { width: 100%; justify-content: center; }
+}
+
+/* ── Lead band heads ─────────────────────────────────────────────
+   The three bands under the hero are the page, not samples of rooms,
+   so their heads are a size up from .band-head without becoming
+   .section__title. */
+.band-head--lead {
+  margin-bottom: 1.5rem;
+  align-items: baseline;
+}
+.band-head--lead .band-head__title {
+  font-size: clamp(1.55rem, 2.6vw, 2rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.band-head--lead .band-head__n { font-size: 0.9rem; }
+
+.band--people,
+.band--join { padding: 4rem 1.5rem; }
+@media (max-width: 640px) {
+  .band--people,
+  .band--join { padding: 2.75rem 1.25rem; }
+}
+
+/* ── The people band ─────────────────────────────────────────────
+   Two columns that end on the same line. align-items: stretch is
+   load-bearing: MSOE's eboard column is ~400px of faces and one
+   sentence beside a board frame of ~735px, and left to `start` the
+   left column leaves 300px of void under it. The board's scroller
+   takes its height from the row instead — see --board-h below. */
+.people {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 2.5rem 3rem;
+  align-items: stretch;
+}
+/* An officer switching "about" off removes the left column; the board
+   then spans the band at its own measure rather than sitting in a
+   half-width track with a hole beside it. */
+.people--solo {
+  grid-template-columns: minmax(0, 720px);
+  justify-content: center;
+}
+.people__col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.people__photo {
+  margin: 0 0 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-surface);
+  aspect-ratio: 4 / 3;
+}
+.people__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.people__about {
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+.people__about p + p { margin-top: 1rem; }
+.people__about strong { color: var(--text-primary); font-weight: 600; }
+
+.people__links {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.people__links a { color: var(--text-secondary); }
+.people__links a:hover { color: var(--color-primary); }
+
+/* ── .faces — the eboard when there is no group photo.
+   3×2 at 88px, not 4×2 at 72px. The tile has to read as a person at
+   arm's length or the column is a contact sheet, and MSOE's roster is
+   13 people of whom 3 have no portrait — at 72px those three are
+   monogram chips in a grid of faces. Six is also the number that
+   leaves the 6th slot for the overflow tile without the grid growing
+   a third row. */
+.faces {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+.faces--row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+.face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.4rem;
+  padding: 1rem 0.5rem 0.9rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: inherit;
+  transition: border-color 0.15s, background 0.15s;
+  min-width: 0;
+}
+.face:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-surface-2);
+  color: inherit;
+}
+/* One or two officers laid out as a grid of 3 is one face and two
+   holes. ROAR has exactly one. */
+.faces--row .face {
+  flex-direction: row;
+  text-align: left;
+  padding: 0.75rem 1rem 0.75rem 0.75rem;
+  gap: 0.75rem;
+}
+.face__avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: rgba(var(--color-primary-rgb), 0.12);
+  border: 1px solid var(--border-strong);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.face__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.faces--row .face__avatar { width: 56px; height: 56px; font-size: 1.1rem; }
+.face__name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.face__role {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  line-height: 1.3;
+}
+.face--more .face__avatar {
+  background: transparent;
+  border-style: dashed;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 1.05rem;
+}
+.face--more .face__name::after { content: " →"; }
+
+@media (max-width: 899px) {
+  .people { grid-template-columns: 1fr; gap: 2.5rem; }
+}
+@media (max-width: 640px) {
+  .faces { gap: 0.6rem; }
+  .face__avatar { width: 64px; height: 64px; font-size: 1.15rem; }
+  .face { padding: 0.75rem 0.4rem 0.7rem; }
+}
+@media (max-width: 380px) {
+  .face__role { display: none; }
+}
+
+/* ── The board, inside a column ──────────────────────────────────
+   The frame's own 720px cap and centring are for a board that spans a
+   band; in the people band the column is the measure. The margin has
+   to go with the cap: an auto inline margin cancels a flex item's
+   stretch, so the frame shrank to its widest row and sat centred in a
+   column 100px wider than itself — and in the solo case the band head
+   hung off its left edge. */
+.people .board {
+  max-width: none;
+  margin-inline: 0;
+}
+
+/* The board fills its column so the two columns end on the same line,
+   and the scroller takes whatever is left after the search box, the
+   head and the status row. --board-h is a MAX, so a six-row board is
+   six rows tall with no scrollbar and WSU looks complete rather than
+   truncated. */
+.people__col--board > div:last-child {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.board {
+  --board-h: 600px;
+  position: relative;
+}
+.people .board {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.board__scroll {
+  max-height: var(--board-h);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  position: relative;
+}
+.board__scroll:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+/* The head stays while the rows move under it, because a column of
+   numbers you are scrolling needs its labels. */
+.board__head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-surface);
+  box-shadow: inset 0 -1px 0 var(--border);
+}
+
+/* A static fade at the scroller's floor, set only while rows remain
+   below it. It is a cue that there is more, not an animation. */
+.board--more .board__scroll::after {
+  content: "";
+  position: sticky;
+  display: block;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 36px;
+  margin-top: -36px;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, var(--bg-surface));
+}
+
+.board__row--top .board__rank { color: var(--text-primary); }
+
+/* The row a search found. Not a pulse and not a colour the rest of
+   the board uses: a member looking for their own name has to be able
+   to see it without reading. */
+.board__row--you {
+  background: rgba(var(--color-primary-rgb), 0.1);
+  box-shadow: inset 0 0 0 1px rgba(var(--color-primary-rgb), 0.45);
+}
+.board__row--lead.board__row--you {
+  box-shadow:
+    inset 2px 0 0 var(--color-primary),
+    inset 0 0 0 1px rgba(var(--color-primary-rgb), 0.45);
+}
+.board__ctx {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.board__ctx:hover { color: var(--color-primary); }
+
+.board__sentinel { list-style: none; height: 1px; }
+
+.board__status {
+  margin: 0;
+  padding: 0.7rem 1.15rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg-subtle);
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+.board__status:empty { display: none; }
+.board__status a { color: var(--text-secondary); font-weight: 600; }
+/* No count beside it — a board whose total nobody has told us still
+   gets its control, and the control still lives at the right edge. */
+.board__status a:only-child { margin-left: auto; }
+.board__status a:hover { color: var(--color-primary); }
+
+/* The empty board: one sentence that names the fix, and the button
+   that is the fix when the chapter has one. It does NOT stretch to the
+   column like a board of rows does — a dashed frame 300px tall around
+   one sentence is the empty state shouting. */
+.board--note {
+  padding: 1.5rem 1.25rem;
+  border-style: dashed;
+}
+.people .board--note {
+  flex: 0 0 auto;
+  display: block;
+}
+.board__note {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.board__note + .btn { margin-top: 1rem; }
+
+@media (max-width: 640px) {
+  /* No nested scroller on a phone. A 480px scroll box in the middle
+     of a page catches the thumb on iOS and the page stops moving; the
+     board shows 12 rows and expands in place instead. Search still
+     covers everyone — it expands the board on the first keystroke. */
+  .board__scroll {
+    max-height: none;
+    overflow: visible;
+    overscroll-behavior: auto;
+  }
+  .board:not(.board--expanded) .board__rows > .board__row:nth-child(n + 13) {
+    display: none;
+  }
+  .board--more .board__scroll::after { display: none; }
+  .board__status { padding-left: 0.8rem; padding-right: 0.8rem; }
+}
+
+/* ── Explore blocks ──────────────────────────────────────────────
+   A photograph and a paragraph, alternating sides. Every default
+   block has a picture: four bordered text rows in a column is a text
+   wall, and on a chapter with no events and no projects three of the
+   four defaults would have been exactly that. */
+.features {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.feature {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 2rem;
+  align-items: center;
+  padding: 1.75rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+}
+.feature--flip { grid-template-columns: minmax(0, 1fr) 300px; }
+/* The FIGURE is the grid item, not the photo box inside it — the
+   caption has to travel with the picture when it changes sides, and
+   ordering the inner box instead left the figure in the 1fr track
+   with a 890px photograph in it. */
+.feature--flip .feature__figure { order: 2; }
+/* No grey placeholder box, ever: a block with no picture is a block
+   whose text spans the row. */
+.feature--bare { grid-template-columns: minmax(0, 1fr); }
+
+.feature__photo {
+  margin: 0;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+}
+.feature__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* A logo is not a photograph — the ALL mark is drawn inside its box
+   rather than cropped to fill it. */
+.feature__photo--contain img {
+  object-fit: contain;
+  padding: 12%;
+}
+
+/* The caption exists to say whose room this is. The two default
+   photographs are of network chapters and not of THIS one, and an
+   uncaptioned photo on a club's own page claims to be the club. A
+   chapter's own image never gets one. */
+.feature__figure { margin: 0; }
+.feature__caption {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+}
+
+.feature__body { min-width: 0; max-width: 62ch; }
+.feature__title {
+  font-size: clamp(1.25rem, 1.8vw, 1.5rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem;
+}
+.feature__sub {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 0.9rem;
+}
+.feature__text {
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+.feature__text p + p,
+.feature__text ul { margin-top: 0.75rem; }
+.feature__text strong { color: var(--text-primary); font-weight: 600; }
+.feature__text a {
+  color: var(--color-primary);
+  border-bottom: 1px solid rgba(var(--color-primary-rgb), 0.4);
+}
+/* The one line in the block that is this chapter's own data rather
+   than the network's copy — the next event's title, the newest
+   project, the first lesson. */
+.feature__live {
+  margin-top: 0.9rem;
+  font-size: 0.875rem;
+  color: var(--text-tertiary);
+}
+.feature__live strong { color: var(--text-secondary); font-weight: 600; }
+.feature__link {
+  display: inline-block;
+  margin-top: 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.feature__link:hover { color: var(--color-primary); }
+
+@media (max-width: 899px) {
+  .feature,
+  .feature--flip {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+    padding: 1.25rem;
+  }
+  .feature--flip .feature__figure { order: 0; }
+  .feature__photo { aspect-ratio: 16 / 9; }
+}
+
+/* ── The join band ───────────────────────────────────────────────  */
+.join {
+  max-width: 720px;
+  margin: 0 auto;
+  text-align: center;
+}
+.join__title {
+  font-size: clamp(1.75rem, 3vw, 2.4rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  margin: 0 0 0.75rem;
+}
+.join__desc {
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  max-width: 560px;
+  margin: 0 auto;
+}
+/* The one link that can appear in this paragraph is, on a chapter with
+   no invite and no channels, the only actionable thing in the whole
+   band — and inheriting `a { color: var(--color-primary) }` puts it at
+   1.85:1 on a chapter whose primary is a dark navy. Underlined text at
+   full contrast instead: it is a link because it is marked as one, not
+   because it is coloured. */
+.join__desc a {
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-strong);
+}
+.join__desc a:hover {
+  color: var(--text-primary);
+  border-bottom-color: var(--text-primary);
+}
+.join__actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+}
+.join__actions:empty { display: none; }
+.join__actions .btn--primary {
+  padding: 0.9rem 1.6rem;
+  font-size: 1rem;
+}
+
+/* ── .plink — a community channel, with its own mark.
+   The marks are real files (Bootstrap Icons, and Simple Icons for
+   GroupMe), drawn in currentColor on the surface tokens rather than
+   in brand colours: eight brand palettes in one row is a sticker
+   sheet, and on ROAR the only red on a button is the join tint. */
+.plinks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+}
+.plinks:empty { display: none; }
+.plink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 44px;
+  padding: 0.55rem 1rem 0.55rem 0.8rem;
+  border-radius: 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: border-color 0.15s, background 0.15s;
+}
+.plink:hover {
+  border-color: var(--color-primary);
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+}
+.plink__icon {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+/* Sized on the wrapper because the files carry no width or height of
+   their own — Bootstrap's marks are 16×16 viewBoxes with consistent
+   internal padding, so they sit at the same optical weight at any box
+   size without per-icon rescaling. */
+.plink__icon svg { width: 100%; height: 100%; fill: currentColor; }
+.plink:hover .plink__icon { color: var(--text-primary); }
+
+.plink--join {
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border-color: rgba(var(--color-primary-rgb), 0.35);
+}
+.plink--join:hover { background: rgba(var(--color-primary-rgb), 0.16); }
+.plink--join .plink__icon { color: var(--text-primary); }
+
+.join__aside {
+  margin-top: 1.5rem;
+  font-size: 0.875rem;
+  color: var(--text-tertiary);
+}
+.join__aside:empty { display: none; }
+.join__aside a { color: var(--text-secondary); font-weight: 600; }
+.join__aside a:hover { color: var(--color-primary); }
+
+/* ── The one percentage on the page.
+   Body size, under a hairline, last in the band: it is the answer to
+   "why join" at the moment of joining. At 0.95rem grey under a row of
+   buttons it read as legal small print, which is the opposite of what
+   a cited outcome should read as. */
+.proof {
+  margin: 2rem auto 0;
+  max-width: 560px;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+.proof:empty { display: none; }
+.proof strong { color: var(--text-primary); font-weight: 700; }
+.proof__note {
+  margin: 0.5rem auto 0;
+  max-width: 560px;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+}
+.proof__note:empty { display: none; }
+.proof__note a {
+  color: var(--text-tertiary);
+  border-bottom: 1px solid var(--border-strong);
+}
+.proof__note a:hover { color: var(--text-secondary); }
+
+@media (max-width: 640px) {
+  .join__actions .btn { width: 100%; justify-content: center; }
+  /* A join link is a decision and gets a full-width target; a follow
+     link is a mark in a row, like the footer's. */
+  .plink--join { width: 100%; justify-content: center; }
+  .plink--follow {
+    width: 44px;
+    padding: 0;
+    justify-content: center;
+  }
+  .plink--follow .plink__label { display: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
    Motion — five, and nothing here loops, counts, lifts or drifts.
 
      1  Boot assembly   body.is-ready, once, in reading order
@@ -4150,6 +4762,22 @@ html.is-still .rv-group > * {
    both start scaled to zero and are grown by a class. */
 html.is-still .term-line::after { transform: scaleX(1) !important; }
 html.is-still .group__rule { transform: scaleY(1) !important; }
+
+/* The mark assembles: every part of it starts at opacity 0 and is
+   brought in by a `forwards` animation, which the rule above has just
+   turned off — so a capture had no mark at all. It cost nothing while
+   the mark was a 116px lozenge and nobody noticed; at 300px in the
+   hero's left half it is the largest hole a screenshot can have.
+   Settled here rather than in renderBrainMark for the same reason the
+   reveals are: the end state must not depend on a class that only the
+   motion path adds. */
+html.is-still .bmark__outline,
+html.is-still .bmark__edge,
+html.is-still .bmark__node,
+html.is-still .bmark__word {
+  opacity: 1 !important;
+  transform: none !important;
+}
 
 /* Boot blanking. `.is-booting` sets opacity: 0 on the hero's children
    until init() hands over to the `rise` keyframes; that is a plain

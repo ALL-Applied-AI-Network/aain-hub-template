@@ -29,7 +29,10 @@ export interface ProjectMember {
   name: string;
   role: string;
 }
-type ProjectWithMembers = ProjectRow & { members?: ProjectMember[] | null };
+/* Exported because Home's Explore block names the newest project's
+   builders with the same renderByline, and a second narrowing type in
+   main.ts is a second place the members field can be got wrong. */
+export type ProjectWithMembers = ProjectRow & { members?: ProjectMember[] | null };
 
 const ALL = "";
 

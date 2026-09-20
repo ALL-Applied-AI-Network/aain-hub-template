@@ -1,12 +1,13 @@
 /* Learn — the curriculum destination, and the floor under every chapter.
 
-   Two surfaces live in this file because they are one dataset:
+   Two surfaces read this file's one dataset:
 
-   1. `renderStartHereBand()` fills Home's "Start here" band with the
-      first six lessons of the path. This band is the reason a chapter
-      with no events, no officers and no projects still reads as a club:
-      8 of the 12 live chapters have nothing else, and this is a real
-      curriculum a visitor can start today.
+   1. Home's "The learning tree" Explore block — the lesson count, the
+      first lesson and its thumbnail. It is the reason a chapter with
+      no events, no officers and no projects still reads as a club: 8
+      of the 12 live chapters have nothing else, and this is a real
+      curriculum a visitor can start today. main.ts renders it; this
+      file only resolves the floor it reads (startCurriculumFetch).
    2. The `learn` view is the tree itself, full width, and nothing
       else. The native index that used to sit above the canvas — "The
       path", the seven curriculum bands, up to five lesson rows each —
@@ -247,13 +248,6 @@ export function startCurriculumFetch(): Promise<CurriculumFloor> {
   return floorPromise;
 }
 
-/** Drop the memoised result so the next call refetches. Used only by
- *  the floor retry — a chapter whose whole page is this band gets one
- *  more attempt before it falls back to the frozen six. */
-function resetCurriculumFetch(): void {
-  floorPromise = null;
-}
-
 /* ──────────────────────────────────────────────────────────────────
    Rendering primitives
    ────────────────────────────────────────────────────────────────── */
@@ -352,70 +346,19 @@ function lessonRow(node: TreeLesson, href: string): string {
   return `<a class="rec rec--node"${bare} href="${escapeAttr(href)}" target="_blank" rel="noopener">${inner}</a>`;
 }
 
-/* ──────────────────────────────────────────────────────────────────
-   Home — the "Start here" band
-   ────────────────────────────────────────────────────────────────── */
+/* Home's "Start here" band is gone, and renderStartHereBand with it.
+   Six lesson rows under a heading were the landing page's floor; the
+   floor is now one Explore block — the first lesson's thumbnail, the
+   lesson count, and what it starts with — which sits beside three
+   other blocks instead of being a band of its own. main.ts builds it
+   from the same CurriculumFloor this module resolves.
 
-export interface StartHereOptions {
-  /**
-   * True when this band is the whole page: the chapter has no events
-   * and no officers. Then a failed fetch retries once, and if that
-   * fails too the six frozen lessons render without thumbnails — the
-   * band is never allowed to be the reason the page is blank.
-   *
-   * False on a chapter with other content: a failed fetch removes the
-   * band silently, because nothing below it depends on it.
-   */
-  isFloor: boolean;
-}
-
-/**
- * Fill Home's "Start here" band — head and rows both, so a failed
- * fetch cannot leave an orphan heading behind.
- *
- * Returns false when the network gave us nothing, which is the caller's
- * signal to remove the band's section entirely — a chapter with events
- * and officers loses this band rather than showing a thinner copy of
- * it. A floor chapter never gets that answer.
- *
- * Sets `data-learn-ready="1"` on the target once the rows are in the
- * DOM: `?still=1` disables animation but cannot make a network call
- * instant, so a screenshot recipe waits on this attribute the same way
- * it waits on a non-empty #hero-title.
- */
-export async function renderStartHereBand(
-  target: HTMLElement | null,
-  opts: StartHereOptions,
-): Promise<boolean> {
-  if (!target) return false;
-
-  let floor = await startCurriculumFetch();
-  // An empty byId means the tree call itself failed — the one failure
-  // the frozen six exist for, because it costs the rows their
-  // thumbnails and summaries.
-  if (!floor.byId.size) {
-    if (!opts.isFloor) return false;
-    // One retry, and only here. A chapter with events and officers can
-    // lose this band without the page suffering; a chapter without them
-    // cannot, so it is worth a second request before the frozen six.
-    resetCurriculumFetch();
-    floor = await startCurriculumFetch();
-  }
-
-  const lessons = floor.path.slice(0, HOME_LESSONS);
-  if (!lessons.length) return false;
-
-  target.innerHTML = `
-    <div class="band-head">
-      <h2 class="band-head__title">Start here</h2>
-      <a class="band-head__link" href="#learn">Open the learning tree →</a>
-    </div>
-    <div class="learn-rows">
-      ${lessons.map((n) => lessonRow(n, lessonHref(floor, n))).join("")}
-    </div>`;
-  target.dataset.learnReady = "1";
-  return true;
-}
+   The one thing that did not survive the move is the floor's single
+   retry (resetCurriculumFetch): the band would refetch once on a
+   chapter whose whole page it was. The Explore block degrades instead
+   — no count, no thumbnail, the copy and the link intact — and it is
+   never the only thing on the page, because the Network block beside
+   it needs no network call at all. */
 
 /** Which curriculum chapter teaches this lesson — the topic the tree
  *  page should open at. "" when the curriculum call failed. */

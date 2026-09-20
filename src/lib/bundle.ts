@@ -114,7 +114,29 @@ export interface RemoteConfig {
   cta_tertiary_href: string | null;
   officers: Officer[];
   social_links: Record<string, string>;
+  /** Eboard / group photo for the landing page. Null = officer portraits. */
+  group_photo_url?: string | null;
+  /** Ordered join + follow links (lib/platforms.ts). Optional because the
+   *  API deploys separately; an older bundle carries only social_links. */
+  community_links?: CommunityLinkRow[];
+  /** Chapter-authored Explore blocks. Empty or absent = the site's defaults. */
+  feature_blocks?: FeatureBlockRow[];
   updated_at: string | null;
+}
+
+export interface CommunityLinkRow {
+  platform: string;
+  url: string;
+  label: string | null;
+}
+
+export interface FeatureBlockRow {
+  title: string;
+  subtitle: string | null;
+  body: string | null;
+  image_url: string | null;
+  link_label: string | null;
+  link_href: string | null;
 }
 
 export interface EventRow {
@@ -264,10 +286,25 @@ export interface ProjectRow {
 }
 
 export interface ChapterBundle {
-  chapter: { slug: string; name: string; university: string; member_count: number; event_count: number };
+  chapter: {
+    slug: string;
+    name: string;
+    university: string;
+    member_count: number;
+    event_count: number;
+    /** The standing invite, https://dashboard…/join/{code}, when the
+     *  eboard has it switched on. Joining there puts the visitor on the
+     *  board. Optional: older API. */
+    join_url?: string | null;
+  };
   config: RemoteConfig;
   events: EventRow[];
+  /** The first page of the board (50 rows, consent-gated, ordered by
+   *  points). The rest pages through /api/public/chapter/{slug}/leaderboard. */
   leaderboard: LeaderboardRow[];
+  /** Everyone the board holds. Absent on an older API, where the 20
+   *  rows above were the whole public board. */
+  leaderboard_total?: number;
   badges: BadgeRow[];
   merch: MerchRow[];
   projects: ProjectRow[];
