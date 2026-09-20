@@ -12,10 +12,17 @@
  */
 
 import { renderBrainMark } from "./brain-mark";
+import { initChapterMark } from "./chapter-mark";
 import { applyCaptureMode, isCaptureStill } from "./lib/capture";
 import { escapeHtml, escapeAttr } from "./lib/html";
 import { hostnameSlug, isDashboardPreview } from "./lib/slug";
 import { eventFromSearch, eventPageHref, mountEventPage } from "./event-page";
+import {
+  initJoinPanel,
+  joinChannels,
+  offerIsReal,
+  renderChannelButtons,
+} from "./join-panel";
 import type {
   ChapterBundle,
   EventRow,
@@ -388,6 +395,41 @@ function logoFitsHeroSlot(img: HTMLImageElement): boolean {
  *  that logo front and centre. If the image fails to load — or turns
  *  out to be the wrong shape for the slot — we fall back to the brain
  *  rather than leave the hero with a broken image or a black slab. */
+/** The mark itself: the living canvas when we can draw it, the SVG when we
+ *  cannot. The canvas needs a 2d context and a slot big enough for its own
+ *  nodes to be more than a couple of pixels across; below that the SVG,
+ *  hinted by the browser rather than rasterised by us, is the better
+ *  picture. Colours are read back off the document because applyTheme has
+ *  already written the chapter's onto :root — the mark and the rest of the
+ *  page therefore cannot disagree about what the theme is. */
+let disposeChapterMark: (() => void) | null = null;
+function mountHeroMark(el: HTMLElement, acronym: string | null) {
+  disposeChapterMark?.();
+  disposeChapterMark = null;
+  const cs = getComputedStyle(document.documentElement);
+  try {
+    disposeChapterMark = initChapterMark(el, {
+      acronym,
+      primary: cs.getPropertyValue("--color-primary"),
+      accent: cs.getPropertyValue("--color-accent"),
+      still: isCaptureStill(),
+    });
+  } catch {
+    renderBrainMark(el, acronym);
+  }
+}
+
+/**
+ * Is this the dashboard's generated chapter logo rather than one the
+ * eboard uploaded? `buildHubConfigPayload` fills `logo_url` with
+ * `{dashboard}/api/public/chapter-logo/{slug}` whenever a chapter has no
+ * upload, so "no logo" never arrives as null. The hero wants to know the
+ * difference; the nav and the favicon do not, and keep using the PNG.
+ */
+function isGeneratedLogo(url: string): boolean {
+  return url.startsWith(`${DASHBOARD_ORIGIN}/api/public/chapter-logo/`);
+}
+
 function renderHeroMark(
   el: HTMLElement | null,
   logoUrl: string | null,
@@ -395,7 +437,7 @@ function renderHeroMark(
 ) {
   if (!el) return;
   if (!logoUrl) {
-    renderBrainMark(el, acronym);
+    mountHeroMark(el, acronym);
     return;
   }
   const img = document.createElement("img");
@@ -403,11 +445,13 @@ function renderHeroMark(
   // Decorative: #hero-mark is aria-hidden and the h1 already names the club.
   img.alt = "";
   img.decoding = "async";
-  img.onerror = () => renderBrainMark(el, acronym);
+  img.onerror = () => mountHeroMark(el, acronym);
   img.onload = () => {
-    if (!logoFitsHeroSlot(img)) renderBrainMark(el, acronym);
+    if (!logoFitsHeroSlot(img)) mountHeroMark(el, acronym);
   };
   img.src = logoUrl;
+  disposeChapterMark?.();
+  disposeChapterMark = null;
   el.replaceChildren(img);
 }
 
@@ -538,6 +582,10 @@ function renderHeroActions(
   events: EventRow[],
   livePages: Set<string>,
   peopleBandShown: boolean,
+  /** The chapter's join-kind channels. The masthead's invite opens the
+   *  join panel over both these and the roster link, so a chapter that
+   *  runs a Discord and no roster still gets an invite button. */
+  channels: CommunityLink[],
 ) {
   const container = document.getElementById("hero-actions");
   if (!container) return;
@@ -547,6 +595,10 @@ function renderHeroActions(
     label: string;
     href: string;
     style: "primary" | "ghost" | "ghost-accent";
+    /** Opens the join panel instead of following its own href. The href
+     *  is still real — a cmd-click on it is a request for the invite in
+     *  a second tab, and that request is none of the panel's business. */
+    panel?: boolean;
     /** True for a value the chapter typed. Officer-authored hrefs are
      *  scheme-checked; the ones we compute are not, because
      *  eventPageHref() returns a same-origin path and safeHttpUrl()
@@ -577,11 +629,18 @@ function renderHeroActions(
   const joinUrl = safeHttpUrl(chapter?.join_url ?? "");
 
   if (!buttons.length) {
-    if (joinUrl) {
+    /* The invite leads whenever there is one, and "one" now means a
+       roster link OR a channel to walk into. It used to mean the roster
+       link alone, which is why a chapter that ran a Discord and no
+       roster got "See what we ran" on its masthead. The href underneath
+       is the roster when there is one and the first channel otherwise;
+       the click opens the panel over both. */
+    if (joinUrl || channels.length) {
       buttons.push({
         label: `Join ${chapterAcronym}`,
-        href: joinUrl,
+        href: joinUrl ?? channels[0].url,
         style: "primary",
+        panel: true,
         authored: false,
       });
     } else if (next) {
@@ -630,6 +689,34 @@ function renderHeroActions(
         });
       }
     }
+
+    /* And the other audience. A visitor who came to sponsor this
+       chapter had to read three bands of the page to find the door;
+       the masthead now holds it open beside the member's one.
+
+       It goes LAST of the three, not second, because the row reads in
+       priority order once a phone stacks it and the member's path —
+       join, then the next event — is the one this page is for. It is
+       gated on the Sponsor page being live, like every other computed
+       default: an unlinked fork has no Sponsor tab and this would be a
+       button to a room that is not there. And it never doubles the
+       primary on a chapter whose only door IS the inbox, which is what
+       the href check is for rather than a repeat of the branch above.
+
+       ghost-accent is the variant that exists for exactly this: one
+       audience-distinct button that does not compete with the invite. */
+    if (
+      livePages.has("sponsor") &&
+      buttons.length < 3 &&
+      !buttons.some((b) => b.href === "#sponsor")
+    ) {
+      buttons.push({
+        label: `Sponsor ${chapterAcronym}`,
+        href: "#sponsor",
+        style: "ghost-accent",
+        authored: false,
+      });
+    }
   }
 
   for (const b of buttons) {
@@ -654,13 +741,20 @@ function renderHeroActions(
     // stay in the current window. The standing invite is the one
     // absolute URL that does NOT: joining is the thing the visitor
     // came to do, and handing them a second tab to do it in leaves
-    // this page behind them as litter.
-    if (/^https?:\/\//.test(href) && href !== joinUrl) {
+    // this page behind them as litter. The panel's own button is the
+    // same case for the same reason, whatever href happens to be under
+    // it — it does not navigate on an ordinary click at all.
+    if (/^https?:\/\//.test(href) && href !== joinUrl && !b.panel) {
       a.target = "_blank";
       a.rel = "noopener noreferrer";
-    } else if (href === joinUrl) {
+    } else if (href === joinUrl || b.panel) {
       a.rel = "noopener";
     }
+    // The delegated listener in join-panel.ts picks this up. It is an
+    // attribute rather than a handler here because the empty
+    // leaderboard's Join button and the band's are rendered elsewhere
+    // and have to behave identically.
+    if (b.panel) a.dataset.joinPanel = "";
     // #band-people is a place on this page, not a route. Scrolled by
     // hand so the hash router never sees it and the URL a visitor
     // might share stays the page's own.
@@ -1014,7 +1108,15 @@ const IMPACT_URL = "https://all-ai-network.org/impact.html";
 interface PeopleBandCtx {
   slug: string;
   livePages: Set<string>;
-  joinUrl: string | null;
+  /** Where the empty leaderboard's Join button points: the roster, or
+   *  the first channel on a chapter that runs one and no roster. The
+   *  same expression the masthead's button uses, so the two cannot
+   *  disagree about where Join goes. */
+  joinHref: string | null;
+  /** Whether a Join button has anywhere to go — the roster, a channel,
+   *  or both. Decided once in boot() so the empty leaderboard's button
+   *  and the masthead's cannot disagree about whether there is one. */
+  joinable: boolean;
 }
 
 /** One officer tile: a face or a monogram, a name, and a role when
@@ -1221,7 +1323,8 @@ function renderPeopleBand(bundle: ChapterBundle, ctx: PeopleBandCtx): boolean {
   const state = boardHost
     ? renderBoard(boardHost, bundle, {
         slug: ctx.slug,
-        joinUrl: ctx.joinUrl,
+        joinHref: ctx.joinHref,
+        joinable: ctx.joinable,
         acronym: chapterAcronym,
         settled: motionSettled(),
       })
@@ -1281,6 +1384,22 @@ function fitBoardToColumn(): void {
   if (!eboard || !eboardHost || !board || !scroller || !head || !rows?.length) return;
   if (window.matchMedia?.("(max-width: 899px)").matches) return;
 
+  /* Every measurement below is taken with containment off over the
+     first block of rows, and that is not a nicety.
+
+     The rows sit in `content-visibility: auto` blocks (see hub.css), so
+     a block the browser has not decided is on screen yet reports its
+     intrinsic estimate rather than the height its rows really have —
+     and this runs in the same task as the render, before anything has
+     been on screen at all. Measured against the estimate, a six-row
+     board came out 56px short of its own content and a seven-row board
+     66px, so both grew a scrollbar and the "there is more" fade over
+     rows that were simply cut off. That is the exact case the floor
+     below exists to prevent. One block is enough: the floor is eight
+     rows, and a board past 25 of them is over the 600px cap either
+     way. */
+  board.classList.add("is-measuring");
+
   // What the frame costs before a single row: the search box, the
   // sticky head and the status line.
   const chrome = board.offsetHeight - scroller.offsetHeight;
@@ -1299,8 +1418,17 @@ function fitBoardToColumn(): void {
   const target = eboardBlock - headBlock - chrome;
 
   const eighth = rows[Math.min(7, rows.length - 1)];
-  const floor = eighth.offsetTop + eighth.offsetHeight;
+  /* Rectangles, not offsetTop: `content-visibility` carries paint
+     containment, which makes the block a containing block — and so the
+     offsetParent of the rows inside it. offsetTop then counts from the
+     top of the block rather than from the top of the scroller and drops
+     the sticky head's 36px, which is a board 36px short of its own
+     floor. This is measured against the scroller's content origin and
+     does not care what contains what. */
+  const origin = scroller.getBoundingClientRect().top - scroller.scrollTop;
+  const floor = eighth.getBoundingClientRect().bottom - origin;
   const natural = scroller.scrollHeight;
+  board.classList.remove("is-measuring");
 
   const h = Math.min(Math.max(target, Math.min(floor, natural)), 600);
   board.style.setProperty("--board-h", `${Math.round(h)}px`);
@@ -1496,7 +1624,7 @@ function defaultFeatures(
     // Explore is the first band under the hero.
     body:
       "Chapters run speakers, workshops and build nights through the term, with projects going on between them. Every event has a QR check-in, and checking in is what puts your name on " +
-      (boardAbove ? "the board above." : "the chapter's board."),
+      (boardAbove ? "the leaderboard above." : "the chapter's leaderboard."),
     image: eventCover
       ? { src: eventCover, fallback: DEFAULT_PHOTOS.events }
       : { src: DEFAULT_PHOTOS.events.src, caption: DEFAULT_PHOTOS.events.caption },
@@ -1729,16 +1857,14 @@ function renderJoin(
   if (!band) return;
 
   const events = bundle.events ?? [];
-  const joinLinks = links.filter((l) => platformMeta(l.platform).kind === "join");
+  const joinLinks = joinChannels(links);
   const next = nextEvent(events);
 
   let desc: string;
   if (joinUrl) {
-    desc = `Joining takes a minute and puts your name on the board.${
-      joinLinks.length
-        ? " Then pick a channel below and you will hear about the next event."
-        : ""
-    }`;
+    desc = joinLinks.length
+      ? "Pick a channel and you will hear about the next event. Adding your name takes a minute and is what puts you on the leaderboard."
+      : "Joining takes a minute and puts your name on the leaderboard.";
   } else if (joinLinks.length) {
     desc = `The fastest way in is the ${platformMeta(joinLinks[0].platform).label}: that is where the next event is announced.`;
   } else if (next) {
@@ -1746,7 +1872,7 @@ function renderJoin(
     // already says that, and the same sentence twice in a row is the
     // duplication Ben rejected on the last pass. This one carries what
     // the button cannot — that there is nothing else to do.
-    desc = "There is no application. Turn up, check in, and your name is on the board.";
+    desc = "There is no application. Turn up, check in, and your name is on the leaderboard.";
   } else if (events.length) {
     // The chapter has run events but has nothing on the calendar, so
     // there is no "next event" to send anyone to and the sentence
@@ -1769,14 +1895,31 @@ function renderJoin(
         : escapeHtml(desc);
   }
 
+  /* The band LEADS with the rooms.
+
+     It used to lead with one button — "Join MAIC", the bare roster link
+     — and hang the channels under it as an afterthought, which is the
+     same mistake the masthead was making: the thing a visitor is here
+     to do is get into the room where the next event is announced, and
+     the roster is the second half of that, not the first. So every
+     join-kind channel is a button here, and the roster follows as a
+     named line rather than as an unlabelled "Join".
+
+     With no channels — every chapter in the network today — this is the
+     button it always was, and it opens the panel rather than jumping
+     straight out to the roster form. */
   const actions = document.getElementById("join-actions");
   if (actions) {
-    if (joinUrl) {
-      actions.innerHTML = `<a class="btn btn--primary" href="${escapeAttr(joinUrl)}" rel="noopener">Join ${escapeHtml(chapterAcronym)}</a>`;
-    } else if (joinLinks.length) {
-      const first = joinLinks[0];
-      const meta = platformMeta(first.platform);
-      actions.innerHTML = `<a class="btn btn--primary" href="${escapeAttr(first.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(first.label || meta.verb)}</a>`;
+    if (joinLinks.length) {
+      const roster = joinUrl
+        ? `<a class="join__roster link--arrow" href="${escapeAttr(joinUrl)}" rel="noopener">Add my name to the leaderboard</a>`
+        : "";
+      // The class, not a :has() — the stylesheet has no other one and
+      // the render already knows which shape this row is.
+      actions.classList.add("join__actions--channels");
+      actions.innerHTML = `<div class="plinks plinks--lead">${renderChannelButtons(joinLinks)}</div>${roster}`;
+    } else if (joinUrl) {
+      actions.innerHTML = `<a class="btn btn--primary" href="${escapeAttr(joinUrl)}" rel="noopener" data-join-panel>Join ${escapeHtml(chapterAcronym)}</a>`;
     } else if (next) {
       actions.innerHTML = `<a class="btn btn--primary" href="${escapeAttr(
         eventPageHref(next.id, window.location.pathname),
@@ -1784,16 +1927,17 @@ function renderJoin(
     }
   }
 
-  // The button above is one of these; showing it twice in a row is the
-  // duplication Ben rejected on the last pass. But it is only ever
-  // links[0] when there IS a join-kind link to promote (communityLinks
-  // sorts those first) — with a join_url, or with nothing but
-  // follow/contact channels, the button is not from this list at all
-  // and the slice was deleting a real Instagram or email row that then
-  // appeared nowhere in the band.
-  const rest = joinUrl || !joinLinks.length ? links : links.slice(1);
+  // Whatever is left, which is never a channel: the channels are all
+  // above now, so this row cannot repeat one. That also retires the
+  // slice that used to guess which link the button had taken — it was
+  // deleting a real Instagram or email row on the chapters where the
+  // button had not come from this list at all.
   const linksEl = document.getElementById("join-links");
-  if (linksEl) linksEl.innerHTML = renderCommunityLinks(rest);
+  if (linksEl) {
+    linksEl.innerHTML = renderCommunityLinks(
+      links.filter((l) => platformMeta(l.platform).kind !== "join"),
+    );
+  }
 
   const aside = document.getElementById("join-aside");
   if (aside && livePages.has("sponsor")) {
@@ -2867,9 +3011,20 @@ async function init() {
   // The chapter's own mark: its uploaded logo if it has one, else the
   // generated brain in its colours. Acronym (used by the brain) falls back
   // through the live config, then the baked one, then "ALL".
+  // The hero takes the LIVING mark unless the chapter uploaded a real logo.
+  // The API never hands back a null logo_url: a chapter with no upload gets
+  // the dashboard's generated brain PNG, which is a still picture of the
+  // very thing chapter-mark.ts draws and animates. Passing that URL through
+  // meant the canvas mounted on exactly one chapter in the network — MSOE,
+  // and only because its uploaded JPEG is a black slab that fails the
+  // aspect guard. Treating the generated endpoint as "no logo" puts the
+  // live mark on every chapter that has not chosen a logo of its own, which
+  // is what it is for; an actual upload still wins, and the nav and favicon
+  // keep using the PNG because they need a raster image.
+  const uploadedLogo = logoUrl && !isGeneratedLogo(logoUrl) ? logoUrl : null;
   renderHeroMark(
     document.getElementById("hero-mark"),
-    logoUrl,
+    uploadedLogo,
     remote?.hub_acronym ?? config.hub_acronym ?? null,
   );
   // The sponsor page — a destination now, not a modal over Home. It is
@@ -2938,6 +3093,20 @@ async function init() {
 
   const joinUrl = safeHttpUrl(bundle?.chapter?.join_url ?? "");
 
+  /* The channels, before anything that offers to join.
+
+     This used to be computed further down, beside the band that
+     consumed it. It moved up because three surfaces now ask the same
+     question — the masthead, the empty leaderboard's note and the band
+     at the foot — and all three have to get the same answer: is there
+     anything behind a Join button on this chapter, and what is it. The
+     panel is wired once here, before the first of them renders, because
+     its listener is delegated and the buttons arrive after it. */
+  const links = communityLinks(remote);
+  const joinOffer = { acronym: chapterAcronym, joinUrl, links };
+  initJoinPanel(joinOffer);
+  const channels = joinChannels(links);
+
   /* The people band renders BEFORE the hero, and the hero then reads
      the page rather than re-deciding it.
 
@@ -2951,16 +3120,26 @@ async function init() {
      as a button to a band that was not there. The band's return value
      and the band's presence in the DOM cannot disagree with the band. */
   const boardOwnsMembers = bundle
-    ? renderPeopleBand(bundle, { slug, livePages, joinUrl })
+    ? renderPeopleBand(bundle, {
+        slug,
+        livePages,
+        joinHref: joinUrl ?? channels[0]?.url ?? null,
+        joinable: offerIsReal(joinOffer),
+      })
     : false;
   const peopleBandShown = Boolean(document.getElementById("band-people"));
 
-  renderHeroActions(remote, bundle?.chapter ?? null, bundle?.events ?? [], livePages, peopleBandShown);
+  renderHeroActions(
+    remote,
+    bundle?.chapter ?? null,
+    bundle?.events ?? [],
+    livePages,
+    peopleBandShown,
+    channels,
+  );
   renderStats(bundle?.chapter ?? null, bundle?.projects ?? [], boardOwnsMembers);
   renderTermLine(bundle?.events ?? []);
   renderPageCtaBands(livePages);
-
-  const links = communityLinks(remote);
 
   if (bundle) {
     // The curriculum call went out beside the bundle and has had the

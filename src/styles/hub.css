@@ -110,13 +110,19 @@ code {
 
 /* ══ Nav ════════════════════════════════════════════════════════ */
 
+/* No backdrop-filter. A sticky bar that blurs what is behind it has to
+   re-read and re-blur the strip under itself on every scroll frame, and
+   it sat directly over the hero's own blurred glow — two blurs stacked
+   on the 900px of page a visitor sees first. Measured on MSOE at 6x CPU
+   throttle, the frosted bar was most of a 460ms paint bill over a
+   40-tick wheel scroll of the masthead. It is a near-solid fill instead:
+   0.92 of --bg-base, so a row of text scrolling under it still darkens
+   rather than vanishing, and the hairline still separates it. */
 .nav {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(10, 10, 11, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(10, 10, 11, 0.92);
   border-bottom: 1px solid var(--border);
 }
 
@@ -275,11 +281,14 @@ code {
   background: color-mix(in srgb, var(--color-primary) 88%, white);
 }
 
+/* No backdrop-filter here either. Two of these sit in the hero, on top
+   of the glow, and each one is its own backdrop root the compositor has
+   to read back and blur — for an effect that is invisible behind a 40px
+   button whose fill is 3% white over a gradient that is already soft. */
 .btn--ghost {
   background: var(--bg-subtle);
   color: var(--text-primary);
   border-color: var(--border-strong);
-  backdrop-filter: blur(8px);
 }
 .btn--ghost:hover {
   background: rgba(255, 255, 255, 0.06);
@@ -344,6 +353,18 @@ code {
    the brain mark, .btn--ghost-accent, and the tint that marks a node
    the chapter wrote rather than one the network did. Not one of those
    is a name, a numeral or a button. */
+/* The softness is in the stops, not in a filter. This used to run
+   `filter: blur(70px)` over a box 140% wide and 120% tall — blurring an
+   already-soft gradient across roughly 1.7 screens of surface, which the
+   compositor re-rasterises whenever the layer is touched. A gradient is
+   free; the blur was not.
+
+   The stops do the blur's job: each wash now ramps through two
+   intermediate steps on its way out instead of falling linearly to
+   transparent, which is what kept the banding away, and the radii are
+   opened up because a 70px blur was spreading them that far anyway. The
+   geometry is untouched, so the three washes still land in the same
+   places on the masthead. */
 .hero__glow {
   position: absolute;
   top: -20%;
@@ -352,12 +373,29 @@ code {
   width: 140%;
   height: 120%;
   background:
-    radial-gradient(ellipse 40% 30% at 20% 10%, rgba(var(--color-primary-rgb), 0.32), transparent 60%),
-    radial-gradient(ellipse 38% 32% at 80% 20%, rgba(var(--color-accent-rgb), 0.28), transparent 60%),
-    radial-gradient(ellipse 50% 45% at 50% 60%, rgba(var(--color-primary-rgb), 0.12), transparent 65%);
+    radial-gradient(
+      ellipse 52% 40% at 20% 10%,
+      rgba(var(--color-primary-rgb), 0.3) 0%,
+      rgba(var(--color-primary-rgb), 0.17) 34%,
+      rgba(var(--color-primary-rgb), 0.06) 62%,
+      transparent 84%
+    ),
+    radial-gradient(
+      ellipse 50% 42% at 80% 20%,
+      rgba(var(--color-accent-rgb), 0.26) 0%,
+      rgba(var(--color-accent-rgb), 0.15) 34%,
+      rgba(var(--color-accent-rgb), 0.05) 62%,
+      transparent 84%
+    ),
+    radial-gradient(
+      ellipse 62% 56% at 50% 60%,
+      rgba(var(--color-primary-rgb), 0.11) 0%,
+      rgba(var(--color-primary-rgb), 0.06) 40%,
+      rgba(var(--color-primary-rgb), 0.02) 68%,
+      transparent 88%
+    );
   pointer-events: none;
   z-index: 0;
-  filter: blur(70px);
 }
 
 /* Dot-grid pattern overlay — faint, just enough to give the hero
@@ -1848,11 +1886,87 @@ html:not(.js-rv) .group__rule { transform: scaleY(1); }
    first sits under a single clean line while the last one sits on the
    frame edge. The first row drops its border only when nothing
    precedes the list inside the frame. */
+/* `content-visibility` is what makes 595 rows scrollable. Fully loaded,
+   MSOE's board is ~6,400 elements and ~423 badge marks inside one
+   overflow box, and without this the browser lays out, paints and
+   hit-tests every one of them on every scroll frame — measured at 6x CPU
+   throttle, ~1,080ms of paint and ~570ms of hit-testing over a 45-tick
+   wheel scroll.
+
+   It is on a WRAPPER around each block of rows and not on the rows
+   themselves, which is the whole difference between a 25% win and a
+   38% one. `content-visibility: auto` makes the browser track that
+   element's relevance to the viewport every frame, and per row that is
+   595 tracked elements: measured at 6x throttle, 168-218ms of
+   IntersectionObserverController::computeIntersections over a 45-tick
+   scroll — a cost the row version created and then spent most of its
+   own saving on. One chunk per 25 rows is 24 tracked elements for the
+   same skipped layout and paint.
+
+   The `auto` in contain-intrinsic-size is the important half: a chunk
+   remembers the height it last rendered at, so only a block that has
+   never been on screen uses the fallback.
+
+   That fallback is 25 rows at the 70.9px a row of this board really
+   means (56px bare, 80px with badge marks, measured over all 595), and
+   not at the 80px the rows at the top of it measure: MSOE's full board
+   is 42,188px and 24 blocks of this estimate come to 42,222. It is the
+   block's CONTENT box, which is the whole box here because the block is
+   a bare wrapper — on the row itself the same property would have meant
+   43px, since padding and the hairline are added on top of a content
+   box even under `box-sizing: border-box`, and an earlier version of
+   this line that used the 72px a row measures made the board 35% too
+   tall.
+
+   Three things this must not break, all verified: a hidden row is still
+   findable (the search reads data-name off the element, which
+   containment does not touch), "Show in context" still lands on the
+   right row (its offsetTop is corrected in a second pass once the row
+   has rendered — see views/members.ts), and a filtered board still
+   collapses to the rows that matched — which is what `is-sifted`
+   below is for. */
+.board__chunk {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 1772px;
+}
 .board__row {
   border-top: 1px solid var(--border);
   transition: background 0.15s;
 }
-.board__rows:first-child > .board__row:first-child {
+
+/* Two cases where skipping content is the wrong answer.
+
+   A capture stitches the page from the top, and skipped content is
+   exactly what must not be skipped in a screenshot — ?still=1 turns the
+   whole optimisation off so what is captured is what a visitor who
+   scrolled all the way down would see.
+
+   And a filter hides rows, which a skipped chunk never notices: it
+   keeps the height it last rendered at, so a search for one name would
+   leave 40,000px of empty scroller under the hit. While a query is
+   live, every chunk lays itself out for real — which is also the
+   behaviour this board had before any of this, and it is measured at
+   the same cost. */
+.is-still .board__chunk,
+.board__rows.is-sifted .board__chunk {
+  content-visibility: visible;
+}
+
+/* And the third: a synchronous measurement, which must never be a
+   measurement of the estimate. Both callers set this for the length of
+   their reads and take it off again in the same task, so nothing is
+   ever painted under it.
+
+   Where a row sits inside a block the browser is skipping is not a
+   question the layout can answer — the block has a height and its rows
+   do not — so "Show in context" turns the whole list on to find its row
+   (.board__rows) while fitBoardToColumn, which only ever measures
+   eight rows, turns on the first block alone (.board). */
+.board.is-measuring .board__chunk:first-child,
+.board__rows.is-measuring .board__chunk {
+  content-visibility: visible;
+}
+.board__rows:first-child > .board__chunk:first-child > .board__row:first-child {
   border-top: 0;
 }
 .board__row:hover {
@@ -1868,16 +1982,75 @@ html:not(.js-rv) .group__rule { transform: scaleY(1); }
   font-variant-numeric: tabular-nums;
 }
 
-/* The leaders. Every member on rank 1, however many share it. */
-.board__row--lead {
-  background: rgba(var(--color-primary-rgb), 0.05);
-  box-shadow: inset 2px 0 0 var(--color-primary);
+/* ── The podium ──────────────────────────────────────────────────
+   Gold, silver and bronze on ranks 1, 2 and 3.
+
+   The metals are FIXED and owe nothing to the chapter's theme, which is
+   the point: gold is gold at every chapter, and a podium painted in
+   --color-primary would be three shades of the same red on ROAR, where
+   the primary is pure #ff0000. Keeping them off the theme is also what
+   stops them clashing with it — none of the three is a hue a chapter
+   would set, and they never touch the surfaces (button, name, points)
+   the theme owns.
+
+   Each metal is three declarations and no more: a wash on the row, a
+   3px edge in the gutter, and the numeral itself. No glow, no hover
+   lift, no drift, no trophy. It has to survive rows 4..595 sitting
+   plain underneath it and a 12-row board on a phone, and the way it does
+   that is by being the only colour in the frame rather than the
+   loudest.
+
+   The numeral carries a two-stop sheen through background-clip, which is
+   what makes gold read as metal rather than as yellow text. It is
+   static, it is three elements per board, and it falls back to the solid
+   `color` beneath it wherever the clip is not supported. */
+.board__row--gold,
+.board__row--silver,
+.board__row--bronze {
+  background: rgba(var(--medal-rgb), 0.07);
+  box-shadow: inset 3px 0 0 rgb(var(--medal-edge));
 }
-.board__row--lead:hover {
-  background: rgba(var(--color-primary-rgb), 0.09);
+.board__row--gold:hover,
+.board__row--silver:hover,
+.board__row--bronze:hover {
+  background: rgba(var(--medal-rgb), 0.11);
 }
-.board__row--lead .board__rank {
-  color: var(--color-primary);
+/* Bigger as well as coloured. At the board's own 0.95rem the metal was
+   a tint on a small grey numeral and the top of a 595-row list still
+   looked like the middle of it; 1.2rem is the step that makes three
+   rows read as a podium from across the page. It is still the numeral
+   and nothing else — no chip, no disc, no trophy. */
+.board__row--gold .board__rank,
+.board__row--silver .board__rank,
+.board__row--bronze .board__rank {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: rgb(var(--medal-rgb));
+  background: linear-gradient(
+    170deg,
+    rgb(var(--medal-hi)) 0%,
+    rgb(var(--medal-rgb)) 48%,
+    rgb(var(--medal-edge)) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.board__row--gold {
+  --medal-hi: 247 228 168;
+  --medal-rgb: 226 192 106;
+  --medal-edge: 176 140 66;
+}
+.board__row--silver {
+  --medal-hi: 236 240 246;
+  --medal-rgb: 198 205 216;
+  --medal-edge: 140 149 163;
+}
+.board__row--bronze {
+  --medal-hi: 233 190 154;
+  --medal-rgb: 203 149 101;
+  --medal-edge: 155 104 62;
 }
 
 .board__who {
@@ -1950,7 +2123,14 @@ html:not(.js-rv) .group__rule { transform: scaleY(1); }
     padding-left: 0.8rem;
     padding-right: 0.8rem;
   }
+  /* Same sum at 390px: rows mean 62.4px over a 20.8px padding box and
+     the hairline, so a chunk of 25 estimates at 1560. */
+  .board__chunk { contain-intrinsic-size: auto 1560px; }
   .board__rank { font-size: 0.875rem; }
+  /* The podium scales with the rest: the rank gutter is 2.25rem here. */
+  .board__row--gold .board__rank,
+  .board__row--silver .board__rank,
+  .board__row--bronze .board__rank { font-size: 1.05rem; }
   .board__name { font-size: 0.925rem; }
   .board__marks { gap: 0.3rem; margin-top: 0.3rem; }
   .board__pts { font-size: 1rem; }
@@ -2415,9 +2595,10 @@ a.project-card:hover {
   left: 0.75rem;
   padding: 0.2rem 0.55rem;
   border-radius: 999px;
-  background: rgba(10, 10, 11, 0.7);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  /* Opaque enough to read on its own. It was 0.7 plus a blur, which is
+     one compositing root per card on a page that renders 41 of them at
+     MSOE — paid so a photograph could be soft behind a 60px pill. */
+  background: rgba(10, 10, 11, 0.86);
   font-family: "JetBrains Mono", monospace;
   font-size: 0.66rem;
   font-weight: 700;
@@ -4288,18 +4469,24 @@ body.is-holding {
   background: linear-gradient(180deg, transparent, var(--bg-surface));
 }
 
-.board__row--top .board__rank { color: var(--text-primary); }
-
 /* The row a search found. Not a pulse and not a colour the rest of
    the board uses: a member looking for their own name has to be able
-   to see it without reading. */
+   to see it without reading. It is the chapter's own colour, which is
+   also what keeps it distinct from the podium — a medal is a fixed
+   metal, "this is you" is the theme. */
 .board__row--you {
   background: rgba(var(--color-primary-rgb), 0.1);
   box-shadow: inset 0 0 0 1px rgba(var(--color-primary-rgb), 0.45);
 }
-.board__row--lead.board__row--you {
+/* A medallist who searched for herself keeps her metal in the gutter
+   and gets the ring on top of it. The edge stays the podium rule's own
+   3px: this rule replaces the whole box-shadow, and at 2px the bar
+   visibly narrowed on the one row that had just been highlighted. */
+.board__row--gold.board__row--you,
+.board__row--silver.board__row--you,
+.board__row--bronze.board__row--you {
   box-shadow:
-    inset 2px 0 0 var(--color-primary),
+    inset 3px 0 0 rgb(var(--medal-edge)),
     inset 0 0 0 1px rgba(var(--color-primary-rgb), 0.45);
 }
 .board__ctx {
@@ -4361,7 +4548,12 @@ body.is-holding {
     overflow: visible;
     overscroll-behavior: auto;
   }
-  .board:not(.board--expanded) .board__rows > .board__row:nth-child(n + 13) {
+  /* The phone's collapse, counted across the chunks the rows now sit
+     in: everything after the first chunk, and rows 13.. inside it.
+     This holds because a chunk is 25 rows and the cut is 12 — keep
+     CHUNK_ROWS and PHONE_ROWS in views/members.ts in that order. */
+  .board:not(.board--expanded) .board__rows > .board__chunk:first-child > .board__row:nth-child(n + 13),
+  .board:not(.board--expanded) .board__rows > .board__chunk:not(:first-child) {
     display: none;
   }
   .board--more .board__scroll::after { display: none; }
@@ -4586,6 +4778,33 @@ body.is-holding {
 .plink--join:hover { background: rgba(var(--color-primary-rgb), 0.16); }
 .plink--join .plink__icon { color: var(--text-primary); }
 
+/* The band's promoted channels: the same buttons the join panel shows,
+   in the place the single "Join" button used to sit. The row goes to a
+   column so the roster line below lands under the rooms rather than
+   beside the last of them — .join__actions is a wrapping flex row built
+   for one button, and two children of different weights inside it read
+   as a button with a label stuck to its right. */
+.join__actions--channels {
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+.plinks--lead {
+  margin-top: 0;
+}
+
+/* The roster, after the rooms. A line and not a second button: two
+   filled buttons side by side is two primaries, and the rooms are the
+   first thing. */
+.join__roster {
+  display: inline-block;
+  margin-top: 1.1rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.join__roster:hover { color: var(--color-primary); }
+
 .join__aside {
   margin-top: 1.5rem;
   font-size: 0.875rem;
@@ -4636,6 +4855,158 @@ body.is-holding {
     justify-content: center;
   }
   .plink--follow .plink__label { display: none; }
+}
+
+/* ══ The join panel ════════════════════════════════════════════════
+   A native <dialog>, so the box is in the top layer and the page
+   behind it is inert without a line of script. The UA's own dialog
+   box is stripped back to nothing here and .joinp__box is the visible
+   object, which is what lets the dialog itself be the backdrop's hit
+   target (see join-panel.ts).
+
+   No entrance animation. A modal that fades in is 150ms of the visitor
+   waiting to read the thing they asked for, and this page's motion
+   budget is spent on the five reveals listed at the foot of this
+   file. */
+.joinp {
+  margin: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  max-width: none;
+  max-height: none;
+  overflow: visible;
+}
+.joinp::backdrop {
+  /* Flat, not frosted. A backdrop-filter here would blur the whole
+     page behind the box on every frame it is open. */
+  background: rgba(6, 6, 8, 0.72);
+}
+.joinp__box {
+  width: min(94vw, 460px);
+  max-height: min(86vh, 720px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1.6rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  text-align: left;
+}
+.joinp__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.4rem;
+}
+.joinp__title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.joinp__close {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin: -0.35rem -0.35rem 0 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.joinp__close:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.joinp__step + .joinp__step {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+.joinp__step-title {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+/* The step number only exists when there are two steps — see
+   renderBody. A chapter with channels and no roster is not step 1 of
+   nothing. */
+.joinp__n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(var(--color-primary-rgb), 0.14);
+  color: var(--color-primary);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.joinp__step-desc {
+  margin: 0 0 0.9rem;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.joinp__channels {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.joinp__channels .plink {
+  width: 100%;
+  justify-content: flex-start;
+}
+.joinp__roster {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Following is not joining, so it sits under a rule at the size of a
+   caption, with marks rather than named buttons. */
+.joinp__elsewhere {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+.joinp__elsewhere-label {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+}
+.joinp__marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.joinp__marks .plink {
+  width: 40px;
+  min-height: 40px;
+  padding: 0;
+  justify-content: center;
+}
+
+@media (max-width: 640px) {
+  .joinp__box { padding: 1.25rem; }
+  .joinp__title { font-size: 1.3rem; }
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -4793,3 +5164,31 @@ html.is-still .is-booting .term-line {
    sentence above the event. (The iframe's own paint is the flyer's,
    and not ours to settle.) */
 html.is-still .event-page__loading { display: none; }
+
+/* ── The chapter mark, alive ──────────────────────────────────────
+   chapter-mark.ts draws the same brain on a 2D canvas and lets it
+   react: it assembles outward from the acronym, a charge runs the
+   wiring when the pointer arrives, and a click throws shards off every
+   node. It takes the SVG's slot at exactly the SVG's size, so a
+   chapter that gets the canvas and one that falls back to .bmark lay
+   the hero out identically and nothing below the mark shifts.
+
+   No transition, no filter and no will-change here on purpose. Every
+   pixel of this element is painted by the module, which stops
+   requesting frames the moment it settles; a CSS effect on the same
+   box would put it back on the compositor for the life of the page. */
+.hero__mark .cmark {
+  display: block;
+  width: clamp(88px, 11vh, 116px);
+  height: clamp(88px, 11vh, 116px);
+}
+.hero--split .hero__mark .cmark {
+  width: clamp(180px, 22vw, 300px);
+  height: clamp(180px, 22vw, 300px);
+}
+@media (max-width: 899px) {
+  .hero--split .hero__mark .cmark {
+    width: clamp(112px, 30vw, 150px);
+    height: clamp(112px, 30vw, 150px);
+  }
+}

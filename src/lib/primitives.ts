@@ -12,6 +12,7 @@
    fallback grid uses it.
 */
 
+import { isCaptureStill } from "./capture";
 import { escapeAttr, escapeHtml } from "./html";
 
 const BUILT_IN_ICONS: Record<string, string> = {
@@ -37,6 +38,14 @@ const BUILT_IN_ICONS: Record<string, string> = {
  * marks got one mark three times. An emoji is text and renders as text;
  * the two icon-name typos still fall through to the trophy, which is
  * the honest answer for a name we do not have art for.
+ *
+ * The uploaded branch is lazy and decodes off-thread. MSOE's board
+ * carries 423 of these marks across 595 rows — only 27 distinct URLs, so
+ * this is not a network saving; it is 423 image decodes that no longer
+ * have to happen before the rows they sit in are on screen. Eager under
+ * ?still=1, like every other picture on the site, because a capture
+ * stitches the page from the top and a lazy mark two screens down is a
+ * hole in the screenshot.
  */
 export function renderBadgeIcon(icon: string): string {
   const key = (icon ?? "").trim();
@@ -45,7 +54,8 @@ export function renderBadgeIcon(icon: string): string {
     key.startsWith("https://") ||
     key.startsWith("data:image/")
   ) {
-    return `<img src="${escapeAttr(key)}" alt="" />`;
+    const load = isCaptureStill() ? "eager" : "lazy";
+    return `<img src="${escapeAttr(key)}" alt="" loading="${load}" decoding="async" />`;
   }
   if (/\p{Extended_Pictographic}/u.test(key)) {
     return `<span class="badge-card__icon--emoji" aria-hidden="true">${escapeHtml(key)}</span>`;

@@ -1,5 +1,5 @@
-/* The board — the chapter's standings, and the recognition that hangs
-   off them.
+/* The leaderboard — the chapter's standings, and the recognition that
+   hangs off them.
 
    This used to be the Members destination. It is now three render
    functions the landing page composes, because the board is the front
@@ -18,14 +18,18 @@
      and rank 2 for MSOE's two members who both have 88 points; equal
      scores share a rank and the next distinct score skips past it, so
      that tie reads 1, 1, 3.
-   - No medals, at all. The old board put an SVG medal on a rank only
-     when that rank was held by one member, which meant the richest
-     chapter in the network — whose board opens 88, 88, 83 — got no
-     mark on its leaders at all, and the top of the board looked like
-     the middle of it. The leaders are marked by a rule and a coloured
-     rank instead, which is a treatment a tie cannot break: both
-     88-point members are rank 1 and both are marked, and neither is
-     claimed as the winner.
+   - Gold, silver and bronze, on the RANK and never on the position.
+     This reverses an earlier "no medals, at all" ruling (Ben, 2026-09-20)
+     and the reason that ruling existed is still the constraint: the old
+     medals were an SVG hung on a rank only when one member held it, so
+     the richest chapter in the network — whose board opens 88, 88, 83 —
+     got no mark on its leaders at all. Colouring the rank fixes that
+     without inventing anything. Both 88s are rank 1 and both are gold;
+     the 83 is rank 3 and is bronze; MSOE has no silver, which is the
+     true shape of that leaderboard. A metal switches off when the
+     members holding that rank are most of the board — and it takes the
+     metals under it with it, because a bronze with no gold above it
+     reads as a bug — and the whole podium is off under three rows.
    - Never print a zero. events_attended is 0 for most of MSOE's top 20
      (the check-in rows predate the import), and "0 events" next to 88
      points reads as broken data — so the line is dropped, not zeroed.
@@ -67,8 +71,28 @@ const PAGE_SIZE = 100;
  *  scroller at that width — a scroll box in the middle of a page
  *  catches the thumb on iOS and the page stops moving — so the board
  *  is collapsed by CSS and this is the number the CSS cuts at. Keep
- *  the two in step: hub.css `.board__rows > .board__row:nth-child(n+13)`. */
+ *  the two in step: hub.css cuts at `:nth-child(n+13)` inside the first
+ *  chunk and hides every chunk after it, which is only the same cut
+ *  while CHUNK_ROWS is the larger of the two. */
 const PHONE_ROWS = 12;
+
+/** Rows per `content-visibility` block.
+ *
+ *  The containment is on a wrapper rather than on each row because the
+ *  browser tracks every `content-visibility: auto` element against the
+ *  viewport on every frame, and 595 of those cost more than they save
+ *  (measured: 168-218ms of computeIntersections over a 45-tick scroll at
+ *  6x throttle, against ~190ms of paint saved). 25 is the size that
+ *  makes that tracking free without making the skipped block so large
+ *  that scrolling into it renders a screenful of rows nobody sees: one
+ *  chunk is about two and a half screens of board. */
+const CHUNK_ROWS = 25;
+
+/** Height change, in px, below which the list is drifting rather than
+ *  changing shape. One row is ~71px on desktop and ~56px bare, so 40 is
+ *  under the smallest real row and over the few-pixel wander that
+ *  `contain-intrinsic-size: auto` produces while rows resolve. */
+const ROW_DRIFT_PX = 40;
 
 /** Rows below which the status row says nothing. A foot that counts to
  *  six under a board of six is the board reading itself back. */
@@ -83,17 +107,18 @@ const SEARCH_DEBOUNCE_MS = 150;
  *  nothing. */
 const HIGHLIGHT_AT = 3;
 
-/** Rows a board needs before "the leaders" is a meaningful group. On a
+/** Rows a leaderboard needs before a podium is a meaningful thing. On a
  *  two-row board, marking the top row marks half the board. */
 const LEAD_AT = 3;
 
-/** The other half of the leader rule. WSU's whole board is seven
+/** The other half of the podium rule. WSU's whole leaderboard is seven
  *  members tied on the same score (verified live, 2026-09-18), so rank
  *  1 there is everybody — and a mark every row carries marks nothing.
- *  The leaders are highlighted only when they are a strict minority of
- *  the board, which is the only case where the mark says anything. */
-function leadersAreAMinority(atRankOne: number, total: number): boolean {
-  return atRankOne < total - atRankOne;
+ *  A rank is dressed as a medal only when the members holding it are a
+ *  strict minority of the board, which is the only case where the mark
+ *  says anything. */
+function rankIsAMinority(atThisRank: number, total: number): boolean {
+  return atThisRank < total - atThisRank;
 }
 
 /** The column header earns its place once the board is long enough to
@@ -159,18 +184,29 @@ function renderRowBadges(badges: LeaderboardBadge[] | undefined): string {
 
 /* ── Ranking ─────────────────────────────────────────────────────── */
 
+/** The three metals, and nothing else. A medal belongs to a RANK, not
+ *  to a position in the list — which is the whole reason this is a
+ *  union and not an index. */
+export type Medal = "gold" | "silver" | "bronze";
+
+const MEDALS: Record<number, Medal> = { 1: "gold", 2: "silver", 3: "bronze" };
+
 export interface RankedRow {
   row: LeaderboardRow;
   /** Dense rank: equal points share a rank, the next distinct score
    *  skips past it. 88, 88, 83 → 1, 1, 3. */
   rank: number;
   /** True when more than one member holds this rank. Nothing on the
-   *  board may claim a sole winner while this is true. */
+   *  leaderboard may claim a sole winner while this is true. */
   tied: boolean;
-  /** True for every member on the board's top rank, tie or not. This
-   *  is the only distinction the board draws, and it survives a tie
-   *  because it names a group rather than a winner. */
-  lead: boolean;
+  /** The metal this row's RANK wears, or null. Ties share it and gaps
+   *  skip it: MSOE's leaderboard opens 88, 88, 83, so both 88s are gold,
+   *  the 83 is bronze, and there is no silver on that board at all. That
+   *  is the honest reading of a tie, and inventing a silver by
+   *  renumbering would be the gold-and-silver lie this module already
+   *  refuses to take from the API. On a board too short to carry the
+   *  gold, nothing below it is awarded either — see rankByPoints. */
+  medal: Medal | null;
 }
 
 /**
@@ -192,17 +228,38 @@ export function rankByPoints(rows: LeaderboardRow[]): RankedRow[] {
   const held = new Map<number, number>();
   for (const r of ranks) held.set(r, (held.get(r) ?? 0) + 1);
 
-  // Leading a field of two marks half the board, and leading a board
-  // where everyone is tied marks all of it. Neither says anything.
-  const markLead =
-    sorted.length >= LEAD_AT &&
-    leadersAreAMinority(held.get(1) ?? 0, sorted.length);
+  /* A podium on a field of two marks half the board, and on a board
+     where everyone is tied it marks all of it. Neither says anything —
+     so the whole podium is off below three rows, and a metal is off
+     when that rank is most of the board.
+
+     The metals are awarded TOP DOWN and the first failure ends the
+     podium, because a lower metal only means anything under the ones
+     above it. Testing each rank on its own put a lone bronze on a
+     three-row board of 88, 88, 83: rank 1 is two of three rows, which
+     is not a minority, so the gold went — and the 83 kept a bronze
+     with nothing above it, which reads as a bug rather than a podium.
+     That is the shape of a brand-new chapter after its first check-in
+     event, not an edge case.
+
+     A rank a tie skipped past (no 2 on that same 88, 88, 83 board) is
+     not a failure: it is the gap the dense ranking already means, and
+     it leaves the metals below it standing. */
+  const medals = new Map<number, Medal>();
+  if (sorted.length >= LEAD_AT) {
+    for (const rank of [1, 2, 3]) {
+      const atRank = held.get(rank) ?? 0;
+      if (!atRank) continue;
+      if (!rankIsAMinority(atRank, sorted.length)) break;
+      medals.set(rank, MEDALS[rank]);
+    }
+  }
 
   return sorted.map((row, i) => ({
     row,
     rank: ranks[i],
     tied: (held.get(ranks[i]) ?? 0) > 1,
-    lead: markLead && ranks[i] === 1,
+    medal: medals.get(ranks[i]) ?? null,
   }));
 }
 
@@ -238,7 +295,7 @@ function fold(s: string): string {
     .trim();
 }
 
-/* ── The board ───────────────────────────────────────────────────── */
+/* ── The leaderboard ───────────────────────────────────────────────────── */
 
 /**
  * One row.
@@ -252,28 +309,53 @@ function fold(s: string): string {
  * The unit ("pts") is in the DOM but visually hidden: the column
  * header says Points, so printing the unit twenty times only makes the
  * numbers ragged, while a screen reader still hears "88 pts".
+ *
+ * A div carrying role="listitem" rather than an <li>, because the rows
+ * are wrapped in blocks for containment (see renderChunks) and a
+ * presentational wrapper inside an <ol> is not a list any more. The
+ * wrapper is role="presentation", so the rows still come out of this as
+ * the flat list of items they were.
  */
-export function renderBoardRow({ row, rank, lead }: RankedRow): string {
+export function renderBoardRow({ row, rank, medal }: RankedRow): string {
   const events =
     row.events_attended >= 1
       ? `<span class="chip">${escapeHtml(plural(row.events_attended, "event"))}</span>`
       : "";
   const marks = renderRowBadges(row.badges);
-  // Ranks 2 and 3 get a brighter numeral and nothing else. It is the
-  // quietest possible way to say "the top of the board is here" on a
-  // board you can now scroll 595 rows down, and it is rank-based, so a
-  // tie on 3 brightens several rows rather than picking one of them.
-  const top = !lead && (rank === 2 || rank === 3) ? " board__row--top" : "";
+  // The metal is a class and nothing more — no emoji, no extra element,
+  // no word a screen reader has to hear twice. The numeral already says
+  // 1, 2 or 3; the gold, silver and bronze say it again for the eye
+  // scrolling past.
+  const podium = medal ? ` board__row--${medal}` : "";
   return `
-    <li class="board__row${lead ? " board__row--lead" : ""}${top}" data-lb-row data-name="${escapeAttr(fold(row.name))}">
+    <div class="board__row${podium}" role="listitem" data-lb-row data-name="${escapeAttr(fold(row.name))}">
       <span class="board__rank"><span class="visually-hidden">Rank </span>${rank}</span>
       <span class="board__who">
         <span class="board__name">${escapeHtml(row.name)}</span>
         <div class="board__marks">${marks}${events}</div>
       </span>
       <span class="board__pts">${row.points.toLocaleString()}<span class="visually-hidden"> ${row.points === 1 ? "pt" : "pts"}</span></span>
-    </li>
+    </div>
   `;
+}
+
+/**
+ * The rows, in blocks of CHUNK_ROWS.
+ *
+ * The block is what carries `content-visibility` (see hub.css), and it
+ * exists for no other reason: it is role="presentation", so the rows
+ * inside it stay direct items of the one list as far as a screen reader
+ * is concerned. A later page appends its own blocks rather than filling
+ * the last one, so a chunk is at most CHUNK_ROWS and sometimes fewer —
+ * which changes nothing, because its size is measured, not assumed.
+ */
+function renderChunks(rows: RankedRow[]): string {
+  let html = "";
+  for (let i = 0; i < rows.length; i += CHUNK_ROWS) {
+    const block = rows.slice(i, i + CHUNK_ROWS).map(renderBoardRow).join("");
+    html += `<div class="board__chunk" role="presentation">${block}</div>`;
+  }
+  return html;
 }
 
 /**
@@ -299,10 +381,10 @@ function rankStream(seed: RankedRow[]) {
       const rank = row.points === lastPoints ? lastRank : position;
       lastPoints = row.points;
       lastRank = rank;
-      // `tied` and `lead` are the first page's business: a row this far
-      // down the board is neither, because the rows are points-descending
-      // and rank 1 was decided 50 rows ago.
-      return { row, rank, tied: false, lead: false };
+      // `tied` and `medal` are the first page's business: a row this far
+      // down the leaderboard has neither, because the rows are
+      // points-descending and the podium was decided 50 rows ago.
+      return { row, rank, tied: false, medal: null };
     });
 }
 
@@ -330,8 +412,19 @@ export type BoardState = "board" | "note";
 export interface BoardOptions {
   /** The chapter to page against. */
   slug: string;
-  /** The standing invite, for the button under the empty-board note. */
-  joinUrl: string | null;
+  /** Where the button under the empty note points: the standing
+   *  invite, or the first channel on a chapter that runs a Discord and
+   *  no roster. Null only when there is nothing to join at all, which
+   *  is the same thing `joinable` says. The href is not decoration —
+   *  every Join trigger on the page keeps a real one so cmd-click still
+   *  opens the invite and the control still works on an engine with no
+   *  dialog.showModal, where the panel does not open. */
+  joinHref: string | null;
+  /** True when this chapter has anything behind a Join button at all:
+   *  a roster link, a channel, or both. The empty note's button opens
+   *  the same join panel the masthead's does, so it must not appear on
+   *  a chapter where that panel would be empty. */
+  joinable: boolean;
   /** "MAIC", or "us" — the word that goes after "Join". */
   acronym: string;
   /** True under ?still=1, reduced motion, or no IntersectionObserver.
@@ -362,10 +455,13 @@ export function renderBoard(
     // chapter has ever run anything. Neither is an apology.
     const note = (bundle.events ?? []).length
       ? "Points start showing up here once members check in at an event."
-      : "The board fills in as members check in at events.";
-    const join = opts.joinUrl
-      ? `<a class="btn btn--primary" href="${escapeAttr(opts.joinUrl)}" rel="noopener">Join ${escapeHtml(opts.acronym)}</a>`
-      : "";
+      : "The leaderboard fills in as members check in at events.";
+    // data-join-panel, exactly as the masthead's — one invite, one
+    // panel, wherever a visitor happens to click it.
+    const join =
+      opts.joinable && opts.joinHref
+        ? `<a class="btn btn--primary" href="${escapeAttr(opts.joinHref)}" rel="noopener" data-join-panel>Join ${escapeHtml(opts.acronym)}</a>`
+        : "";
     host.innerHTML = `
       <div class="board board--note">
         <p class="board__note">${escapeHtml(note)}</p>
@@ -401,9 +497,9 @@ export function renderBoard(
       ${search}
       <div class="board__scroll" tabindex="0" role="region" aria-label="Leaderboard">
         ${header}
-        <ol class="board__rows" id="board-rows">${ranked
-          .map(renderBoardRow)
-          .join("")}<li class="board__sentinel" aria-hidden="true"></li></ol>
+        <div class="board__rows" role="list" id="board-rows">${renderChunks(
+          ranked,
+        )}<div class="board__sentinel" aria-hidden="true"></div></div>
         <p class="board__empty" data-lb-empty hidden></p>
       </div>
       <p class="board__status" role="status" aria-live="polite"></p>
@@ -427,7 +523,7 @@ function wireBoard(
 ): void {
   const board = host.querySelector<HTMLElement>(".board");
   const scroller = host.querySelector<HTMLElement>(".board__scroll");
-  const list = host.querySelector<HTMLOListElement>(".board__rows");
+  const list = host.querySelector<HTMLElement>(".board__rows");
   const sentinel = host.querySelector<HTMLElement>(".board__sentinel");
   const status = host.querySelector<HTMLElement>(".board__status");
   const note = host.querySelector<HTMLElement>("[data-lb-empty]");
@@ -477,7 +573,7 @@ function wireBoard(
       // about one.
       status.innerHTML =
         total !== null && total > STATUS_AT
-          ? `<span data-lb-count>${escapeHtml(`${total} on the board`)}</span>`
+          ? `<span data-lb-count>${escapeHtml(`${total} on the leaderboard`)}</span>`
           : "";
       return;
     }
@@ -493,17 +589,110 @@ function wireBoard(
     status.innerHTML = `${count}<a href="#" data-lb-all>Show everyone</a>`;
   };
 
-  /** The fade at the scroller's floor: on while there is anything
-   *  below the fold, off at the true end. */
+  /* The fade at the scroller's floor: on while there is anything below
+     the fold, off at the true end.
+
+     It used to be the scroll listener itself, and it read scrollHeight,
+     scrollTop and clientHeight every time one fired. On a 595-row board
+     that is a forced synchronous layout of the whole list, several times
+     per wheel tick, to decide whether a 36px gradient is on — and it was
+     the single biggest piece of script on the scroll path (measured at
+     6x CPU throttle: ~115ms of scripting and ~110ms of style over a
+     45-tick scroll).
+
+     Two things fix it. scrollHeight and clientHeight are cached, because
+     they change when rows are appended, when the filter hides rows and
+     when the phone breakpoint flips — never because somebody scrolled.
+     And the whole thing is coalesced into one animation frame, because a
+     wheel gesture fires scroll faster than the page paints and the class
+     only has to be right once per frame. */
+  let boxHeight = 0;
+  let boxClient = 0;
+  let boxStale = true;
+  let fadeQueued = false;
+
   const paintFade = () => {
-    const below =
-      scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight > 8;
+    if (boxStale) {
+      boxHeight = scroller.scrollHeight;
+      boxClient = scroller.clientHeight;
+      boxStale = false;
+    }
+    const below = boxHeight - scroller.scrollTop - boxClient > 8;
     board.classList.toggle("board--more", below || remaining() > 0);
   };
 
+  /** paintFade, at most once per frame. What the scroll listener calls. */
+  const queueFade = () => {
+    if (fadeQueued) return;
+    fadeQueued = true;
+    requestAnimationFrame(() => {
+      fadeQueued = false;
+      paintFade();
+    });
+  };
+
+  /** The list changed shape, so the cached measurements are worth
+   *  nothing. Every caller that adds, hides or reveals a row. */
+  const remeasure = () => {
+    boxStale = true;
+    queueFade();
+  };
+
+  /* Coming out of a filter, containment has to come off — and stay off
+     for a frame.
+
+     `contain-intrinsic-size: auto` remembers the height a block last
+     RENDERED at, and a block whose rows were every one of them
+     display:none rendered at nothing. Putting the rows back does not
+     tell it that: a skipped block keeps the remembered zero, so the
+     scroller collapses to the height it had under the filter and any
+     scroll position set against the real list is clamped to the top on
+     the next frame. Measured on MSOE's 595: the board came back 114px
+     tall and "Show in context" landed the row it had just found at
+     scrollTop 0. A block re-learns its height only by rendering, so the
+     class stays on across two frames and the blocks paint once at full
+     size before they are allowed to skip again. The reads that follow
+     the call are safe immediately — the layout is real as soon as the
+     class is on. */
+  let relearning = false;
+  const unskip = () => {
+    list.classList.add("is-measuring");
+    if (relearning) return;
+    relearning = true;
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        relearning = false;
+        list.classList.remove("is-measuring");
+      }),
+    );
+  };
+
+  /* And the shape changes nobody calls remeasure for: a column that
+     reflowed, and the list's own height settling as `content-visibility`
+     resolves estimated row heights into real ones.
+
+     The threshold is the point. Measured on MSOE's 595 rows, the bare
+     observer fired on 36 of 45 wheel ticks — the estimate drifts by a
+     few pixels per screenful — and each firing invalidated the cache the
+     next frame then re-read scrollHeight to refill, which is the forced
+     layout this cache exists to avoid. The fade only changes at a row's
+     worth of height, so anything under one row is drift and is ignored;
+     the comparison is against the height at the last invalidation, not
+     the last callback, so slow drift still lands once it adds up to a
+     row rather than never. */
+  if (typeof ResizeObserver === "function") {
+    let settledAt = -1;
+    new ResizeObserver((entries) => {
+      const h = entries[entries.length - 1].contentRect.height;
+      if (settledAt >= 0 && Math.abs(h - settledAt) < ROW_DRIFT_PX) return;
+      settledAt = h;
+      remeasure();
+    }).observe(list);
+  }
+
   const append = (rows: LeaderboardRow[]) => {
     if (!rows.length) return;
-    const html = nextRank(rows).map(renderBoardRow).join("");
+    const html = renderChunks(nextRank(rows));
     sentinel?.insertAdjacentHTML("beforebegin", html);
     loaded += rows.length;
     board.dataset.loaded = String(loaded);
@@ -547,7 +736,7 @@ function wireBoard(
       .finally(() => {
         inFlight = null;
         paintStatus();
-        paintFade();
+        remeasure();
       });
     return inFlight;
   };
@@ -593,15 +782,22 @@ function wireBoard(
       row.style.display = match ? "" : "none";
       if (match && q) hits.push(row);
     }
+    /* Hiding a row inside a chunk the browser is skipping changes
+       nothing about that chunk's height — it keeps the one it last
+       rendered at, so a search for one name would leave the scroller
+       40,000px tall with the hit alone at the top of it. While a query
+       is live the chunks lay themselves out for real. */
+    list.classList.toggle("is-sifted", Boolean(q));
     list.classList.remove("is-filtering");
     void list.offsetWidth;
     list.classList.add("is-filtering");
 
     if (!q) {
+      unskip();
       note.hidden = true;
       scroller.scrollTop = 0;
       paintStatus();
-      paintFade();
+      remeasure();
       return;
     }
     if (!hits.length) {
@@ -613,7 +809,7 @@ function wireBoard(
       note.textContent =
         failed || remaining() > 0
           ? `Not in the rows loaded so far — retry to search the rest.`
-          : `No member named "${input.value.trim()}" on the board.`;
+          : `No member named "${input.value.trim()}" on the leaderboard.`;
       note.hidden = false;
       return;
     }
@@ -685,7 +881,14 @@ function wireBoard(
     const row = link.closest<HTMLElement>("[data-lb-row]");
     link.remove();
     if (input) input.value = "";
+    /* Containment off before the rows come back and before a single
+       measurement, or the board reports the height it had under the
+       filter: it says it does not scroll, the jump falls through to
+       scrollIntoView, which moves the PAGE instead, and the row stays
+       30,000px down its own scroller. See unskip(). */
+    unskip();
     for (const el of rowEls()) el.style.display = "";
+    list.classList.remove("is-sifted");
     note.hidden = true;
     // Scroll the SCROLLER, not the page: the visitor is reading the
     // board and the page must not jump underneath them. On a phone
@@ -694,20 +897,38 @@ function wireBoard(
     if (row) {
       row.classList.add("board__row--you");
       highlighted = [row];
+      /* The measurement runs with containment off over the whole list,
+         and there is no way around that. Where a row sits inside a block
+         the browser has skipped is not a question the layout can answer
+         — the block has a height and its rows do not — so read straight,
+         this put row 431 thirty thousand pixels from where it was asked
+         to go, whether through offsetTop or a rect. Turning the list on
+         lays out all 595 rows once, on a click, which is the one place
+         on this page that cost is worth paying: the alternative is a
+         jump that misses.
+
+         Rectangles rather than offsetTop, because the blocks carry paint
+         containment and are therefore the offsetParent of their own
+         rows; a rect against the scroller's content origin does not care
+         what contains what. */
       if (scroller.scrollHeight > scroller.clientHeight) {
+        const origin = scroller.getBoundingClientRect().top - scroller.scrollTop;
+        const box = row.getBoundingClientRect();
         scroller.scrollTop =
-          row.offsetTop - scroller.clientHeight / 2 + row.offsetHeight / 2;
+          box.top - origin - scroller.clientHeight / 2 + box.height / 2;
       } else {
         row.scrollIntoView({ block: "center", behavior: "smooth" });
       }
     }
-    paintFade();
+    remeasure();
   });
 
-  scroller.addEventListener("scroll", paintFade, { passive: true });
+  scroller.addEventListener("scroll", queueFade, { passive: true });
+  /* The breakpoint flip is the one case that changes the box itself:
+     below 640px there is no inner scroller at all. */
   phone?.addEventListener?.("change", () => {
     paintStatus();
-    paintFade();
+    remeasure();
   });
 
   /* ── Paging on arrival at the end ────────────────────────────── */
