@@ -4778,32 +4778,12 @@ body.is-holding {
 .plink--join:hover { background: rgba(var(--color-primary-rgb), 0.16); }
 .plink--join .plink__icon { color: var(--text-primary); }
 
-/* The band's promoted channels: the same buttons the join panel shows,
-   in the place the single "Join" button used to sit. The row goes to a
-   column so the roster line below lands under the rooms rather than
-   beside the last of them — .join__actions is a wrapping flex row built
-   for one button, and two children of different weights inside it read
-   as a button with a label stuck to its right. */
-.join__actions--channels {
-  flex-direction: column;
-  align-items: center;
-  gap: 0;
-}
-.plinks--lead {
-  margin-top: 0;
-}
-
-/* The roster, after the rooms. A line and not a second button: two
-   filled buttons side by side is two primaries, and the rooms are the
-   first thing. */
-.join__roster {
-  display: inline-block;
-  margin-top: 1.1rem;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-.join__roster:hover { color: var(--color-primary); }
+/* The band used to promote the channels here — a .plinks row of join
+   buttons with the roster hung under it as a .join__roster line, on
+   .join__actions--channels to turn the row into a column. All three
+   are gone with the markup that needed them: the band is one button
+   that opens the panel, and .plink now renders in exactly two places,
+   the panel and the follow row below. */
 
 .join__aside {
   margin-top: 1.5rem;
@@ -4928,35 +4908,16 @@ body.is-holding {
   border-color: var(--border-strong);
 }
 
-.joinp__step + .joinp__step {
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--border);
-}
+/* One step, never two: renderBody emits the sign-up step only when
+   there is a form and the channel menu only when there is not, so
+   there is no sibling rule to write and no badge to seat beside the
+   title. Both were here for a numbered two-step panel that no longer
+   exists — see the note above renderBody. */
 .joinp__step-title {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
   margin: 0 0 0.35rem;
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: -0.01em;
-}
-/* The step number only exists when there are two steps — see
-   renderBody. A chapter with channels and no roster is not step 1 of
-   nothing. */
-.joinp__n {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  background: rgba(var(--color-primary-rgb), 0.14);
-  color: var(--color-primary);
-  font-family: "JetBrains Mono", monospace;
-  font-size: 0.75rem;
-  font-weight: 700;
 }
 .joinp__step-desc {
   margin: 0 0 0.9rem;
@@ -4976,6 +4937,50 @@ body.is-holding {
 .joinp__roster {
   width: 100%;
   justify-content: center;
+}
+
+/* ── The locked preview: what the form leads to.
+   Explicitly NOT button-shaped. No border, no surface, no hover, no
+   pointer — a row that looks like a .plink and does nothing when you
+   click it is a broken button, and the visitor has no way to tell that
+   apart from a bug. A mark and a name at caption weight, sitting under
+   the sign-up step like a receipt for it. */
+.joinp__locked {
+  margin-top: 1.25rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--border);
+}
+.joinp__locked-note {
+  margin: 0 0 0.7rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--text-tertiary);
+}
+.joinp__locked-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.joinp__locked-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.joinp__locked-mark {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+.joinp__locked-mark svg { width: 100%; height: 100%; fill: currentColor; }
+.joinp__locked-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 /* Following is not joining, so it sits under a rule at the size of a

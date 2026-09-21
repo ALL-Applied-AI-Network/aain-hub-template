@@ -117,8 +117,21 @@ export interface RemoteConfig {
   /** Eboard / group photo for the landing page. Null = officer portraits. */
   group_photo_url?: string | null;
   /** Ordered join + follow links (lib/platforms.ts). Optional because the
-   *  API deploys separately; an older bundle carries only social_links. */
+   *  API deploys separately; an older bundle carries only social_links.
+   *
+   *  Follow and contact links are public by nature and always here. The
+   *  join-kind ones (Discord, Slack, Teams, GroupMe…) are here ONLY when
+   *  the chapter has no active roster link to gate them behind — with a
+   *  roster, the API withholds the URL and names the platform in
+   *  `gated_channels` instead. */
   community_links?: CommunityLinkRow[];
+  /** Platform NAMES ONLY (e.g. ["teams"]) for the join-kind links the
+   *  API is withholding behind the chapter's sign-up form. Never a URL
+   *  and never a label — the invite is handed over by POST
+   *  /api/public/join/{code}, after the visitor signs up, and nothing
+   *  in the keyless public bundle can be treated as private. Empty when
+   *  nothing is withheld; absent on a bundle that predates the gate. */
+  gated_channels?: string[];
   /** Chapter-authored Explore blocks. Empty or absent = the site's defaults. */
   feature_blocks?: FeatureBlockRow[];
   updated_at: string | null;

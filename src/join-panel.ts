@@ -1,33 +1,46 @@
 /* The join panel — what "Join {acronym}" actually opens.
  *
- * It used to be a bare link to /join/{code}, which adds your name to the
- * chapter's roster and nothing else. That is not what joining a club
- * means to the student clicking it: joining means being in the room
- * where the next event is announced, which is the chapter's Discord, its
- * Teams, its GroupMe. The link and the room are two different things and
- * the button was only ever offering one of them.
+ * This panel is the menu. Nothing else on the page offers a way in:
+ * the masthead, the empty leaderboard's note and the band at the foot
+ * all render the same one button, and every option a visitor has lives
+ * in here. Spreading the options across the page — a Teams button in
+ * the band with a sign-up line hung under it — is the shape Ben looked
+ * at and asked to collapse back into one door.
  *
- * So the button opens a panel that hands over both, channels first:
+ * And the door asks first. A chapter's Discord or Teams invite is the
+ * thing a visitor came for, and handing it over on a public page means
+ * the chapter never learns who walked in and the invite is one
+ * right-click from being reposted anywhere. So when the chapter runs a
+ * sign-up form, the form comes first and the invite comes after it:
  *
- *   the channels   every join-kind link from config.community_links,
- *                  with its own vendored mark — where the next event
- *                  gets announced.
- *   sign up        the /join/{code} link, named for what it does and for
- *                  what it asks: it is the chapter's OWN sign-up form
- *                  (name + email, plus any question the eboard added to
- *                  it on Your Chapter), and it is what puts you on the
- *                  leaderboard and makes your check-ins count.
+ *   sign up        the /join/{code} link — the chapter's OWN form (name
+ *                  + email, plus any question the eboard added to it on
+ *                  Your Chapter). It puts you on the leaderboard, makes
+ *                  your check-ins count, and it is how the eboard gets
+ *                  an address to send the invite to.
+ *   the channels   NOT a link. The mark and the name of each platform
+ *                  being withheld, under one line saying the invite
+ *                  follows the form. `config.gated_channels` carries
+ *                  platform names and nothing else, so there is no URL
+ *                  here to leak even by accident — the gate itself is
+ *                  the API's, which stops sending the URL at all.
  *   elsewhere      follow links and the chapter's email, quietly, under
  *                  a rule. Following is not joining.
  *
- * All three are optional and the panel is written from what is actually
- * there. No chapter in the network has authored a community_link yet
- * (verified live, 2026-09-20), so the roster-only panel is the case that
- * ships today and it has to read as a finished thing rather than as a
- * dialog wrapped around one link. With no roster link either, the panel
- * is the channels alone. With NEITHER, there is no panel and no Join
- * button anywhere on the page — see offerIsReal, which every caller
- * checks before it renders a button at all.
+ * With NO sign-up form there is nothing to collect and nothing to gate
+ * behind, and hiding the invite would leave that chapter's site with no
+ * way in at all — so `community_links` still carries the join-kind
+ * links in that case and the panel is the plain channel menu it has
+ * always been. With neither a form nor a channel there is no panel and
+ * no Join button anywhere on the page — see offerIsReal, which every
+ * caller checks before it renders a button at all.
+ *
+ * One rule holds across all of it: a join-kind URL is rendered only
+ * when the chapter has no form. The API is what makes that a gate
+ * rather than a curtain (a URL in the keyless public bundle is public
+ * whatever this file draws), but the two must not disagree, so this
+ * file withholds on the same condition the API does and never renders
+ * an href for a channel it is describing as gated.
  *
  * It is a native <dialog>, opened with showModal(), appended to
  * document.body. That is deliberate on both counts. The dialog element
@@ -50,6 +63,10 @@ export interface JoinOffer {
   acronym: string;
   joinUrl: string | null;
   links: CommunityLink[];
+  /** Platform names only, from `config.gated_channels` — the join-kind
+   *  links the API is withholding behind `joinUrl`. Never a URL. Empty
+   *  on a bundle from an API that predates the gate. */
+  gatedChannels: string[];
 }
 
 const joinKind = (l: CommunityLink) => platformMeta(l.platform).kind === "join";
@@ -57,6 +74,69 @@ const joinKind = (l: CommunityLink) => platformMeta(l.platform).kind === "join";
 /** The channels a visitor can actually walk into. */
 export function joinChannels(links: CommunityLink[]): CommunityLink[] {
   return links.filter(joinKind);
+}
+
+/**
+ * The channels this panel hands over as links.
+ *
+ * None, whenever the chapter runs a form. That is the whole gate on
+ * this side of the wire, and it is written as one expression on
+ * purpose: every caller that renders a join-kind href goes through
+ * here, so there is a single place to be right.
+ *
+ * Note what it does NOT do: it does not ask whether the API gated this
+ * particular link. Today's bundle still ships MSOE's Teams URL inside
+ * `community_links` next to a live roster code, and rendering it
+ * because the API has not caught up yet would put the invite back on
+ * the public page — the exact thing being fixed. The condition is the
+ * form, not the field the URL arrived in.
+ */
+export function openChannels(offer: JoinOffer): CommunityLink[] {
+  return offer.joinUrl ? [] : joinChannels(offer.links);
+}
+
+/**
+ * Every link on this chapter that may be rendered as an href, anywhere
+ * on the page.
+ *
+ * Follow and contact links always; join-kind links only when
+ * `openChannels` says they are open. The footer is why this exists as
+ * its own export: it draws the same community list the join band does,
+ * which is normally the point — a chapter cannot have a Discord in its
+ * footer and not in its join band — but it made the footer a second
+ * door the gate did not cover, and it shipped the withheld Teams URL
+ * in an href three screens below the panel that was carefully not
+ * rendering it. Any surface that turns this chapter's links into hrefs
+ * starts from here.
+ */
+export function renderableLinks(offer: JoinOffer): CommunityLink[] {
+  return offer.joinUrl ? offer.links.filter((l) => !joinKind(l)) : offer.links;
+}
+
+/**
+ * The platforms named as withheld — what the locked preview lists.
+ *
+ * Two sources, because the API deploys separately from this site:
+ * `gated_channels` is what tomorrow's bundle says it is holding back,
+ * and any join-kind link still arriving in `community_links` beside a
+ * roster is one today's bundle has not learned to hold back yet. Both
+ * are platform names by the time they leave here; the URL, where there
+ * is one, is dropped on the floor.
+ */
+export function lockedChannels(offer: JoinOffer): string[] {
+  if (!offer.joinUrl) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const p of [
+    ...offer.gatedChannels,
+    ...joinChannels(offer.links).map((l) => l.platform),
+  ]) {
+    const platform = (p ?? "").trim().toLowerCase();
+    if (!platform || seen.has(platform)) continue;
+    seen.add(platform);
+    out.push(platform);
+  }
+  return out;
 }
 
 /**
@@ -72,13 +152,14 @@ export function offerIsReal(offer: JoinOffer): boolean {
 }
 
 /**
- * The channel buttons.
+ * The channel buttons — the ungated case, and only ever that.
  *
- * Exported because the join band at the foot of the page leads with the
- * same set — the same marks, the same verbs, the same classes — and two
- * renderers for one row of buttons is how they drift apart.
+ * Not exported any more. The band at the foot of the page used to call
+ * it to lead with the same row of buttons, which is how the options
+ * ended up spread across the page; the band is one button now and this
+ * markup exists in exactly one place, which is the panel.
  */
-export function renderChannelButtons(links: CommunityLink[]): string {
+function renderChannelButtons(links: CommunityLink[]): string {
   return links
     .map((l) => {
       const meta = platformMeta(l.platform);
@@ -118,40 +199,78 @@ function renderElsewhere(links: CommunityLink[]): string {
 }
 
 /**
+ * The locked preview: what you get, once you have signed up.
+ *
+ * Marks and names, in a list. Deliberately not buttons and not
+ * button-shaped: a row with a border and a hover state that does
+ * nothing when you click it is a broken button, and the visitor cannot
+ * tell the difference between "this is coming" and "this is bust". No
+ * href is written here at all — `lockedChannels` hands over platform
+ * names, so there is nothing in scope to write one from.
+ */
+function renderLocked(platforms: string[]): string {
+  if (!platforms.length) return "";
+  const rows = platforms
+    .map((p) => {
+      const meta = platformMeta(p);
+      return `
+        <li class="joinp__locked-row">
+          <span class="joinp__locked-mark" aria-hidden="true">${platformIcon(p)}</span>
+          <span class="joinp__locked-name">${escapeHtml(meta.label)}</span>
+        </li>`;
+    })
+    .join("");
+  // One line, and it says the thing the visitor is owed: what they get
+  // and when. The list underneath names the platforms, so this does
+  // not — saying "the Teams invite" over a row that says Microsoft
+  // Teams is the panel reading itself back.
+  const note =
+    platforms.length > 1
+      ? "The invites come right after you sign up."
+      : "The invite comes right after you sign up.";
+  return `
+    <section class="joinp__locked">
+      <p class="joinp__locked-note">${note}</p>
+      <ul class="joinp__locked-list">${rows}</ul>
+    </section>`;
+}
+
+/**
  * The panel's body.
  *
- * The steps are numbered only when there are two of them. "1 · The
- * channels" over a panel with no step 2 is the template counting to one.
+ * Two shapes, and which one renders is decided by `openChannels` /
+ * `lockedChannels` rather than here: with a form, sign-up leads and the
+ * channels are a preview; with no form, the channels are the menu.
+ * They are never both, so nothing is numbered — "1 · Sign up" over a
+ * panel with no step 2 is the template counting to one.
  */
 function renderBody(offer: JoinOffer): string {
-  const channels = joinChannels(offer.links);
+  const open = openChannels(offer);
+  const locked = lockedChannels(offer);
   const elsewhere = offer.links.filter((l) => !joinKind(l));
-  const both = channels.length > 0 && Boolean(offer.joinUrl);
-  const n = (i: number) => (both ? `<span class="joinp__n">${i}</span>` : "");
 
-  const channelStep = channels.length
+  const channelStep = open.length
     ? `
       <section class="joinp__step">
-        <h3 class="joinp__step-title">${n(1)}The channels</h3>
+        <h3 class="joinp__step-title">The channels</h3>
         <p class="joinp__step-desc">This is where the next event gets announced, and where you ask everything between them.</p>
-        <div class="joinp__channels">${renderChannelButtons(channels)}</div>
+        <div class="joinp__channels">${renderChannelButtons(open)}</div>
       </section>`
     : "";
 
   // The roster step says what the link does, because "Join" on its own
   // is what made a visitor think this button was the Discord invite.
   //
-  // It also has to say what the link ASKS for. "Add my name" undersold
-  // it into sounding like a one-field guestbook, when the target is the
-  // chapter's own sign-up form — name and email, plus whatever the
-  // eboard added to it on Your Chapter. Ben read the button and assumed
-  // we were not collecting an email at all, which is the one field the
-  // chapter needs in order to write back.
+  // It also has to say what the link ASKS for, and now more than
+  // before: this is the step standing between the visitor and the
+  // invite, so being coy about the name and the email would be a
+  // toll booth with no sign on it. Say what is asked, say what it is
+  // for, and stop.
   const rosterStep = offer.joinUrl
     ? `
       <section class="joinp__step">
-        <h3 class="joinp__step-title">${n(2)}Sign up</h3>
-        <p class="joinp__step-desc">The sign-up form asks for your name and email. It puts you on the leaderboard, makes your check-ins at events count toward it, and is how the eboard reaches you about what is coming up. It takes a minute and there is nothing to pay.</p>
+        <h3 class="joinp__step-title">Sign up</h3>
+        <p class="joinp__step-desc">The form asks for your name and email. It puts you on the leaderboard, makes your check-ins at events count toward it, and gives the eboard an address to send you what is coming up. It takes a minute and there is nothing to pay.</p>
         <a class="btn btn--primary joinp__roster" href="${escapeAttr(offer.joinUrl)}" rel="noopener">Sign up</a>
       </section>`
     : "";
@@ -164,8 +283,9 @@ function renderBody(offer: JoinOffer): string {
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
         </button>
       </div>
-      ${channelStep}
       ${rosterStep}
+      ${renderLocked(locked)}
+      ${channelStep}
       ${renderElsewhere(elsewhere)}
     </div>`;
 }

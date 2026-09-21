@@ -19,10 +19,12 @@ import { hostnameSlug, isDashboardPreview } from "./lib/slug";
 import { eventFromSearch, eventPageHref, mountEventPage } from "./event-page";
 import {
   initJoinPanel,
-  joinChannels,
+  lockedChannels,
   offerIsReal,
-  renderChannelButtons,
+  openChannels,
+  renderableLinks,
 } from "./join-panel";
+import type { JoinOffer } from "./join-panel";
 import type {
   ChapterBundle,
   EventRow,
@@ -1818,6 +1820,26 @@ function communityLinks(remote: RemoteConfig | null): CommunityLink[] {
   return out.sort((a, b) => rank(a) - rank(b));
 }
 
+/**
+ * The platforms the API says it is withholding behind the chapter's
+ * sign-up form.
+ *
+ * Names only, by contract, and this normalises them like any other
+ * untrusted string off the wire: anything that is not a non-empty
+ * string is dropped, and a value that looks like a URL is dropped too.
+ * That last check is not paranoia about the API so much as a tripwire
+ * — if a URL ever does arrive in this field, the failure mode has to be
+ * an unnamed platform, never an invite rendered from a field the whole
+ * feature promises does not carry one.
+ */
+function gatedChannels(remote: RemoteConfig | null): string[] {
+  const raw = remote?.gated_channels;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((p) => (typeof p === "string" ? p.trim().toLowerCase() : ""))
+    .filter((p) => p.length > 0 && p.length <= 40 && !/[:/\s]/.test(p));
+}
+
 /** The buttons in the join band. Join-type gets the label and the
  *  tint; everything else is a mark and a word. */
 function renderCommunityLinks(links: CommunityLink[]): string {
@@ -1850,23 +1872,34 @@ function renderCommunityLinks(links: CommunityLink[]): string {
 function renderJoin(
   bundle: ChapterBundle,
   livePages: Set<string>,
-  links: CommunityLink[],
-  joinUrl: string | null,
+  offer: JoinOffer,
 ): void {
   const band = document.getElementById("band-join");
   if (!band) return;
 
+  const { links, joinUrl } = offer;
   const events = bundle.events ?? [];
-  const joinLinks = joinChannels(links);
+  const open = openChannels(offer);
+  const locked = lockedChannels(offer);
   const next = nextEvent(events);
 
   let desc: string;
   if (joinUrl) {
-    desc = joinLinks.length
-      ? "Pick a channel and you will hear about the next event. Signing up takes a minute and puts you on the leaderboard."
+    // With a channel waiting behind the form, say so here rather than
+    // making the button the first place a visitor learns it. The name
+    // of the platform is the concrete part, so it goes in whenever
+    // there is exactly one; with several, naming them all is a list in
+    // the middle of a sentence and the panel lists them anyway.
+    desc = locked.length
+      ? locked.length === 1
+        ? `Signing up takes a minute — name and email — and the ${platformMeta(locked[0]).label} invite follows.`
+        : "Signing up takes a minute — name and email — and the channel invites follow."
       : "Signing up takes a minute — name and email — and puts you on the leaderboard.";
-  } else if (joinLinks.length) {
-    desc = `The fastest way in is the ${platformMeta(joinLinks[0].platform).label}: that is where the next event is announced.`;
+  } else if (open.length) {
+    // No article before the label. "the Microsoft Teams" is what the
+    // old sentence produced, and it reads as a typo on the one
+    // platform whose label is two words.
+    desc = `The fastest way in is ${platformMeta(open[0].platform).label}: that is where the next event is announced.`;
   } else if (next) {
     // Not "come to the next event": the button 40px under this one
     // already says that, and the same sentence twice in a row is the
@@ -1887,7 +1920,7 @@ function renderJoin(
     // The one case with a link in it: on a chapter with nothing else
     // to offer, the curriculum is the offer.
     descEl.innerHTML =
-      !joinUrl && !joinLinks.length && !events.length && livePages.has("learn")
+      !joinUrl && !open.length && !events.length && livePages.has("learn")
         ? desc.replace(
             "start the curriculum",
             `<a href="#learn">start the curriculum</a>`,
@@ -1895,31 +1928,26 @@ function renderJoin(
         : escapeHtml(desc);
   }
 
-  /* The band LEADS with the rooms.
+  /* ONE button, and it opens the panel.
 
-     It used to lead with one button — "Join MAIC", the bare roster link
-     — and hang the channels under it as an afterthought, which is the
-     same mistake the masthead was making: the thing a visitor is here
-     to do is get into the room where the next event is announced, and
-     the roster is the second half of that, not the first. So every
-     join-kind channel is a button here, and the roster follows as a
-     named line rather than as an unlabelled "Join".
+     This band spent a pass leading with the rooms: every join-kind
+     channel as its own button, with the roster hung underneath as a
+     named line. Ben looked at that — a "Join on Teams" button with
+     "Sign up and get on the leaderboard" sitting under it — and asked
+     for the obvious thing back: one "join", one menu, the options
+     inside it. Which is also what the gate needs. A row of channel
+     buttons here is a row of invites published on a page anyone can
+     read, and the point of the panel is that the form comes first.
 
-     With no channels — every chapter in the network today — this is the
-     button it always was, and it opens the panel rather than jumping
-     straight out to the roster form. */
+     So this is the masthead's button, in the masthead's shape, with
+     the same `data-join-panel` hook. The href underneath is real — the
+     roster when there is one, the first ungated channel otherwise — so
+     a cmd-click and a no-JS load still land somewhere useful. */
   const actions = document.getElementById("join-actions");
   if (actions) {
-    if (joinLinks.length) {
-      const roster = joinUrl
-        ? `<a class="join__roster link--arrow" href="${escapeAttr(joinUrl)}" rel="noopener">Sign up and get on the leaderboard</a>`
-        : "";
-      // The class, not a :has() — the stylesheet has no other one and
-      // the render already knows which shape this row is.
-      actions.classList.add("join__actions--channels");
-      actions.innerHTML = `<div class="plinks plinks--lead">${renderChannelButtons(joinLinks)}</div>${roster}`;
-    } else if (joinUrl) {
-      actions.innerHTML = `<a class="btn btn--primary" href="${escapeAttr(joinUrl)}" rel="noopener" data-join-panel>Join ${escapeHtml(chapterAcronym)}</a>`;
+    const href = joinUrl ?? open[0]?.url ?? null;
+    if (href) {
+      actions.innerHTML = `<a class="btn btn--primary" href="${escapeAttr(href)}" rel="noopener" data-join-panel>Join ${escapeHtml(chapterAcronym)}</a>`;
     } else if (next) {
       actions.innerHTML = `<a class="btn btn--primary" href="${escapeAttr(
         eventPageHref(next.id, window.location.pathname),
@@ -1927,11 +1955,11 @@ function renderJoin(
     }
   }
 
-  // Whatever is left, which is never a channel: the channels are all
-  // above now, so this row cannot repeat one. That also retires the
-  // slice that used to guess which link the button had taken — it was
-  // deleting a real Instagram or email row on the chapters where the
-  // button had not come from this list at all.
+  // Follow links and the chapter's address, never a channel. Two
+  // reasons now: a join-kind link belongs to the panel, and on a
+  // chapter with a form the invite is gated — this row rendering the
+  // Teams URL as a follow mark would be the leak walking out of the
+  // side door. The kind filter is what stops both.
   const linksEl = document.getElementById("join-links");
   if (linksEl) {
     linksEl.innerHTML = renderCommunityLinks(
@@ -2033,7 +2061,11 @@ function safeCtaHref(raw: string): string | null {
    lib/platform-icons.ts, and the footer row is rendered by
    renderFooter above from the same community list the join band uses.
    One list, two surfaces; a chapter can no longer have a Discord in
-   its footer and not in its join band. */
+   its footer and not in its join band.
+
+   What renderFooter is handed is renderableLinks(joinOffer), not the
+   raw list: on a chapter with a sign-up form the join-kind links are
+   withheld and this row must not be the place they get published. */
 
 /* ──────────────────────────────────────────────────────────────────
    Learning / Workshops / Playbooks — CDN content
@@ -3103,9 +3135,18 @@ async function init() {
      panel is wired once here, before the first of them renders, because
      its listener is delegated and the buttons arrive after it. */
   const links = communityLinks(remote);
-  const joinOffer = { acronym: chapterAcronym, joinUrl, links };
+  const joinOffer: JoinOffer = {
+    acronym: chapterAcronym,
+    joinUrl,
+    links,
+    gatedChannels: gatedChannels(remote),
+  };
   initJoinPanel(joinOffer);
-  const channels = joinChannels(links);
+  /* What the masthead and the people band put under their button.
+     `openChannels`, not `joinChannels`: on a chapter with a form there
+     is nothing open, the href falls back to the roster link, and no
+     invite URL reaches an attribute anywhere on the page. */
+  const channels = openChannels(joinOffer);
 
   /* The people band renders BEFORE the hero, and the hero then reads
      the page rather than re-deciding it.
@@ -3153,7 +3194,7 @@ async function init() {
       new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 1500)),
     ]);
     renderExplore(bundle, livePages, floor);
-    renderJoin(bundle, livePages, links, joinUrl);
+    renderJoin(bundle, livePages, joinOffer);
 
     // Views mount on tab entry and read this.
     viewCtx = viewContext(bundle, slug, window.location.pathname);
@@ -3168,7 +3209,13 @@ async function init() {
     );
   }
 
-  renderFooter(pages, links, joinUrl);
+  /* renderableLinks, not `links`. The footer draws the same community
+     list the join band does — deliberately, so a chapter cannot have a
+     Discord in one and not the other — which also made it the gate's
+     back door: on a chapter with a sign-up form it was rendering the
+     withheld invite as an href three screens under the panel that was
+     carefully not rendering it. */
+  renderFooter(pages, renderableLinks(joinOffer), joinUrl);
   wirePageRouting(pages);
 
   initReveal();
