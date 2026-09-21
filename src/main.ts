@@ -1863,8 +1863,8 @@ function renderJoin(
   let desc: string;
   if (joinUrl) {
     desc = joinLinks.length
-      ? "Pick a channel and you will hear about the next event. Adding your name takes a minute and is what puts you on the leaderboard."
-      : "Joining takes a minute and puts your name on the leaderboard.";
+      ? "Pick a channel and you will hear about the next event. Signing up takes a minute and puts you on the leaderboard."
+      : "Signing up takes a minute — name and email — and puts you on the leaderboard.";
   } else if (joinLinks.length) {
     desc = `The fastest way in is the ${platformMeta(joinLinks[0].platform).label}: that is where the next event is announced.`;
   } else if (next) {
@@ -1912,7 +1912,7 @@ function renderJoin(
   if (actions) {
     if (joinLinks.length) {
       const roster = joinUrl
-        ? `<a class="join__roster link--arrow" href="${escapeAttr(joinUrl)}" rel="noopener">Add my name to the leaderboard</a>`
+        ? `<a class="join__roster link--arrow" href="${escapeAttr(joinUrl)}" rel="noopener">Sign up and get on the leaderboard</a>`
         : "";
       // The class, not a :has() — the stylesheet has no other one and
       // the render already knows which shape this row is.

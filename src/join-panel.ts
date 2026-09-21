@@ -12,9 +12,11 @@
  *   the channels   every join-kind link from config.community_links,
  *                  with its own vendored mark — where the next event
  *                  gets announced.
- *   the roster     the /join/{code} link, named for what it does — it
- *                  is what puts you on the leaderboard and what makes
- *                  your check-ins count.
+ *   sign up        the /join/{code} link, named for what it does and for
+ *                  what it asks: it is the chapter's OWN sign-up form
+ *                  (name + email, plus any question the eboard added to
+ *                  it on Your Chapter), and it is what puts you on the
+ *                  leaderboard and makes your check-ins count.
  *   elsewhere      follow links and the chapter's email, quietly, under
  *                  a rule. Following is not joining.
  *
@@ -138,12 +140,19 @@ function renderBody(offer: JoinOffer): string {
 
   // The roster step says what the link does, because "Join" on its own
   // is what made a visitor think this button was the Discord invite.
+  //
+  // It also has to say what the link ASKS for. "Add my name" undersold
+  // it into sounding like a one-field guestbook, when the target is the
+  // chapter's own sign-up form — name and email, plus whatever the
+  // eboard added to it on Your Chapter. Ben read the button and assumed
+  // we were not collecting an email at all, which is the one field the
+  // chapter needs in order to write back.
   const rosterStep = offer.joinUrl
     ? `
       <section class="joinp__step">
-        <h3 class="joinp__step-title">${n(2)}The roster</h3>
-        <p class="joinp__step-desc">Adding your name is what puts you on the leaderboard, and what makes your check-ins at events count toward it. It takes a minute and there is nothing to pay.</p>
-        <a class="btn btn--primary joinp__roster" href="${escapeAttr(offer.joinUrl)}" rel="noopener">Add my name</a>
+        <h3 class="joinp__step-title">${n(2)}Sign up</h3>
+        <p class="joinp__step-desc">The sign-up form asks for your name and email. It puts you on the leaderboard, makes your check-ins at events count toward it, and is how the eboard reaches you about what is coming up. It takes a minute and there is nothing to pay.</p>
+        <a class="btn btn--primary joinp__roster" href="${escapeAttr(offer.joinUrl)}" rel="noopener">Sign up</a>
       </section>`
     : "";
 
