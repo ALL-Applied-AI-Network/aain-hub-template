@@ -10,7 +10,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/src/styles/hub.css" />
 </head>
-<body>
+<!-- is-booting: the hero's placeholder copy is blanked and the nav
+     draws neutral bars until main.ts has this chapter's identity; its
+     init() `finally` removes the class (hub.css has a no-JS failsafe). -->
+<body class="is-booting">
 
   <!-- ══ Nav ═══════════════════════════════════════════════════════ -->
   <nav class="nav" id="nav">

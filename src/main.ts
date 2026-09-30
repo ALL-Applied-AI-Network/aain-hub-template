@@ -105,9 +105,11 @@ const captureStill = applyCaptureMode(document.documentElement);
 /* Boot blanking. The hero ships with the template's own placeholder
    text in it, so without this a visitor sees "My AI Club" before
    renderIdentity replaces it — another club's name, on this club's
-   site. Added from JS rather than from the markup deliberately: if this
-   module never loads at all, nothing blanked the hero, and a FOUC beats
-   a permanently empty page. init()'s `finally` removes it. */
+   site. The class is in the markup (index.html's <body>), so it holds
+   from the first paint rather than from whenever this deferred module
+   runs; hub.css lets the blank go by itself if the module never runs
+   at all. Re-added here only for a fork whose markup lost it.
+   init()'s `finally` removes it. */
 document.body.classList.add("is-booting");
 
 declare const __HUB_CONFIG__: HubConfig;
@@ -189,14 +191,20 @@ const SECTION_EDIT_INFO: Record<
   explore: { path: "/website", label: "Customize → Explore", kind: "internal" },
   community: { path: "/website", label: "Customize → Community", kind: "internal" },
   events: { path: "/events", label: "Events page", kind: "internal" },
-  // The roster and the officers are edited under Your Chapter now,
-  // each on its own sub-page. `/people` never existed and Customize
-  // stopped owning the officers when Officers & Roles moved there.
-  leaderboard: { path: "/your-chapter/members", label: "Members", kind: "internal" },
-  badges: { path: "/your-chapter/badges", label: "Badges", kind: "internal" },
-  merch: { path: "/your-chapter/merch", label: "Merch", kind: "internal" },
+  // The roster, the officers, badges and merch are all edited under Your
+  // Chapter (/your-chapter/members, /officers, /badges, /merch). `/people`
+  // never existed and Customize stopped owning the officers when Officers
+  // & Roles moved there. The pills use the forwarding forms on purpose:
+  // `/your-chapter?view=…`, `/awards` and `/merch` land on the right view
+  // on the dashboard that predates those sub-pages AND redirect to them
+  // on the one that has them. Every chapter site redeploys the moment
+  // this template is pushed, so a pill must not depend on which of the
+  // two repos went out first.
+  leaderboard: { path: "/your-chapter?view=members", label: "Members", kind: "internal" },
+  badges: { path: "/awards", label: "Badges", kind: "internal" },
+  merch: { path: "/merch", label: "Merch", kind: "internal" },
   projects: { path: "/projects", label: "Projects page", kind: "internal" },
-  officers: { path: "/your-chapter/officers", label: "Officers & roles", kind: "internal" },
+  officers: { path: "/your-chapter?view=officers", label: "Officers & roles", kind: "internal" },
   learning_tree: {
     path: "https://github.com/ALL-Applied-AI-Network/aain-content",
     label: "aain-content repo",
@@ -1361,9 +1369,8 @@ function renderPeopleBand(bundle: ChapterBundle, ctx: PeopleBandCtx): boolean {
         settled: motionSettled(),
       })
     : "note";
-  if (state === "board" && boardIsNames(bundle)) {
-    setText("board-title", "Members");
-  }
+  const namesBoard = state === "board" && boardIsNames(bundle);
+  if (namesBoard) setText("board-title", "Members");
 
   // The eboard column can be gone before this runs: `about` is one of
   // the keys Customize toggles, and applySectionToggles removes every
@@ -1385,7 +1392,11 @@ function renderPeopleBand(bundle: ChapterBundle, ctx: PeopleBandCtx): boolean {
   // says nothing about one, and neither does the strip.
   const total = boardTotal(bundle);
   const ownsMembers = state === "board" && (total === null || total >= 2);
-  if (ownsMembers && total !== null) setText("board-total", plural(total, "member"));
+  // Under "Members" the noun is already the title, so the count is the
+  // number alone ("Members 45"); under "Leaderboard" it says what it counts.
+  if (ownsMembers && total !== null) {
+    setText("board-total", namesBoard ? total.toLocaleString() : plural(total, "member"));
+  }
 
   if (filled) {
     wirePeoplePhoto(state === "board");

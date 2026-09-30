@@ -400,9 +400,11 @@ export function renderBoardRow({ row, rank, medal }: RankedRow, i: number): stri
 
 /** A row under "No points yet": the same three tracks so the names
  *  line up with the ranked names above, with the rank and the points
- *  left empty rather than zeroed. */
+ *  left empty rather than zeroed. The name and, when there are any, the
+ *  events chip; nothing else, the same as the dashboard's own board.
+ *  Badges stay on the member's card. */
 function renderQuietRow(row: LeaderboardRow, i: number): string {
-  const marks = `${renderRowBadges(row.badges)}${eventsChip(row)}`;
+  const marks = eventsChip(row);
   return `<div class="board__row board__row--quiet" role="listitem" data-lb-row data-name="${escapeAttr(fold(row.name))}"><span class="board__rank" aria-hidden="true"></span>${renderWho(row, i, marks)}<span class="board__pts" aria-hidden="true"></span></div>`;
 }
 

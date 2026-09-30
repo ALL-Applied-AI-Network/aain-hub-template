@@ -5396,6 +5396,25 @@ body.is-holding {
   opacity: 0;
 }
 
+/* `.is-booting` ships in the markup, so the placeholder never paints
+   even on a cold visit where the module arrives late. The cost of that
+   is a page whose module never arrives at all: nothing would ever take
+   the class off. So until the module has run (it puts .js-rv or
+   .is-still on <html> before anything else), the blank lets go by
+   itself after five seconds. Once the module is running this rule stops
+   matching, and init()'s `finally` owns the un-blanking. */
+@keyframes hub-unblank { to { opacity: 1; } }
+@keyframes hub-unbar { to { background-color: transparent; } }
+html:not(.js-rv):not(.is-still) .is-booting .hero__inner > *,
+html:not(.js-rv):not(.is-still) .is-booting .hero__stats,
+html:not(.js-rv):not(.is-still) .is-booting .term-line {
+  animation: hub-unblank 0s 5s forwards;
+}
+html:not(.js-rv):not(.is-still) .is-booting .nav__logo:empty,
+html:not(.js-rv):not(.is-still) .is-booting .nav__name:empty {
+  animation: hub-unbar 0s 5s forwards;
+}
+
 body.is-ready .hero__eyebrow,
 body.is-ready .hero__title,
 body.is-ready .hero__subtitle,
