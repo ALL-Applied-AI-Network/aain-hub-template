@@ -210,6 +210,20 @@ export function toggleMemberCard(
     if (e.key === "Escape") {
       e.preventDefault();
       closeMemberCard(true);
+      return;
+    }
+    /* The card lives at the end of <body>, so tabbing past its last
+       control would drop focus out of the page. Leaving it either way
+       closes it and puts focus back on the name, and the next Tab
+       carries on down the board from there. */
+    if (e.key !== "Tab" || !el.contains(document.activeElement)) return;
+    const stops = Array.from(el.querySelectorAll<HTMLElement>("a[href], button"));
+    const first = stops[0];
+    const last = stops[stops.length - 1];
+    const at = document.activeElement;
+    if ((!e.shiftKey && at === last) || (e.shiftKey && (at === first || at === el))) {
+      e.preventDefault();
+      closeMemberCard(true);
     }
   };
   const onFocusOut = (e: FocusEvent) => {

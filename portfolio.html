@@ -14,7 +14,9 @@
 <body>
   <!-- The whole page is rendered once by portfolio.ts from the member
        bundle. The three roots stay hidden until then so nothing flashes:
-       the arrival plays on a finished card, never on a skeleton. -->
+       the arrival plays on a finished page, never on a skeleton.
+       Locally, ?fixture=<name> reads fixtures/portfolio/<name>.json and
+       ?seek=<ms> freezes the arrival at that frame. -->
   <div id="pp-topbar" class="pp-topbar" hidden></div>
   <main id="pp" class="pp" hidden></main>
   <div id="pp-shell" hidden></div>
