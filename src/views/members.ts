@@ -12,7 +12,23 @@
    whether they had anything to say, so the composer can drop a band
    rather than print an empty one.
 
-   The counting laws the board is built on:
+   Who is on it (Ben, 2026-09-29): EVERYONE on the roster. The board
+   used to drop every member with 0 points, and on a chapter whose
+   roster came in through an import that was the whole roster — ROAR's
+   site said "45 Members" over a board with nobody on it. So the board
+   now has two shapes, and which one is decided by the data, never by a
+   setting:
+
+   - "ranked": at least one member has points. Members with points are
+     ranked (the laws below, unchanged). Every member with 0 points is
+     listed after them, under a quiet "No points yet" head: a name, an
+     "N events" chip when there are any, and never a printed zero.
+   - "names": NOBODY has points, which means this chapter does not run
+     points at all. One plain alphabetical list headed "Members": no
+     ranks, no points, no chips. Ranking a field of zeros would be
+     forty-five tied firsts.
+
+   The counting laws the ranked half is built on:
 
    - Dense ranking off points, computed here. The API hands back rank 1
      and rank 2 for MSOE's two members who both have 88 points; equal
@@ -27,9 +43,10 @@
      without inventing anything. Both 88s are rank 1 and both are gold;
      the 83 is rank 3 and is bronze; MSOE has no silver, which is the
      true shape of that leaderboard. A metal switches off when the
-     members holding that rank are most of the board — and it takes the
-     metals under it with it, because a bronze with no gold above it
-     reads as a bug — and the whole podium is off under three rows.
+     members holding that rank are most of the ranked rows — and it
+     takes the metals under it with it, because a bronze with no gold
+     above it reads as a bug — and the whole podium is off under three
+     ranked rows. Members with no points never count towards any of it.
    - Never print a zero. events_attended is 0 for most of MSOE's top 20
      (the check-in rows predate the import), and "0 events" next to 88
      points reads as broken data — so the line is dropped, not zeroed.
@@ -44,6 +61,11 @@
      3rd or 431st, which is the whole reason the board is the front
      page. A bundle that predates that total is handled by NOT
      inventing one: see boardTotal() below.
+
+   And every name is a door. A member whose profile is published links
+   to it (same tab), with their LinkedIn and GitHub beside the name; a
+   member without one opens a small card built from nothing but this
+   row, which asks whether it is you. See member-card.ts.
 */
 
 import type {
@@ -55,8 +77,10 @@ import type {
 } from "../lib/bundle";
 import { plural } from "../lib/format";
 import { escapeAttr, escapeHtml } from "../lib/html";
-import { DASHBOARD_ORIGIN } from "../lib/net";
+import { DASHBOARD_ORIGIN, safeHttpUrl } from "../lib/net";
+import { PLATFORM_ICONS } from "../lib/platform-icons";
 import { renderBadgeIcon } from "../lib/primitives";
+import { closeMemberCard, toggleMemberCard } from "../member-card";
 
 /** Board rows at which the search box earns its place. Below this the
  *  whole board is on one screen and a search box is furniture; at or
@@ -70,10 +94,10 @@ const PAGE_SIZE = 100;
 /** Rows a phone shows before "Show everyone". There is no inner
  *  scroller at that width — a scroll box in the middle of a page
  *  catches the thumb on iOS and the page stops moving — so the board
- *  is collapsed by CSS and this is the number the CSS cuts at. Keep
- *  the two in step: hub.css cuts at `:nth-child(n+13)` inside the first
- *  chunk and hides every chunk after it, which is only the same cut
- *  while CHUNK_ROWS is the larger of the two. */
+ *  is collapsed instead, and this is where it cuts. The cut is counted
+ *  across both groups in page order and written onto the rows as
+ *  `.is-fold` (see foldForPhone), because a CSS :nth-child count stops
+ *  at the edge of its own list. */
 const PHONE_ROWS = 12;
 
 /** Rows per `content-visibility` block.
@@ -111,12 +135,16 @@ const HIGHLIGHT_AT = 3;
  *  two-row board, marking the top row marks half the board. */
 const LEAD_AT = 3;
 
+/** Rows that take part in the board's arrival. Past the first screen a
+ *  cascade is a loading bar, so the rest are simply there. */
+const ARRIVE_ROWS = 14;
+
 /** The other half of the podium rule. WSU's whole leaderboard is seven
  *  members tied on the same score (verified live, 2026-09-18), so rank
  *  1 there is everybody — and a mark every row carries marks nothing.
  *  A rank is dressed as a medal only when the members holding it are a
- *  strict minority of the board, which is the only case where the mark
- *  says anything. */
+ *  strict minority of the ranked rows, which is the only case where the
+ *  mark says anything. */
 function rankIsAMinority(atThisRank: number, total: number): boolean {
   return atThisRank < total - atThisRank;
 }
@@ -214,8 +242,9 @@ export interface RankedRow {
  * number, not a ranking: MSOE's two 88-point members come back as 1 and
  * 2, which is a gold-and-silver lie sitting in the data.
  *
- * The sort is defensive — the API already orders by points desc — and
- * is stable, so members on equal points keep the order they arrived in.
+ * Called with the rows that HAVE points only. The sort is defensive —
+ * the API already orders by points desc — and is stable, so members on
+ * equal points keep the order they arrived in.
  */
 export function rankByPoints(rows: LeaderboardRow[]): RankedRow[] {
   const sorted = [...rows].sort((a, b) => b.points - a.points);
@@ -263,15 +292,20 @@ export function rankByPoints(rows: LeaderboardRow[]): RankedRow[] {
   }));
 }
 
-/**
- * The rows that are a standing. A member with no points is not one:
- * ML@IIT's board is 20 rows of 0 points against 100 members (verified
- * live, 2026-09-18), and ranked, that is twenty tied firsts each
- * printing a zero next to a real student's name. This is the
- * never-print-zero law applied to a row instead of a number.
- */
-export function scoredRows(rows: LeaderboardRow[]): LeaderboardRow[] {
-  return rows.filter((r) => r.points >= 1);
+/** A row that is a standing: it has points. Everyone else is still on
+ *  the board, just not ranked. */
+export function isScored(row: LeaderboardRow): boolean {
+  return row.points >= 1;
+}
+
+/** Which of the board's two shapes a chapter gets. The API orders by
+ *  points first, so the first page holds a scored row whenever the
+ *  chapter has one at all — which is what makes this decidable before
+ *  the rest of the board has loaded. */
+export type BoardMode = "ranked" | "names";
+
+export function boardMode(rows: LeaderboardRow[] | null | undefined): BoardMode {
+  return (rows ?? []).some(isScored) ? "ranked" : "names";
 }
 
 /** True when the chapter has anything to recognise — points on the
@@ -280,7 +314,7 @@ export function scoredRows(rows: LeaderboardRow[]): LeaderboardRow[] {
  *  before it asks for any of the three blocks. */
 export function hasRecognition(bundle: Bundle): boolean {
   return (
-    scoredRows(bundle.leaderboard ?? []).length > 0 ||
+    (bundle.leaderboard ?? []).some(isScored) ||
     (bundle.badges ?? []).length > 0 ||
     (bundle.merch ?? []).length > 0
   );
@@ -298,7 +332,45 @@ function fold(s: string): string {
 /* ── The leaderboard ───────────────────────────────────────────────────── */
 
 /**
- * One row.
+ * The member half of a row: the name, the member's own links, and the
+ * marks under it.
+ *
+ * The name is the row's one door. With a published profile it is a
+ * link to it, in this tab — the profile is the next page of the same
+ * story, not an external site. Without one it is a button that opens
+ * the row's card. `i` is the row's key into the board's row store, so
+ * the card is built from the row itself and nothing is serialised into
+ * attributes.
+ *
+ * LinkedIn and GitHub are the platform registry's real marks, and only
+ * ever the account's own links under the same gate as the profile.
+ */
+function renderWho(row: LeaderboardRow, i: number, marks: string): string {
+  const profile = row.profile_url ? safeHttpUrl(row.profile_url) : null;
+  const name = escapeHtml(row.name);
+  const door = profile
+    ? `<a class="board__name board__name--link" href="${escapeAttr(profile)}">${name}</a>`
+    : `<button type="button" class="board__name board__name--card" data-lb-card="${i}" aria-haspopup="dialog" aria-expanded="false">${name}</button>`;
+  const li = row.linkedin_url ? safeHttpUrl(row.linkedin_url) : null;
+  const gh = row.github_url ? safeHttpUrl(row.github_url) : null;
+  const mark = (href: string, platform: "linkedin" | "github", label: string) =>
+    `<a class="board__soc" href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttr(`${row.name} on ${label}`)}" title="${label}">${PLATFORM_ICONS[platform]}</a>`;
+  const socs =
+    li || gh
+      ? `<span class="board__socs">${li ? mark(li, "linkedin", "LinkedIn") : ""}${gh ? mark(gh, "github", "GitHub") : ""}</span>`
+      : "";
+  return `<span class="board__who"><span class="board__line">${door}${socs}</span><span class="board__marks">${marks}</span></span>`;
+}
+
+/** The "N events" chip, or nothing at all. */
+function eventsChip(row: LeaderboardRow): string {
+  return row.events_attended >= 1
+    ? `<span class="chip">${escapeHtml(plural(row.events_attended, "event"))}</span>`
+    : "";
+}
+
+/**
+ * One ranked row.
  *
  * Three columns, and they are the same three on every row: a rank
  * gutter, the member, the points. The rank and the points are both
@@ -316,44 +388,44 @@ function fold(s: string): string {
  * wrapper is role="presentation", so the rows still come out of this as
  * the flat list of items they were.
  */
-export function renderBoardRow({ row, rank, medal }: RankedRow): string {
-  const events =
-    row.events_attended >= 1
-      ? `<span class="chip">${escapeHtml(plural(row.events_attended, "event"))}</span>`
-      : "";
-  const marks = renderRowBadges(row.badges);
+export function renderBoardRow({ row, rank, medal }: RankedRow, i: number): string {
+  const marks = `${renderRowBadges(row.badges)}${eventsChip(row)}`;
   // The metal is a class and nothing more — no emoji, no extra element,
   // no word a screen reader has to hear twice. The numeral already says
   // 1, 2 or 3; the gold, silver and bronze say it again for the eye
   // scrolling past.
   const podium = medal ? ` board__row--${medal}` : "";
-  return `
-    <div class="board__row${podium}" role="listitem" data-lb-row data-name="${escapeAttr(fold(row.name))}">
-      <span class="board__rank"><span class="visually-hidden">Rank </span>${rank}</span>
-      <span class="board__who">
-        <span class="board__name">${escapeHtml(row.name)}</span>
-        <div class="board__marks">${marks}${events}</div>
-      </span>
-      <span class="board__pts">${row.points.toLocaleString()}<span class="visually-hidden"> ${row.points === 1 ? "pt" : "pts"}</span></span>
-    </div>
-  `;
+  return `<div class="board__row${podium}" role="listitem" data-lb-row data-name="${escapeAttr(fold(row.name))}"><span class="board__rank"><span class="visually-hidden">Rank </span>${rank}</span>${renderWho(row, i, marks)}<span class="board__pts">${row.points.toLocaleString()}<span class="visually-hidden"> ${row.points === 1 ? "pt" : "pts"}</span></span></div>`;
+}
+
+/** A row under "No points yet": the same three tracks so the names
+ *  line up with the ranked names above, with the rank and the points
+ *  left empty rather than zeroed. */
+function renderQuietRow(row: LeaderboardRow, i: number): string {
+  const marks = `${renderRowBadges(row.badges)}${eventsChip(row)}`;
+  return `<div class="board__row board__row--quiet" role="listitem" data-lb-row data-name="${escapeAttr(fold(row.name))}"><span class="board__rank" aria-hidden="true"></span>${renderWho(row, i, marks)}<span class="board__pts" aria-hidden="true"></span></div>`;
+}
+
+/** A row of the plain "Members" list: a name and its links, nothing
+ *  that orders or scores it. */
+function renderNameRow(row: LeaderboardRow, i: number): string {
+  return `<div class="board__row board__row--name" role="listitem" data-lb-row data-name="${escapeAttr(fold(row.name))}">${renderWho(row, i, "")}</div>`;
 }
 
 /**
- * The rows, in blocks of CHUNK_ROWS.
+ * Rendered rows, in blocks of CHUNK_ROWS.
  *
  * The block is what carries `content-visibility` (see hub.css), and it
  * exists for no other reason: it is role="presentation", so the rows
- * inside it stay direct items of the one list as far as a screen reader
+ * inside it stay direct items of their list as far as a screen reader
  * is concerned. A later page appends its own blocks rather than filling
  * the last one, so a chunk is at most CHUNK_ROWS and sometimes fewer —
  * which changes nothing, because its size is measured, not assumed.
  */
-function renderChunks(rows: RankedRow[]): string {
+function renderChunks(rows: string[]): string {
   let html = "";
   for (let i = 0; i < rows.length; i += CHUNK_ROWS) {
-    const block = rows.slice(i, i + CHUNK_ROWS).map(renderBoardRow).join("");
-    html += `<div class="board__chunk" role="presentation">${block}</div>`;
+    html += `<div class="board__chunk" role="presentation">${rows.slice(i, i + CHUNK_ROWS).join("")}</div>`;
   }
   return html;
 }
@@ -364,7 +436,8 @@ function renderChunks(rows: RankedRow[]): string {
  * rankByPoints ranks an array it can see all of. The board appends 100
  * rows at a time, and the row after the 50th has to know what the 50th
  * scored or the 51st restarts at rank 1. This keeps the three values
- * that decide the next rank and nothing else.
+ * that decide the next rank and nothing else. It is only ever fed rows
+ * with points: the members with none are not ranked.
  *
  * Correct only while the pages arrive in the server's own order, which
  * is the contract the endpoint offers: points desc, name asc, id asc,
@@ -392,15 +465,17 @@ function rankStream(seed: RankedRow[]) {
  * How many members the board holds, or null when nobody has told us.
  *
  * `leaderboard_total` is the chapter's consent-gated board count and is
- * the only honest source for it. A bundle served by an API that
- * predates the field carries a page of rows and no total, and the
- * answer there is not to guess one from `member_count` — that counts
- * everybody, including the members who are not on the board — nor from
- * the rows in hand, which would print "20 on the board" about a board
- * whose size we do not know. With no total the board renders what it
- * was given, says nothing about a total, and pages nowhere.
+ * the only honest source for it — it is also the number the band's
+ * head prints, so the head and the rows under it are the same group.
+ * A bundle served by an API that predates the field carries a page of
+ * rows and no total, and the answer there is not to guess one from
+ * `member_count` — that counts everybody, including anyone who switched
+ * sharing off — nor from the rows in hand, which would print "20 on
+ * the board" about a board whose size we do not know. With no total
+ * the board renders what it was given, says nothing about a total, and
+ * pages nowhere.
  */
-function boardTotal(bundle: Bundle): number | null {
+export function boardTotal(bundle: Bundle): number | null {
   const n = bundle.leaderboard_total;
   return typeof n === "number" && Number.isFinite(n) && n >= 1 ? n : null;
 }
@@ -412,6 +487,8 @@ export type BoardState = "board" | "note";
 export interface BoardOptions {
   /** The chapter to page against. */
   slug: string;
+  /** The chapter's name as this site shows it, for the member card. */
+  chapterName: string;
   /** Where the button under the empty note points: the standing
    *  invite, or the first channel on a chapter that runs a Discord and
    *  no roster. Null only when there is nothing to join at all, which
@@ -430,32 +507,43 @@ export interface BoardOptions {
   /** True under ?still=1, reduced motion, or no IntersectionObserver.
    *  Nothing then observes the end of the board and the later pages
    *  arrive only when a visitor asks for them, which is what makes a
-   *  capture reproducible. */
+   *  capture reproducible. It also cuts the rows' arrival. */
   settled: boolean;
 }
 
+/** The "No points yet" head. The count is filled in once it is known:
+ *  it is everyone the total holds minus the ranked rows, and the ranked
+ *  rows are all in hand by the time the first unranked one arrives,
+ *  because the API sends points first. */
+function renderGroupHead(n: number | null): string {
+  return `<h3 class="board__group" id="board-quiet-head" data-lb-group>No points yet${
+    n !== null && n >= 1
+      ? `<span class="board__group-n"><span class="visually-hidden">, </span>${n.toLocaleString()}<span class="visually-hidden"> ${n === 1 ? "member" : "members"}</span></span>`
+      : ""
+  }</h3>`;
+}
+
 /**
- * Fill `host` with the standings.
+ * Fill `host` with the board.
  *
- * Returns "board" when real rows rendered and "note" when they did not
- * — one sentence that names the fix, plus the button that IS the fix
- * when the chapter has a standing invite. There is no third answer on
- * Home any more: the people band is the page's centrepiece, and a
- * column that removes itself leaves the eboard sitting beside a hole.
+ * Returns "board" when rows rendered and "note" when the roster is
+ * truly empty — one sentence that names the fix, plus the button that
+ * IS the fix when the chapter has a standing invite. A roster of people
+ * with no points is not empty: it is the "names" board.
  */
 export function renderBoard(
   host: HTMLElement,
   bundle: Bundle,
   opts: BoardOptions,
 ): BoardState {
-  const first = scoredRows(bundle.leaderboard ?? []);
+  const first = bundle.leaderboard ?? [];
 
   if (!first.length) {
     // Two sentences, and which one is true depends on whether the
     // chapter has ever run anything. Neither is an apology.
     const note = (bundle.events ?? []).length
-      ? "Points start showing up here once members check in at an event."
-      : "The leaderboard fills in as members check in at events.";
+      ? "Members show up here once they join or check in at an event."
+      : "Members show up here as they join and check in at events.";
     // data-join-panel, exactly as the masthead's — one invite, one
     // panel, wherever a visitor happens to click it.
     const join =
@@ -470,19 +558,32 @@ export function renderBoard(
     return "note";
   }
 
-  const ranked = rankByPoints(first);
+  const mode = boardMode(first);
   const total = boardTotal(bundle);
   const more = total !== null && total > first.length;
+
+  /* The row store. Index = the key a card button carries. Ranked rows
+     first in rank order, then the rest in the order they came — which
+     is the page order too, so the store and the page agree. */
+  const store: LeaderboardRow[] = [];
+  const ranked = mode === "ranked" ? rankByPoints(first.filter(isScored)) : [];
+  const quiet = mode === "ranked" ? first.filter((r) => !isScored(r)) : first;
+  const rankedHtml = ranked.map((r) => renderBoardRow(r, store.push(r.row) - 1));
+  const quietHtml = quiet.map((r) =>
+    mode === "ranked"
+      ? renderQuietRow(r, store.push(r) - 1)
+      : renderNameRow(r, store.push(r) - 1),
+  );
 
   const search =
     first.length >= SEARCH_AT
       ? `<div class="board__search">
-           <input type="search" class="lb-search" placeholder="Find your name" aria-label="Find your name" aria-controls="board-rows" autocomplete="off" spellcheck="false" />
+           <input type="search" class="lb-search" placeholder="Find your name" aria-label="Find your name" aria-controls="board-lists" autocomplete="off" spellcheck="false" />
          </div>`
       : "";
 
   const header =
-    first.length >= HEADER_AT
+    mode === "ranked" && ranked.length >= HEADER_AT
       ? `<div class="board__head" aria-hidden="true">
            <span class="board__h board__h--rank">Rank</span>
            <span class="board__h">Member</span>
@@ -490,48 +591,64 @@ export function renderBoard(
          </div>`
       : "";
 
+  const rankedList =
+    mode === "ranked"
+      ? `<div class="board__rows" role="list" aria-label="Ranked by points" data-lb-list="ranked">${renderChunks(rankedHtml)}</div>`
+      : "";
+  const quietList =
+    mode === "names"
+      ? `<div class="board__rows" role="list" aria-label="Members" data-lb-list="quiet">${renderChunks(quietHtml)}</div>`
+      : quiet.length
+        ? `${renderGroupHead(total !== null ? total - ranked.length : null)}<div class="board__rows board__rows--quiet" role="list" aria-labelledby="board-quiet-head" data-lb-list="quiet">${renderChunks(quietHtml)}</div>`
+        : "";
+
   host.innerHTML = `
-    <div class="board${more ? " board--more" : ""}" data-loaded="${first.length}"${
+    <div class="board board--${mode}${more ? " board--more" : ""}" data-loaded="${first.length}"${
       total !== null ? ` data-total="${total}"` : ""
     }>
       ${search}
-      <div class="board__scroll" tabindex="0" role="region" aria-label="Leaderboard">
+      <div class="board__scroll" tabindex="0" role="region" aria-label="${mode === "names" ? "Members" : "Leaderboard"}">
         ${header}
-        <div class="board__rows" role="list" id="board-rows">${renderChunks(
-          ranked,
-        )}<div class="board__sentinel" aria-hidden="true"></div></div>
+        <div class="board__lists" id="board-lists">${rankedList}${quietList}<div class="board__sentinel" aria-hidden="true"></div></div>
         <p class="board__empty" data-lb-empty hidden></p>
       </div>
       <p class="board__status" role="status" aria-live="polite"></p>
     </div>`;
 
-  wireBoard(host, { ...opts, loaded: ranked, total });
+  wireBoard(host, { ...opts, mode, store, ranked, total });
   return "board";
 }
 
 /**
  * Everything the board does after it is on the page: the status line,
- * the later pages, the phone's collapse, and the search.
+ * the later pages, the phone's collapse, the search, the cards and the
+ * arrival.
  *
- * One function because all four share the same three numbers (loaded,
+ * One function because all of it shares the same few numbers (loaded,
  * total, expanded) and splitting them meant passing that state around
  * or reading it back out of the DOM.
  */
 function wireBoard(
   host: HTMLElement,
-  opts: BoardOptions & { loaded: RankedRow[]; total: number | null },
+  opts: BoardOptions & {
+    mode: BoardMode;
+    store: LeaderboardRow[];
+    ranked: RankedRow[];
+    total: number | null;
+  },
 ): void {
   const board = host.querySelector<HTMLElement>(".board");
   const scroller = host.querySelector<HTMLElement>(".board__scroll");
-  const list = host.querySelector<HTMLElement>(".board__rows");
+  const list = host.querySelector<HTMLElement>(".board__lists");
   const sentinel = host.querySelector<HTMLElement>(".board__sentinel");
   const status = host.querySelector<HTMLElement>(".board__status");
   const note = host.querySelector<HTMLElement>("[data-lb-empty]");
   if (!board || !scroller || !list || !status || !note) return;
 
-  const { slug, total } = opts;
-  let loaded = opts.loaded.length;
-  let nextRank = rankStream(opts.loaded);
+  const { slug, total, mode, store } = opts;
+  let loaded = store.length;
+  let rankedCount = opts.ranked.length;
+  let nextRank = rankStream(opts.ranked);
   let inFlight: Promise<boolean> | null = null;
   let allPromise: Promise<void> | null = null;
   let failed = false;
@@ -547,6 +664,24 @@ function wireBoard(
 
   const rowEls = () =>
     Array.from(list.querySelectorAll<HTMLElement>("[data-lb-row]"));
+  const quietList = () =>
+    list.querySelector<HTMLElement>('[data-lb-list="quiet"]');
+  const groupHead = () => list.querySelector<HTMLElement>("[data-lb-group]");
+
+  /** Mark everything past the phone's cut, in page order across both
+   *  groups. The stylesheet hides `.is-fold` only on a phone and only
+   *  while the board is collapsed, so on a desktop this is inert. */
+  const foldForPhone = () => {
+    let n = 0;
+    for (const chunk of list.querySelectorAll<HTMLElement>(".board__chunk")) {
+      const rows = chunk.querySelectorAll<HTMLElement>("[data-lb-row]");
+      chunk.classList.toggle("is-fold", n >= PHONE_ROWS);
+      for (const row of rows) row.classList.toggle("is-fold", n++ >= PHONE_ROWS);
+    }
+    const head = groupHead();
+    const firstQuiet = quietList()?.querySelector<HTMLElement>("[data-lb-row]");
+    if (head) head.classList.toggle("is-fold", !!firstQuiet?.classList.contains("is-fold"));
+  };
 
   const collapsedOnPhone = () =>
     !expanded && phone?.matches === true && rowEls().length > PHONE_ROWS;
@@ -555,7 +690,8 @@ function wireBoard(
 
   /** The foot: what is on the board, and the one control that changes
    *  it. Never a zero, and nothing at all under a board short enough
-   *  to be read whole. */
+   *  to be read whole — nor at the end of the names list, whose head
+   *  already carries the count. */
   const paintStatus = () => {
     if (failed) {
       status.innerHTML = `<span data-lb-count>${escapeHtml(
@@ -572,7 +708,7 @@ function wireBoard(
       // group. See boardTotal: with no total the board says nothing
       // about one.
       status.innerHTML =
-        total !== null && total > STATUS_AT
+        mode === "ranked" && total !== null && total > STATUS_AT
           ? `<span data-lb-count>${escapeHtml(`${total} on the leaderboard`)}</span>`
           : "";
       return;
@@ -690,12 +826,41 @@ function wireBoard(
     }).observe(list);
   }
 
+  /** A later page, split the way the first one was: rows with points
+   *  continue the ranking, the rest join the unranked group — which is
+   *  created the first time a page reaches it. On the names board every
+   *  row is a name row. */
   const append = (rows: LeaderboardRow[]) => {
     if (!rows.length) return;
-    const html = renderChunks(nextRank(rows));
-    sentinel?.insertAdjacentHTML("beforebegin", html);
     loaded += rows.length;
     board.dataset.loaded = String(loaded);
+
+    const scored = mode === "ranked" ? rows.filter(isScored) : [];
+    const rest = mode === "ranked" ? rows.filter((r) => !isScored(r)) : rows;
+
+    if (scored.length) {
+      const rankedList = list.querySelector<HTMLElement>('[data-lb-list="ranked"]');
+      const html = nextRank(scored).map((r) => renderBoardRow(r, store.push(r.row) - 1));
+      rankedList?.insertAdjacentHTML("beforeend", renderChunks(html));
+      rankedCount += scored.length;
+    }
+    if (rest.length) {
+      const html = rest.map((r) =>
+        mode === "ranked"
+          ? renderQuietRow(r, store.push(r) - 1)
+          : renderNameRow(r, store.push(r) - 1),
+      );
+      let quiet = quietList();
+      if (!quiet && sentinel) {
+        sentinel.insertAdjacentHTML(
+          "beforebegin",
+          `${renderGroupHead(total !== null ? total - rankedCount : null)}<div class="board__rows board__rows--quiet" role="list" aria-labelledby="board-quiet-head" data-lb-list="quiet"></div>`,
+        );
+        quiet = quietList();
+      }
+      quiet?.insertAdjacentHTML("beforeend", renderChunks(html));
+    }
+    foldForPhone();
   };
 
   /** One page. Resolves true when it landed, false when it did not —
@@ -714,15 +879,11 @@ function wireBoard(
       })
       .then((data) => {
         const rows = Array.isArray(data?.rows) ? data.rows : [];
-        const scored = scoredRows(rows);
-        append(scored);
-        // Rows are points-descending, so a page that came back short,
-        // empty, or with an unscored row on the end is the last page
-        // there is — whatever the total said. Marking it exhausted is
-        // what stops the observer asking again for ever.
-        if (!rows.length || scored.length < rows.length || rows.length < PAGE_SIZE) {
-          exhausted = true;
-        }
+        append(rows);
+        // A page that came back short or empty is the last page there
+        // is, whatever the total said. Marking it exhausted is what
+        // stops the observer asking again for ever.
+        if (!rows.length || rows.length < PAGE_SIZE) exhausted = true;
         failed = false;
         return true;
       })
@@ -768,9 +929,24 @@ function wireBoard(
     highlighted = [];
   };
 
+  /** The "No points yet" head follows its rows: gone while a search has
+   *  hidden every one of them, back with them. */
+  const syncGroupHead = (q: string) => {
+    const head = groupHead();
+    const quiet = quietList();
+    if (!head || !quiet) return;
+    const any =
+      !q ||
+      Array.from(quiet.querySelectorAll<HTMLElement>("[data-lb-row]")).some(
+        (r) => r.style.display !== "none",
+      );
+    head.style.display = any ? "" : "none";
+  };
+
   const applyFilter = () => {
     if (!input) return;
     const q = fold(input.value);
+    closeMemberCard(false);
     clearHighlight();
     const rows = rowEls();
     const hits: HTMLElement[] = [];
@@ -782,6 +958,7 @@ function wireBoard(
       row.style.display = match ? "" : "none";
       if (match && q) hits.push(row);
     }
+    syncGroupHead(q);
     /* Hiding a row inside a chunk the browser is skipping changes
        nothing about that chunk's height — it keeps the one it last
        rendered at, so a search for one name would leave the scroller
@@ -809,7 +986,9 @@ function wireBoard(
       note.textContent =
         failed || remaining() > 0
           ? `Not in the rows loaded so far — retry to search the rest.`
-          : `No member named "${input.value.trim()}" on the leaderboard.`;
+          : mode === "names"
+            ? `No member named "${input.value.trim()}" on this list.`
+            : `No member named "${input.value.trim()}" on the leaderboard.`;
       note.hidden = false;
       return;
     }
@@ -875,8 +1054,28 @@ function wireBoard(
   });
 
   list.addEventListener("click", (e) => {
-    const link = (e.target as HTMLElement | null)?.closest("[data-lb-ctx]");
-    if (!link) return;
+    const target = e.target as HTMLElement | null;
+
+    /* A name with no profile opens its card. */
+    const cardBtn = target?.closest<HTMLElement>("[data-lb-card]");
+    if (cardBtn) {
+      const row = store[Number(cardBtn.dataset.lbCard)];
+      if (row) toggleMemberCard(cardBtn, row, { chapter: opts.chapterName, settled: opts.settled });
+      return;
+    }
+
+    const link = target?.closest("[data-lb-ctx]");
+    if (!link) {
+      /* The row is the name's target too, so a thumb that lands beside
+         a short name still opens it. Real controls inside the row — the
+         LinkedIn and GitHub marks, a profile link — keep their own
+         click. */
+      if (target?.closest("a, button, input")) return;
+      const row = target?.closest<HTMLElement>("[data-lb-row]");
+      const door = row?.querySelector<HTMLElement>(".board__name");
+      if (door && !window.getSelection()?.toString()) door.click();
+      return;
+    }
     e.preventDefault();
     const row = link.closest<HTMLElement>("[data-lb-row]");
     link.remove();
@@ -888,6 +1087,7 @@ function wireBoard(
        30,000px down its own scroller. See unskip(). */
     unskip();
     for (const el of rowEls()) el.style.display = "";
+    syncGroupHead("");
     list.classList.remove("is-sifted");
     note.hidden = true;
     // Scroll the SCROLLER, not the page: the visitor is reading the
@@ -938,11 +1138,11 @@ function wireBoard(
       (entries) => {
         if (!entries.some((en) => en.isIntersecting)) return;
         // Not on a phone. There the board is collapsed to PHONE_ROWS
-        // and the sentinel is an <li> sitting in normal flow directly
-        // under row 12 — visible, and with `root: null` it intersects
-        // on the first scroll, so the page fetched 100 rows the
-        // collapsed board never showed. "Show everyone" is the phone's
-        // paging gesture (B4), and it is the only one.
+        // and the sentinel sits in normal flow directly under row 12 —
+        // visible, and with `root: null` it intersects on the first
+        // scroll, so the page fetched 100 rows the collapsed board
+        // never showed. "Show everyone" is the phone's paging gesture
+        // (B4), and it is the only one.
         if (phone?.matches === true) return;
         if (failed || exhausted || remaining() <= 0) {
           io.disconnect();
@@ -965,6 +1165,44 @@ function wireBoard(
     io.observe(sentinel);
   }
 
+  /* ── The arrival ─────────────────────────────────────────────── */
+
+  /* The first screen of rows settles into place once, as the board
+     comes into view: each row slides 6px in from the rank gutter and
+     fades up, 26 ms after the one above it, on the house entrance
+     curve. Only ARRIVE_ROWS of them, and never again — a later page,
+     a search and a phone's "Show everyone" all land still. Settled
+     loads skip it entirely, so no row can be left waiting for an
+     observer that never fires. */
+  const arriving = rowEls().slice(0, ARRIVE_ROWS);
+  if (!opts.settled && typeof IntersectionObserver === "function" && arriving.length) {
+    arriving.forEach((row, i) => {
+      row.classList.add("board__row--arrive");
+      row.style.setProperty("--i", String(i));
+    });
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((en) => en.isIntersecting)) return;
+        io.disconnect();
+        board.classList.add("is-arrived");
+        // Hand the rows back to their resting styles once the last one
+        // has landed, so nothing animated is left on the page.
+        window.setTimeout(() => {
+          for (const row of arriving) {
+            row.classList.remove("board__row--arrive");
+            row.style.removeProperty("--i");
+          }
+        }, 360 + ARRIVE_ROWS * 26 + 60);
+      },
+      // A threshold on a board taller than the screen can never be met,
+      // so this watches the board's top edge crossing the lower part of
+      // the viewport instead.
+      { threshold: 0, rootMargin: "0px 0px -12% 0px" },
+    );
+    io.observe(board);
+  }
+
+  foldForPhone();
   paintStatus();
   paintFade();
 }

@@ -120,9 +120,9 @@ function officerLinks(o: Officer) {
  *
  * The About header line offers "and how to reach them", and that offer
  * has to be checked against the page rather than assumed from the
- * roster existing: ROAR's single officer has neither an email nor a
- * LinkedIn, so the card is a monogram and a name and the offer was
- * false there. Built from the same helper renderOfficerCard uses below,
+ * roster existing: an officer with neither a public email nor a
+ * LinkedIn has a card that is a monogram and a name, and on a chapter
+ * where every officer is like that the offer would be false. Built from the same helper renderOfficerCard uses below,
  * so the line and the card cannot disagree about what a reachable
  * officer is.
  *

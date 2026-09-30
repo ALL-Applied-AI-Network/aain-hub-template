@@ -67,6 +67,10 @@ export interface JoinOffer {
    *  links the API is withholding behind `joinUrl`. Never a URL. Empty
    *  on a bundle from an API that predates the gate. */
   gatedChannels: string[];
+  /** False when nobody on this chapter's board has points, so its site
+   *  shows a plain members list rather than a leaderboard, and the form
+   *  must not promise points it does not keep. Absent = a leaderboard. */
+  runsPoints?: boolean;
 }
 
 const joinKind = (l: CommunityLink) => platformMeta(l.platform).kind === "join";
@@ -270,7 +274,11 @@ function renderBody(offer: JoinOffer): string {
     ? `
       <section class="joinp__step">
         <h3 class="joinp__step-title">Sign up</h3>
-        <p class="joinp__step-desc">The form asks for your name and email. It puts you on the leaderboard, makes your check-ins at events count toward it, and gives the eboard an address to send you what is coming up. It takes a minute and there is nothing to pay.</p>
+        <p class="joinp__step-desc">${
+          offer.runsPoints === false
+            ? "The form asks for your name and email. It puts you on the chapter's members list and gives the eboard an address to send you what is coming up. It takes a minute and there is nothing to pay."
+            : "The form asks for your name and email. It puts you on the leaderboard, makes your check-ins at events count toward it, and gives the eboard an address to send you what is coming up. It takes a minute and there is nothing to pay."
+        }</p>
         <a class="btn btn--primary joinp__roster" href="${escapeAttr(offer.joinUrl)}" rel="noopener">Sign up</a>
       </section>`
     : "";

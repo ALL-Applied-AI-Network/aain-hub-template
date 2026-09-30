@@ -73,10 +73,19 @@ import {
   type ProjectWithMembers,
 } from "./views/projects";
 /* The board is Home's: views/members.ts registers no view, and these
-   two functions are all Home needs from it. The badge wall went to
-   About and the merch shelf to an Explore block, so neither is
-   imported here any more. */
-import { renderBoard, scoredRows } from "./views/members";
+   are all Home needs from it. The badge wall went to About and the
+   merch shelf to an Explore block, so neither is imported here any
+   more. */
+import { boardMode, boardTotal, renderBoard } from "./views/members";
+
+/** True when this chapter's board is the plain members list: people on
+ *  the roster and nobody with points. An empty roster is not that — its
+ *  band still says "Leaderboard" over the note — so the copy elsewhere
+ *  keeps the leaderboard's noun for it. */
+function boardIsNames(bundle: ChapterBundle | null): boolean {
+  const rows = bundle?.leaderboard ?? [];
+  return rows.length > 0 && boardMode(rows) === "names";
+}
 /* The curriculum floor feeds the "learning tree" Explore block. The
    fetch still starts at boot beside the bundle — that block is the one
    thing on the page that renders identically on a three-year-old
@@ -180,11 +189,14 @@ const SECTION_EDIT_INFO: Record<
   explore: { path: "/website", label: "Customize → Explore", kind: "internal" },
   community: { path: "/website", label: "Customize → Community", kind: "internal" },
   events: { path: "/events", label: "Events page", kind: "internal" },
-  leaderboard: { path: "/people", label: "Members page", kind: "internal" },
-  badges: { path: "/awards", label: "Badges & Awards", kind: "internal" },
-  merch: { path: "/merch", label: "Merch page", kind: "internal" },
+  // The roster and the officers are edited under Your Chapter now,
+  // each on its own sub-page. `/people` never existed and Customize
+  // stopped owning the officers when Officers & Roles moved there.
+  leaderboard: { path: "/your-chapter/members", label: "Members", kind: "internal" },
+  badges: { path: "/your-chapter/badges", label: "Badges", kind: "internal" },
+  merch: { path: "/your-chapter/merch", label: "Merch", kind: "internal" },
   projects: { path: "/projects", label: "Projects page", kind: "internal" },
-  officers: { path: "/website", label: "Customize → Officers", kind: "internal" },
+  officers: { path: "/your-chapter/officers", label: "Officers & roles", kind: "internal" },
   learning_tree: {
     path: "https://github.com/ALL-Applied-AI-Network/aain-content",
     label: "aain-content repo",
@@ -232,9 +244,10 @@ const config = __HUB_CONFIG__;
  *  ascending. Anything reading "what is next" must sort its own
  *  ascending copy — see futureEventsAscending() in lib/events.
  *
- *  leaderboard_limit is deliberately NOT sent: the leaderboard query
- *  has no consent filter, so raising 20 rows is a privacy change Ben
- *  has not agreed to, not a clamp. */
+ *  leaderboard_limit is deliberately NOT sent: the bundle carries the
+ *  board's first page and its consent-gated total, and the board pages
+ *  the rest in from /api/public/chapter/{slug}/leaderboard as a visitor
+ *  reaches the end of it (views/members.ts). */
 const BUNDLE_QUERY = "?events=all&events_limit=200";
 
 async function fetchBundle(slug: string): Promise<ChapterBundle | null> {
@@ -902,14 +915,20 @@ function renderPageCtaBands(livePages: Set<string>) {
  * the names it counts. This reverses the old "the strip wins" rule for
  * that one entry, deliberately.
  *
- * MSOE: 59 Events · 41 Projects (the board carries 595 members).
- * ROAR: one entry survives → no strip.
+ * And wherever it is printed, the members count is the board's own
+ * total (leaderboard_total, consent-gated), so the number and the names
+ * it claims to count are the same group. `member_count` is only the
+ * fallback for an API that predates the total. ROAR's site used to
+ * print "45 Members" here over a board that listed nobody.
+ *
+ * MSOE: 59 Events · 41 Projects (the board carries its members).
  * NTUA: none survive → no strip.
  */
 function renderStats(
   chapter: ChapterBundle["chapter"] | null,
   projects: ProjectRow[],
   boardOwnsMembers: boolean,
+  boardMembers: number | null,
 ): Set<string> {
   const strip = document.getElementById("hero-stats") as HTMLElement | null;
   const shown = new Set<string>();
@@ -918,7 +937,12 @@ function renderStats(
   if (!chapter) return shown;
 
   const entries: { key: string; n: number; one: string; many: string }[] = [
-    { key: "members", n: boardOwnsMembers ? 0 : chapter.member_count, one: "Member", many: "Members" },
+    {
+      key: "members",
+      n: boardOwnsMembers ? 0 : (boardMembers ?? chapter.member_count),
+      one: "Member",
+      many: "Members",
+    },
     { key: "events", n: chapter.event_count, one: "Event", many: "Events" },
     { key: "projects", n: projects.length, one: "Project", many: "Projects" },
   ].filter((s) => s.n >= 1);
@@ -1003,8 +1027,8 @@ function hideSection(sectionKey: string, page?: string) {
  *
  * Only destination instances are named. Home's bands decide for
  * themselves, because a home band can have an empty state worth
- * showing — "Points start showing up here once members check in" — and
- * a destination cannot.
+ * showing — "Members show up here once they join or check in at an
+ * event" — and a destination cannot.
  */
 function pruneEmptySections(bundle: ChapterBundle | null) {
   const events = bundle?.events ?? [];
@@ -1023,10 +1047,9 @@ function pruneEmptySections(bundle: ChapterBundle | null) {
   // `leaderboard` is deliberately absent from this list. It is Home's
   // people band, Home keeps its tab on `hero` whatever the board does,
   // and deciding it early would cost the board its one honest empty
-  // state ("Points start showing up here once members check in at an
-  // event.") — which a destination could not have shown but the front
-  // page can. renderPeopleBand() decides, on the render that found
-  // nothing.
+  // state (a roster with nobody on it yet) — which a destination could
+  // not have shown but the front page can. renderPeopleBand() decides,
+  // on the render that found nothing.
   //
   // `badges` is absent for a different reason: the wall is on About
   // now, its section ships empty like every other destination block,
@@ -1122,8 +1145,9 @@ interface PeopleBandCtx {
 }
 
 /** One officer tile: a face or a monogram, a name, and a role when
- *  they have one. ROAR's single officer has role: "" — a grey line
- *  with nothing in it under a name reads as a rendering bug. */
+ *  they have one. An officer can have role: "" (one of ROAR's does) —
+ *  a grey line with nothing in it under a name reads as a rendering
+ *  bug. */
 function renderFace(o: Officer, href: string): string {
   const name = escapeHtml(o.name);
   const photo = o.image_url ? safeHttpUrl(o.image_url) : null;
@@ -1234,8 +1258,9 @@ function renderEboardColumn(bundle: ChapterBundle, livePages: Set<string>): bool
     : "";
 
   // "and how to reach them" is checked against the cards rather than
-  // against the roster existing: ROAR's one officer has no email and
-  // no LinkedIn, and the offer would be false there.
+  // against the roster existing: an officer with no email and no
+  // LinkedIn has a card that reaches nobody, and on a chapter where
+  // that is every officer the offer would be false.
   const link =
     officers.length && href
       ? `<p class="people__links"><a class="link--arrow" href="${href}">${
@@ -1308,14 +1333,17 @@ function wirePeoplePhoto(boardRendered: boolean): void {
  * Returns whether the board took ownership of the members count, so
  * the hero's stats strip knows not to print it twice. The removal
  * is the interesting case — on a chapter with no officers, no group
- * photo, no About paragraph and nobody on the board, the band would
- * render "Meet the eboard" over one sentence and "The board" over a
+ * photo, no About paragraph and nobody on the roster, the band would
+ * render "Meet the eboard" over one sentence and "Leaderboard" over a
  * note, which is two headings and no people. A visitor reads that as
  * the template talking about itself. NTUA is exactly that chapter, and
  * there Explore becomes the first band under the hero.
  *
- * ROAR keeps the band on one real officer, a note and a Join button,
- * because every one of those three is true.
+ * The board's head says what the board is. "Leaderboard" when anyone
+ * on it has points; "Members" when nobody does, because then the
+ * chapter does not run points and the board is a plain list of names
+ * (see views/members.ts). ROAR's 45 imported members are exactly that
+ * list until its first points land.
  */
 function renderPeopleBand(bundle: ChapterBundle, ctx: PeopleBandCtx): boolean {
   const band = document.getElementById("band-people");
@@ -1325,12 +1353,17 @@ function renderPeopleBand(bundle: ChapterBundle, ctx: PeopleBandCtx): boolean {
   const state = boardHost
     ? renderBoard(boardHost, bundle, {
         slug: ctx.slug,
+        chapterName:
+          (bundle.config?.hub_name ?? "").trim() || bundle.chapter?.name || "",
         joinHref: ctx.joinHref,
         joinable: ctx.joinable,
         acronym: chapterAcronym,
         settled: motionSettled(),
       })
     : "note";
+  if (state === "board" && boardIsNames(bundle)) {
+    setText("board-title", "Members");
+  }
 
   // The eboard column can be gone before this runs: `about` is one of
   // the keys Customize toggles, and applySectionToggles removes every
@@ -1343,12 +1376,16 @@ function renderPeopleBand(bundle: ChapterBundle, ctx: PeopleBandCtx): boolean {
     if (state !== "board") return false;
   }
 
-  // The members claim, on the head of the object it counts. Only when
-  // the board actually rendered rows: over a note it would be a count
-  // of members none of whom are visible under it.
-  const total = bundle.chapter?.member_count ?? 0;
-  const ownsMembers = state === "board" && total >= 2;
-  if (ownsMembers) setText("board-total", plural(total, "member"));
+  // The members claim, on the head of the object it counts, and from
+  // the same source as its rows: the board's own total. Only when the
+  // board actually rendered rows — over a note it would be a count of
+  // members none of whom are visible under it — and only from two up,
+  // because a head reading "1 member" over one name reads itself back
+  // (the strip keeps that one). With no total (an older API) the board
+  // says nothing about one, and neither does the strip.
+  const total = boardTotal(bundle);
+  const ownsMembers = state === "board" && (total === null || total >= 2);
+  if (ownsMembers && total !== null) setText("board-total", plural(total, "member"));
 
   if (filled) {
     wirePeoplePhoto(state === "board");
@@ -1622,11 +1659,16 @@ function defaultFeatures(
     subtitle: "Something to show up to",
     // "the board above" is a reference to something on this page, so
     // it is only made when the page has one: on a chapter with no
-    // officers and nobody scored, the people band removed itself and
-    // Explore is the first band under the hero.
+    // officers and nobody on the roster, the people band removed itself
+    // and Explore is the first band under the hero.
+    //
+    // A chapter whose board is a plain members list does not run
+    // points, so its copy does not promise any.
     body:
-      "Chapters run speakers, workshops and build nights through the term, with projects going on between them. Every event has a QR check-in, and checking in is what puts your name on " +
-      (boardAbove ? "the leaderboard above." : "the chapter's leaderboard."),
+      boardIsNames(bundle)
+        ? "Chapters run speakers, workshops and build nights through the term, with projects going on between them. Every event has a QR check-in."
+        : "Chapters run speakers, workshops and build nights through the term, with projects going on between them. Every event has a QR check-in, and checking in is how you earn points on " +
+          (boardAbove ? "the leaderboard above." : "the chapter's leaderboard."),
     image: eventCover
       ? { src: eventCover, fallback: DEFAULT_PHOTOS.events }
       : { src: DEFAULT_PHOTOS.events.src, caption: DEFAULT_PHOTOS.events.caption },
@@ -1882,6 +1924,11 @@ function renderJoin(
   const open = openChannels(offer);
   const locked = lockedChannels(offer);
   const next = nextEvent(events);
+  // Every roster member is on the board now, points or not, so the
+  // promise is true; it only changes its noun on a chapter whose board
+  // is a members list because nobody there has points.
+  const board: string =
+    boardIsNames(bundle) ? "the members list" : "the leaderboard";
 
   let desc: string;
   if (joinUrl) {
@@ -1894,7 +1941,7 @@ function renderJoin(
       ? locked.length === 1
         ? `Signing up takes a minute — name and email — and the ${platformMeta(locked[0]).label} invite follows.`
         : "Signing up takes a minute — name and email — and the channel invites follow."
-      : "Signing up takes a minute — name and email — and puts you on the leaderboard.";
+      : `Signing up takes a minute — name and email — and puts you on ${board}.`;
   } else if (open.length) {
     // No article before the label. "the Microsoft Teams" is what the
     // old sentence produced, and it reads as a typo on the one
@@ -1905,7 +1952,7 @@ function renderJoin(
     // already says that, and the same sentence twice in a row is the
     // duplication Ben rejected on the last pass. This one carries what
     // the button cannot — that there is nothing else to do.
-    desc = "There is no application. Turn up, check in, and your name is on the leaderboard.";
+    desc = `There is no application. Turn up, check in, and your name is on ${board}.`;
   } else if (events.length) {
     // The chapter has run events but has nothing on the calendar, so
     // there is no "next event" to send anyone to and the sentence
@@ -3140,6 +3187,7 @@ async function init() {
     joinUrl,
     links,
     gatedChannels: gatedChannels(remote),
+    runsPoints: !boardIsNames(bundle),
   };
   initJoinPanel(joinOffer);
   /* What the masthead and the people band put under their button.
@@ -3178,7 +3226,12 @@ async function init() {
     peopleBandShown,
     channels,
   );
-  renderStats(bundle?.chapter ?? null, bundle?.projects ?? [], boardOwnsMembers);
+  renderStats(
+    bundle?.chapter ?? null,
+    bundle?.projects ?? [],
+    boardOwnsMembers,
+    typeof bundle?.leaderboard_total === "number" ? bundle.leaderboard_total : null,
+  );
   renderTermLine(bundle?.events ?? []);
   renderPageCtaBands(livePages);
 

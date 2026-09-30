@@ -244,6 +244,14 @@ export interface LeaderboardRow {
   events_attended: number;
   rank: number;
   badges?: LeaderboardBadge[];
+  /** https://{public_slug}.all-ai-network.org, only while that member's
+   *  profile is published — the same gate officer cards use for
+   *  account_profile_url. Absent on an API that predates the field and
+   *  null for everyone else, so every renderer treats it as optional. */
+  profile_url?: string | null;
+  /** The account's GitHub and LinkedIn, under the same gate. */
+  github_url?: string | null;
+  linkedin_url?: string | null;
 }
 
 export interface BadgeRow {

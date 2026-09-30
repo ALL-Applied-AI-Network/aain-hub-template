@@ -172,6 +172,23 @@ code {
   color: var(--text-primary);
 }
 
+/* The first paint, before the bundle names the chapter. The template's
+   markup ships these two empty rather than as "HUB Hub" — another
+   placeholder club's name on this club's site — and for the length of
+   the boot they draw as two quiet bars in the nav's own rhythm. Scoped
+   to .is-booting so a chapter with no acronym at all is an empty span
+   afterwards, not a bar that never resolves. Static: a skeleton that
+   shimmers is a loop, and this one is gone in one round trip. */
+.is-booting .nav__logo:empty,
+.is-booting .nav__name:empty {
+  display: inline-block;
+  height: 0.8rem;
+  border-radius: 4px;
+  background: var(--bg-elevated);
+}
+.is-booting .nav__logo:empty { width: 2.4rem; }
+.is-booting .nav__name:empty { width: 9.5rem; }
+
 .nav__links {
   display: flex;
   gap: 1.75rem;
@@ -1932,6 +1949,9 @@ html:not(.js-rv) .group__rule { transform: scaleY(1); }
 .board__row {
   border-top: 1px solid var(--border);
   transition: background 0.15s;
+  /* The whole row is the name's target (views/members.ts), so a thumb
+     that lands beside a short name still opens it. */
+  cursor: pointer;
 }
 
 /* Two cases where skipping content is the wrong answer.
@@ -1948,7 +1968,7 @@ html:not(.js-rv) .group__rule { transform: scaleY(1); }
    behaviour this board had before any of this, and it is measured at
    the same cost. */
 .is-still .board__chunk,
-.board__rows.is-sifted .board__chunk {
+.board__lists.is-sifted .board__chunk {
   content-visibility: visible;
 }
 
@@ -1963,10 +1983,10 @@ html:not(.js-rv) .group__rule { transform: scaleY(1); }
    (.board__rows) while fitBoardToColumn, which only ever measures
    eight rows, turns on the first block alone (.board). */
 .board.is-measuring .board__chunk:first-child,
-.board__rows.is-measuring .board__chunk {
+.board__lists.is-measuring .board__chunk {
   content-visibility: visible;
 }
-.board__rows:first-child > .board__chunk:first-child > .board__row:first-child {
+.board__scroll > .board__lists:first-child > .board__rows:first-child > .board__chunk:first-child > .board__row:first-child {
   border-top: 0;
 }
 .board__row:hover {
@@ -2056,8 +2076,17 @@ html:not(.js-rv) .group__rule { transform: scaleY(1); }
 .board__who {
   min-width: 0;
 }
+/* The name, and the member's own LinkedIn and GitHub beside it. The
+   name gives way (ellipsis) before the marks do: a mark that wraps
+   under a long name belongs to nobody. */
+.board__line {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
 .board__name {
   display: block;
+  min-width: 0;
   font-size: 0.975rem;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -2066,6 +2095,62 @@ html:not(.js-rv) .group__rule { transform: scaleY(1); }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Every name is a door: a link to a published profile, or a button
+   that opens the member's card. Both look like the name they were —
+   the row is a board, not a list of links — and both admit it on
+   hover with a hairline under the name. */
+button.board__name {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  line-height: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+a.board__name,
+a.board__name:hover { color: var(--text-primary); }
+.board__name:hover,
+.board__row:hover .board__name,
+.board__row--carded .board__name {
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.35);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+.board__name:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+.board__socs {
+  display: inline-flex;
+  flex: none;
+  gap: 0.1rem;
+  margin-left: 0.35rem;
+}
+.board__soc {
+  display: inline-grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 6px;
+  color: var(--text-tertiary);
+  transition: color 0.15s, background 0.15s;
+}
+.board__soc svg { width: 0.85rem; height: 0.85rem; }
+.board__soc:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+.board__soc:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+/* The row whose card is open keeps the hover wash, so the card and the
+   name it came from read as one object. */
+.board__row--carded { background: var(--bg-surface-2); }
 /* Always in the markup, because a search hit drops its "Show in
    context" link in here and a row that has no badge and no check-in
    count still has to have somewhere to put it. Empty it collapses, so
@@ -2090,6 +2175,69 @@ html:not(.js-rv) .group__rule { transform: scaleY(1); }
   letter-spacing: -0.02em;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
+}
+
+/* ── Everyone else: "No points yet" ───────────────────────────────
+   The members with no points, after the ranked ones. The same three
+   tracks, so their names sit under the ranked names, with the rank and
+   points cells left empty rather than zeroed; tighter and a step
+   quieter, because a name and at most a chip is all a row here says. */
+.board__group {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.75rem 1.15rem 0.55rem calc(1.15rem + 3.25rem + 1rem);
+  border-top: 1px solid var(--border);
+  background: var(--bg-subtle);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--text-secondary);
+}
+.board__group-n {
+  font-weight: 500;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.board__row--quiet {
+  padding-top: 0.65rem;
+  padding-bottom: 0.65rem;
+}
+.board__row--quiet .board__name {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.board__row--quiet a.board__name { color: var(--text-secondary); }
+.board__row--quiet:hover .board__name,
+.board__row--quiet.board__row--carded .board__name { color: var(--text-primary); }
+
+/* ── The names board ─────────────────────────────────────────────
+   Nobody has points, so there is nothing to rank: one column of names,
+   alphabetical as the API sends them. */
+.board--names .board__row {
+  grid-template-columns: minmax(0, 1fr);
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
+}
+.board--names .board__name { font-weight: 500; }
+
+/* ── The arrival ─────────────────────────────────────────────────
+   The first screen of rows settles in once as the board comes into
+   view: 6px in from the rank gutter, 26 ms apart. views/members.ts
+   adds these classes only on a load that is allowed to move, and takes
+   them off again once the last row has landed. */
+@keyframes board-row-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: none; }
+}
+.board__row--arrive { opacity: 0; }
+.board.is-arrived .board__row--arrive {
+  animation: board-row-in 0.36s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--i, 0) * 26ms) both;
+}
+.is-still .board__row--arrive { opacity: 1; animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .board__row--arrive { opacity: 1; animation: none !important; }
 }
 
 .board__empty {
@@ -2132,6 +2280,8 @@ html:not(.js-rv) .group__rule { transform: scaleY(1); }
   .board__row--silver .board__rank,
   .board__row--bronze .board__rank { font-size: 1.05rem; }
   .board__name { font-size: 0.925rem; }
+  .board__group { padding-left: calc(0.8rem + 2.25rem + 0.65rem); padding-right: 0.8rem; }
+  .board--names .board__row { padding-left: 0.95rem; padding-right: 0.95rem; }
   .board__marks { gap: 0.3rem; margin-top: 0.3rem; }
   .board__pts { font-size: 1rem; }
   .board__marks .member-badge { width: 20px; height: 20px; }
@@ -4538,6 +4688,182 @@ body.is-holding {
 }
 .board__note + .btn { margin-top: 1rem; }
 
+/* ── The member card ─────────────────────────────────────────────
+   What a name with no profile opens (src/member-card.ts): the row's
+   own facts and the door for the person it describes. Appended to
+   <body> and placed against the name, so the board's overflow cannot
+   clip it.
+
+   It unfolds out of the name rather than fading in over the rows: the
+   card is opaque from its first frame and a clip opens it downward
+   from the edge nearest the name (upward when it sits above), so at no
+   frame do the rows under it show through its text. Its lines settle
+   30 ms apart behind the clip; closing folds it back the same way. */
+.mcard {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  width: min(19rem, calc(100vw - 24px));
+  padding: 1rem;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35);
+  color: var(--text-primary);
+  outline: none;
+  opacity: 0;
+  clip-path: inset(0 0 calc(100% - 6px) 0 round var(--radius-lg));
+  transform: translateY(-4px);
+  transition:
+    clip-path 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.06s linear;
+}
+.mcard[data-side="above"] {
+  clip-path: inset(calc(100% - 6px) 0 0 0 round var(--radius-lg));
+  transform: translateY(4px);
+}
+/* Open, the clip stands 48px outside the card so the shadow is not cut
+   off at its edge. */
+.mcard.is-open {
+  opacity: 1;
+  clip-path: inset(-48px round var(--radius-lg));
+  transform: none;
+}
+.mcard.is-closing {
+  transition:
+    clip-path 0.15s cubic-bezier(0.4, 0, 1, 1),
+    transform 0.15s cubic-bezier(0.4, 0, 1, 1),
+    opacity 0.05s linear 0.1s;
+}
+.mcard:focus-visible { box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55), 0 0 0 2px rgba(var(--color-primary-rgb), 0.55); }
+@keyframes mcard-line {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: none; }
+}
+.mcard.is-open > * { animation: mcard-line 0.32s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.mcard.is-open > :nth-child(2) { animation-delay: 30ms; }
+.mcard.is-open > :nth-child(3) { animation-delay: 60ms; }
+.mcard.is-open > :nth-child(4) { animation-delay: 90ms; }
+.mcard[data-settled="1"],
+.mcard[data-settled="1"] > * { transition: none; animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .mcard, .mcard > * { transition: none !important; animation: none !important; }
+}
+
+.mcard__head {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+.mcard__mono {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(var(--color-primary-rgb), 0.16);
+  color: color-mix(in srgb, var(--color-primary) 65%, white);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.mcard__name {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.mcard__chapter {
+  margin: 0.1rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+}
+.mcard__x {
+  align-self: start;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+.mcard__x:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.mcard__x:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+/* Always three tracks, so one fact is a third of the card and not a
+   slab across it. */
+.mcard__facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+.mcard__fact {
+  min-width: 0;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+}
+.mcard__fact b {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.mcard__fact span { font-size: 0.72rem; color: var(--text-tertiary); }
+.mcard__badges {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.mcard__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.75rem;
+  padding: 0.15rem 0.6rem 0.15rem 0.3rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-base);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+.mcard__badge-icon {
+  width: 1.2rem;
+  height: 1.2rem;
+  display: grid;
+  place-items: center;
+  color: color-mix(in srgb, var(--color-primary) 70%, white);
+}
+.mcard__badge-icon svg,
+.mcard__badge-icon img { width: 0.85rem; height: 0.85rem; }
+.mcard__badge-icon img { object-fit: contain; border-radius: 3px; }
+.mcard__badge--more { padding-left: 0.6rem; color: var(--text-tertiary); }
+.mcard__claim {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.95rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+.mcard__ask { font-size: 0.85rem; color: var(--text-secondary); }
+.mcard__go { flex: none; }
+
 @media (max-width: 640px) {
   /* No nested scroller on a phone. A 480px scroll box in the middle
      of a page catches the thumb on iOS and the page stops moving; the
@@ -4548,12 +4874,11 @@ body.is-holding {
     overflow: visible;
     overscroll-behavior: auto;
   }
-  /* The phone's collapse, counted across the chunks the rows now sit
-     in: everything after the first chunk, and rows 13.. inside it.
-     This holds because a chunk is 25 rows and the cut is 12 — keep
-     CHUNK_ROWS and PHONE_ROWS in views/members.ts in that order. */
-  .board:not(.board--expanded) .board__rows > .board__chunk:first-child > .board__row:nth-child(n + 13),
-  .board:not(.board--expanded) .board__rows > .board__chunk:not(:first-child) {
+  /* The phone's collapse. views/members.ts marks every row past the
+     twelfth — counted in page order across the ranked rows and the
+     "No points yet" group together — with .is-fold, along with any
+     block and group head that is wholly past it. */
+  .board:not(.board--expanded) .is-fold {
     display: none;
   }
   .board--more .board__scroll::after { display: none; }

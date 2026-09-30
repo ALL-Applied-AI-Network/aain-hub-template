@@ -17,8 +17,11 @@
     <div class="nav__inner">
       <a href="/" class="nav__brand">
         <img id="nav-logo-img" class="nav__logo-img" alt="" hidden aria-hidden="true" />
-        <span class="nav__logo" id="nav-acronym">HUB</span>
-        <span class="nav__name" id="nav-hub-name">Hub</span>
+        <!-- Empty until the chapter's identity arrives: while the page
+             boots these two draw as neutral bars (hub.css, .is-booting),
+             never as the template's own "HUB Hub". -->
+        <span class="nav__logo" id="nav-acronym"></span>
+        <span class="nav__name" id="nav-hub-name"></span>
       </a>
       <!-- Page tabs are rendered by main.ts::renderPageNav from the
            PAGES constant, so a page toggled off in Customize or a
@@ -123,15 +126,17 @@
        masthead on every chapter.
 
        data-section="leaderboard" on the band sends the preview edit
-       pill to the Members page; data-section="about" on the left
+       pill to Your Chapter → Members; data-section="about" on the left
        column sends its own pill to Customize → About. The column takes
        that key rather than the hidden About page because first in
        document order wins (see enableEditOverlays) and Home is the
        page an officer is looking at while they edit.
 
        main.ts::renderPeopleBand removes the whole band when there is
-       neither a person nor a scored row to show — a head over nothing
-       is the template talking about itself. -->
+       neither an officer nor anyone on the roster to show — a head
+       over nothing is the template talking about itself. The board's
+       head reads "Members" instead of "Leaderboard" when nobody on it
+       has points (views/members.ts). -->
   <section class="band band--people" id="band-people" data-page="home" data-section="leaderboard">
     <div class="section__inner">
       <div class="people" id="people">
@@ -143,7 +148,7 @@
         </div>
         <div class="people__col people__col--board" id="people-board">
           <div class="band-head band-head--lead rv">
-            <h2 class="band-head__title">Leaderboard</h2>
+            <h2 class="band-head__title" id="board-title">Leaderboard</h2>
             <span class="band-head__n" id="board-total"></span>
           </div>
           <div id="board-host"></div>
@@ -323,7 +328,7 @@
         <div class="footer__brand-row">
           <img id="footer-logo-img" class="footer__logo-img" alt="" hidden aria-hidden="true" />
           <div>
-            <div class="footer__name" id="footer-hub-name">Hub</div>
+            <div class="footer__name" id="footer-hub-name"></div>
             <div class="footer__uni" id="footer-university">My University</div>
           </div>
         </div>
