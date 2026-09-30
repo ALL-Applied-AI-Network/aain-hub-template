@@ -208,6 +208,18 @@ function renderName(name: string): string {
     .join(" ")}</h1>`;
 }
 
+/** This page's own address, as the chip prints it and as Copy link and
+ *  the share sheet hand it over: the canonical {slug}.all-ai-network.org
+ *  with nothing after it, never location.href (which carries ?seek=,
+ *  tracking tags, or the dashboard preview's own URL). Without a slug
+ *  (a local fixture) it is this origin. */
+function pageHost(b: Bundle): string {
+  return b.slug ? `${b.slug}.${HUB_DOMAIN}` : location.host;
+}
+function pageUrl(b: Bundle): string {
+  return b.slug ? `https://${b.slug}.${HUB_DOMAIN}/` : `${location.origin}/`;
+}
+
 function renderHeader(b: Bundle): string {
   const ch = b.chapter;
   const headline = b.headline ?? b.resume?.tagline ?? null;
@@ -225,7 +237,7 @@ function renderHeader(b: Bundle): string {
 
   // Where to find them: this page's own address (a click copies it),
   // their GitHub, and the chapter's own record of them.
-  const host = b.slug ? `${b.slug}.${HUB_DOMAIN}` : location.host;
+  const host = pageHost(b);
   const verify = ch?.verifyStudentId
     ? `${DASHBOARD_ORIGIN}/verify/${encodeURIComponent(ch.verifyStudentId)}` : null;
   const chips = [
@@ -660,9 +672,24 @@ function flyDoor(door: HTMLElement) {
   const num = door.querySelector<HTMLElement>(".pp-door__n");
 
   // The section is about to be read: show it now rather than on reveal.
+  // Its rise (.rv, 14px) is cut short and only the fade kept: the scroll
+  // and the number are both aimed from the measurements below, and a
+  // section still on its way up would be measured 14px low, so the
+  // number would land under its count and then the count would jump.
+  // Coming from below the fold, the rise was never going to be seen.
+  if (!reduced && getComputedStyle(sectionEl).transform !== "none") {
+    sectionEl.style.transition = "opacity 0.6s var(--enter)";
+    const settle = (e: TransitionEvent) => {
+      if (e.target !== sectionEl) return;
+      sectionEl.style.removeProperty("transition");
+      sectionEl.removeEventListener("transitionend", settle);
+    };
+    sectionEl.addEventListener("transitionend", settle);
+  }
   sectionEl.classList.add("in");
   for (const el of $$(".rv, .rv-group", sectionEl)) el.classList.add("in");
   $(".pp-section__head", sectionEl)?.classList.add("in");
+  void sectionEl.offsetWidth;
 
   const startY = window.scrollY;
   const offset = 76;
@@ -780,15 +807,16 @@ function mountTopbar(b: Bundle) {
   }, { threshold: 0 }).observe($("#pp-photo") ?? $("#pp-head")!);
 }
 
-function mountButtons() {
+function mountButtons(bundle: Bundle) {
+  const url = pageUrl(bundle);
   for (const b of $$<HTMLButtonElement>("[data-copy]")) {
     b.addEventListener("click", async () => {
       // A phone hands the link to its own share sheet; the label stays.
       if (navigator.share && matchMedia("(pointer: coarse)").matches) {
-        navigator.share({ title: document.title, url: location.href }).catch(() => {});
+        navigator.share({ title: document.title, url }).catch(() => {});
         return;
       }
-      try { await navigator.clipboard.writeText(location.href); } catch { return; }
+      try { await navigator.clipboard.writeText(url); } catch { return; }
       const label = $(".pp-chip__label", b) ?? $("span", b)!;
       const was = label.textContent ?? "";
       // Hold the width, so "Copied" does not pull the chips beside it.
@@ -903,7 +931,7 @@ async function init() {
   main.style.visibility = "";
 
   mountTopbar(b);
-  mountButtons();
+  mountButtons(b);
 }
 
 init();
