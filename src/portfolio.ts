@@ -25,7 +25,7 @@ import { hostnameSlug, isDashboardPreview } from "./lib/slug";
 import { BUILT_IN_ICONS, renderBadgeIcon } from "./badge-icon";
 import { deriveAccent } from "./accent";
 import { plainText } from "./plain-text";
-import { GITHUB_MARK } from "./lib/platform-icons";
+import { GITHUB_MARK } from "./lib/brand-marks";
 
 declare const __HUB_CONFIG__: { hub_domain?: string };
 
