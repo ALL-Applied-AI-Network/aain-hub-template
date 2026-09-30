@@ -188,6 +188,15 @@ code {
 }
 .is-booting .nav__logo:empty { width: 2.4rem; }
 .is-booting .nav__name:empty { width: 9.5rem; }
+/* The same goes for the hero's glow: it is drawn in the chapter's
+   colours, and until the bundle sets them it would be the template's
+   blue and purple on every chapter. It comes up once the theme is in. */
+.is-booting .hero__glow { opacity: 0; }
+body.is-ready .hero__glow { transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+html.is-still .hero__glow { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  body.is-ready .hero__glow { transition: none; }
+}
 
 .nav__links {
   display: flex;
