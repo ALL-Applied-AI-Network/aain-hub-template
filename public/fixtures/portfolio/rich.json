@@ -1,0 +1,361 @@
+{
+  "slug": "maya-okafor",
+  "name": "Maya Okafor",
+  "imageUrl": null,
+  "headline": "CS junior building retrieval tools for lab notebooks",
+  "chapter": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "name": "Example AI Club",
+    "slug": "example-ai-club",
+    "hubUrl": "https://example-ai-club.all-ai-network.org",
+    "logoUrl": null,
+    "primaryColor": "#8f4fe8",
+    "verifyStudentId": "00000000-0000-4000-8000-0000000000aa",
+    "acronym": "EAC"
+  },
+  "chapterCount": 1,
+  "since": "2025-09-12T23:00:00Z",
+  "now": {
+    "kind": "checkin",
+    "text": "Now \u00b7 checked in at Speaker night: shipping evals"
+  },
+  "record": {
+    "entries": [
+      {
+        "id": "c1",
+        "kind": "checkin",
+        "date": "2026-09-29T23:00:00Z",
+        "title": "Speaker night: shipping evals",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "c2",
+        "kind": "checkin",
+        "date": "2026-09-24T23:00:00Z",
+        "title": "Intro series, week 3",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "l1",
+        "kind": "lesson",
+        "date": "2026-09-20T15:00:00Z",
+        "title": "Prompting with structure",
+        "chapterId": null,
+        "chapterName": null,
+        "chapterSlug": null,
+        "hubUrl": null,
+        "points": null,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": "prompting"
+      },
+      {
+        "id": "c3",
+        "kind": "checkin",
+        "date": "2026-09-17T23:00:00Z",
+        "title": "Intro series, week 2",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "c4",
+        "kind": "checkin",
+        "date": "2026-09-10T23:00:00Z",
+        "title": "Fall kickoff",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "c5",
+        "kind": "checkin",
+        "date": "2025-11-22T15:00:00Z",
+        "title": "Hacksgiving 2025",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 15,
+        "phase": "Build day",
+        "badgeIcon": null,
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "c6",
+        "kind": "checkin",
+        "date": "2025-11-21T23:00:00Z",
+        "title": "Hacksgiving 2025",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 5,
+        "phase": "Kickoff",
+        "badgeIcon": null,
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "c7",
+        "kind": "checkin",
+        "date": "2025-10-15T23:00:00Z",
+        "title": "Research group showcase",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "c8",
+        "kind": "checkin",
+        "date": "2025-09-30T23:00:00Z",
+        "title": "GPU cluster workshop",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "c9",
+        "kind": "checkin",
+        "date": "2025-09-12T23:00:00Z",
+        "title": "Fall kickoff",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "c10",
+        "kind": "checkin",
+        "date": "2025-04-18T23:00:00Z",
+        "title": "Spring demo day",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "c11",
+        "kind": "checkin",
+        "date": "2025-03-05T23:00:00Z",
+        "title": "Paper club",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 5,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "starting-eac",
+        "kind": "starting",
+        "date": "2025-01-10T00:00:00Z",
+        "title": "Starting balance",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 12,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null
+      }
+    ],
+    "totals": {
+      "points": 127,
+      "events": 11,
+      "badges": 3
+    },
+    "startingBalance": 12
+  },
+  "badges": [
+    {
+      "id": "b1",
+      "name": "Hacksgiving 2025",
+      "icon": "trophy",
+      "awardedAt": "2025-11-23T00:00:00Z",
+      "chapterName": "Example AI Club",
+      "description": "Shipped a project in the 48-hour Hacksgiving challenge for a nonprofit."
+    },
+    {
+      "id": "b2",
+      "name": "Research Group 2025",
+      "icon": "star",
+      "awardedAt": "2025-10-16T00:00:00Z",
+      "chapterName": "Example AI Club"
+    },
+    {
+      "id": "b3",
+      "name": "Workshop Lead",
+      "icon": "\ud83c\udfa4",
+      "awardedAt": "2025-09-30T00:00:00Z",
+      "chapterName": "Example AI Club",
+      "description": "Ran a workshop for the chapter."
+    }
+  ],
+  "learning": {
+    "bands": [
+      {
+        "id": "start",
+        "title": "Start with AI",
+        "done": 5,
+        "count": 8,
+        "lessons": [
+          {
+            "id": "prompting",
+            "title": "Prompting with structure",
+            "completedAt": "2026-09-20T15:00:00Z"
+          },
+          {
+            "id": "llm-basics",
+            "title": "How language models work",
+            "completedAt": "2026-09-02T15:00:00Z"
+          }
+        ]
+      },
+      {
+        "id": "build",
+        "title": "Build with AI",
+        "done": 2,
+        "count": 20,
+        "lessons": [
+          {
+            "id": "rag",
+            "title": "Retrieval basics",
+            "completedAt": "2026-08-20T15:00:00Z"
+          }
+        ]
+      }
+    ]
+  },
+  "projects": [
+    {
+      "id": "p1",
+      "kind": "build",
+      "title": "Notebook search",
+      "description": "Semantic search over a lab's electronic notebooks, with citations back to the page.",
+      "url": "https://example.com/notebook-search",
+      "chapterProject": false,
+      "chapterName": null,
+      "status": "shipped",
+      "language": null,
+      "stars": null,
+      "date": "2026-05-01T00:00:00Z"
+    },
+    {
+      "id": "p2",
+      "kind": "chapterProject",
+      "title": "Food price forecasting",
+      "description": "A research group's forecasting model for commodity prices.",
+      "url": null,
+      "chapterProject": true,
+      "chapterName": "Example AI Club",
+      "status": null,
+      "language": null,
+      "stars": null,
+      "date": "2025-12-01T00:00:00Z"
+    },
+    {
+      "id": "p3",
+      "kind": "repo",
+      "title": "eval-harness",
+      "description": "Tiny harness for running prompt evals from YAML.",
+      "url": "https://github.com/example/eval-harness",
+      "chapterProject": false,
+      "chapterName": null,
+      "status": null,
+      "language": "Python",
+      "stars": 4,
+      "date": "2026-03-10T00:00:00Z"
+    }
+  ],
+  "resume": {
+    "tagline": null,
+    "keywords": [
+      "retrieval",
+      "python",
+      "evals"
+    ],
+    "overview": {
+      "summary": "Third-year computer science student. Builds search and evaluation tools for research labs.",
+      "location": "Milwaukee, WI"
+    },
+    "experience": [
+      {
+        "role": "Research Assistant",
+        "company": "Example University Lab",
+        "period": "Jan 2026 \u2013 Present",
+        "location": "Milwaukee, WI",
+        "description": null,
+        "bullets": [
+          "Built a retrieval pipeline over 12,000 notebook pages.",
+          "Wrote the lab's evaluation set for search quality.",
+          "Presented at the spring symposium."
+        ],
+        "current": true
+      }
+    ],
+    "education": [
+      {
+        "school": "Example University",
+        "degree": "B.S.",
+        "field": "Computer Science",
+        "period": "2023 \u2013 2027",
+        "highlights": [
+          "Dean's list"
+        ]
+      }
+    ]
+  },
+  "github": {
+    "username": "example",
+    "topLanguages": [
+      "Python",
+      "TypeScript"
+    ]
+  },
+  "updatedAt": "2026-09-29T23:10:00Z"
+}
