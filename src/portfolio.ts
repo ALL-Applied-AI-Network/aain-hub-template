@@ -245,7 +245,7 @@ function renderHeader(b: Bundle): string {
     b.github
       ? `<a class="pp-chip" href="https://github.com/${attr(b.github.username)}"${ext}>${GITHUB_MARK}<span class="pp-chip__label">${esc(b.github.username)}</span></a>`
       : "",
-    verify ? `<a class="pp-chip" href="${attr(verify)}"${ext}><span class="pp-chip__label">Verify record</span>${OUT_ICON}</a>` : "",
+    verify ? `<a class="pp-chip" href="${attr(verify)}"${ext}><span class="pp-chip__label">Network record</span>${OUT_ICON}</a>` : "",
   ].filter(Boolean).join("");
 
   return `

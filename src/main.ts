@@ -1752,7 +1752,7 @@ function defaultFeatures(
   out.push({
     title: "The network",
     subtitle: "One record, every chapter",
-    body: `${hubName} is a chapter of the ALL Applied AI Network. Your check-ins, projects and badges here also land on your ALL profile, which travels with you between chapters and is what sponsors browse when they are hiring.`,
+    body: `${hubName} is a chapter of the ALL Applied AI Network. Your check-ins, projects and badges here also land on your ALL profile, which travels with you between chapters. Approved companies can see it unless you turn that off.`,
     image: { src: "/all-logo-transparent.png", contain: true },
     link: { label: "See the network", href: IMPACT_URL },
   });
@@ -2028,26 +2028,6 @@ function renderJoin(
   const aside = document.getElementById("join-aside");
   if (aside && livePages.has("sponsor")) {
     aside.innerHTML = `Sponsoring, speaking, or hiring? <a class="link--arrow" href="#sponsor">Write to the eboard</a>`;
-  }
-
-  /* The one percentage on the page, and the only claim on it the
-     chapter did not make itself. It sits last in the band, under a
-     hairline, because it is the answer to "why join" at the moment of
-     joining — and it is set at body size, not in grey small print: a
-     cited outcome that reads as legal boilerplate is a cited outcome
-     nobody reads. */
-  const proof = document.getElementById("proof");
-  if (proof) {
-    proof.innerHTML =
-      "Across the network, active members graduated into starting salaries " +
-      "<strong>38% above their non-member peers.</strong><sup>*</sup>";
-  }
-  const note = document.getElementById("proof-note");
-  if (note) {
-    note.innerHTML =
-      `<sup>*</sup> ALL Applied AI Network Spring 2025 graduate outcomes among active members — ` +
-      `two or more events in a semester, or one project event — across every chapter and every major. ` +
-      `<a href="${IMPACT_URL}" target="_blank" rel="noopener">Methodology on the network site</a>.`;
   }
 }
 

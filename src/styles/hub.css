@@ -5128,36 +5128,6 @@ body.is-holding {
 .join__aside a { color: var(--text-secondary); font-weight: 600; }
 .join__aside a:hover { color: var(--color-primary); }
 
-/* ── The one percentage on the page.
-   Body size, under a hairline, last in the band: it is the answer to
-   "why join" at the moment of joining. At 0.95rem grey under a row of
-   buttons it read as legal small print, which is the opposite of what
-   a cited outcome should read as. */
-.proof {
-  margin: 2rem auto 0;
-  max-width: 560px;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--border);
-  font-size: 1.0625rem;
-  line-height: 1.65;
-  color: var(--text-secondary);
-}
-.proof:empty { display: none; }
-.proof strong { color: var(--text-primary); font-weight: 700; }
-.proof__note {
-  margin: 0.5rem auto 0;
-  max-width: 560px;
-  font-size: 0.75rem;
-  line-height: 1.5;
-  color: var(--text-tertiary);
-}
-.proof__note:empty { display: none; }
-.proof__note a {
-  color: var(--text-tertiary);
-  border-bottom: 1px solid var(--border-strong);
-}
-.proof__note a:hover { color: var(--text-secondary); }
-
 @media (max-width: 640px) {
   .join__actions .btn { width: 100%; justify-content: center; }
   /* A join link is a decision and gets a full-width target; a follow
