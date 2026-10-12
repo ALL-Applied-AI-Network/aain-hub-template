@@ -10,6 +10,7 @@
     "hubUrl": "https://example-ai-club.all-ai-network.org",
     "logoUrl": null,
     "primaryColor": "#8f4fe8",
+    "accentColor": "#f0b429",
     "verifyStudentId": "00000000-0000-4000-8000-0000000000aa",
     "acronym": "EAC"
   },
@@ -33,7 +34,8 @@
         "points": 10,
         "phase": null,
         "badgeIcon": null,
-        "learningTreeNodeRef": null
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null
       },
       {
         "id": "c2",
@@ -47,7 +49,8 @@
         "points": 10,
         "phase": null,
         "badgeIcon": null,
-        "learningTreeNodeRef": null
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null
       },
       {
         "id": "l1",
@@ -75,7 +78,8 @@
         "points": 10,
         "phase": null,
         "badgeIcon": null,
-        "learningTreeNodeRef": null
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null
       },
       {
         "id": "c4",
@@ -89,7 +93,8 @@
         "points": 10,
         "phase": null,
         "badgeIcon": null,
-        "learningTreeNodeRef": null
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null
       },
       {
         "id": "c5",
@@ -103,7 +108,8 @@
         "points": 15,
         "phase": "Build day",
         "badgeIcon": null,
-        "learningTreeNodeRef": null
+        "learningTreeNodeRef": null,
+        "eventImageUrl": "/fixtures/portfolio/img/fx-event.jpg"
       },
       {
         "id": "c6",
@@ -117,7 +123,8 @@
         "points": 5,
         "phase": "Kickoff",
         "badgeIcon": null,
-        "learningTreeNodeRef": null
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null
       },
       {
         "id": "c7",
@@ -131,7 +138,8 @@
         "points": 10,
         "phase": null,
         "badgeIcon": null,
-        "learningTreeNodeRef": null
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null
       },
       {
         "id": "c8",
@@ -145,7 +153,8 @@
         "points": 10,
         "phase": null,
         "badgeIcon": null,
-        "learningTreeNodeRef": null
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null
       },
       {
         "id": "c9",
@@ -159,7 +168,8 @@
         "points": 10,
         "phase": null,
         "badgeIcon": null,
-        "learningTreeNodeRef": null
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null
       },
       {
         "id": "c10",
@@ -173,7 +183,8 @@
         "points": 10,
         "phase": null,
         "badgeIcon": null,
-        "learningTreeNodeRef": null
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null
       },
       {
         "id": "c11",
@@ -187,7 +198,8 @@
         "points": 5,
         "phase": null,
         "badgeIcon": null,
-        "learningTreeNodeRef": null
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null
       },
       {
         "id": "starting-eac",
@@ -283,6 +295,7 @@
       "status": "shipped",
       "language": null,
       "stars": null,
+      "imageUrl": "/fixtures/portfolio/img/fx-proj-dark.png",
       "date": "2026-05-01T00:00:00Z"
     },
     {
@@ -296,6 +309,7 @@
       "status": null,
       "language": null,
       "stars": null,
+      "imageUrl": null,
       "date": "2025-12-01T00:00:00Z"
     },
     {
@@ -309,20 +323,14 @@
       "status": null,
       "language": "Python",
       "stars": 4,
+      "imageUrl": null,
       "date": "2026-03-10T00:00:00Z"
     }
   ],
   "resume": {
     "tagline": null,
-    "keywords": [
-      "retrieval",
-      "python",
-      "evals"
-    ],
-    "overview": {
-      "summary": "Third-year computer science student. Builds search and evaluation tools for research labs.",
-      "location": "Milwaukee, WI"
-    },
+    "keywords": [],
+    "overview": null,
     "experience": [
       {
         "role": "Research Assistant",
@@ -335,7 +343,8 @@
           "Wrote the lab's evaluation set for search quality.",
           "Presented at the spring symposium."
         ],
-        "current": true
+        "current": true,
+        "logoUrl": null
       }
     ],
     "education": [
@@ -346,9 +355,11 @@
         "period": "2023 \u2013 2027",
         "highlights": [
           "Dean's list"
-        ]
+        ],
+        "logoUrl": null
       }
-    ]
+    ],
+    "source": "linkedin"
   },
   "github": {
     "username": "example",
@@ -357,5 +368,23 @@
       "TypeScript"
     ]
   },
+  "posts": [
+    {
+      "id": "7380000000000000001",
+      "url": "https://www.linkedin.com/feed/update/urn:li:activity:7380000000000000001/",
+      "text": "Shipped notebook search to the whole lab this week. Every answer cites the page it came from, and the eval set we wrote in the spring caught two regressions before anyone saw them.",
+      "imageUrl": null,
+      "reactions": 41,
+      "postedAt": "2026-05-04T15:00:00Z"
+    },
+    {
+      "id": "7370000000000000002",
+      "url": null,
+      "text": "Hacksgiving 2025: 48 hours, one nonprofit, and a model that finally reads their intake forms.",
+      "imageUrl": null,
+      "reactions": 0,
+      "postedAt": null
+    }
+  ],
   "updatedAt": "2026-09-29T23:10:00Z"
 }

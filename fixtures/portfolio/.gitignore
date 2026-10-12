@@ -1,0 +1,14 @@
+# Local review only, never committed: this repo is public on GitHub.
+#
+# ben.json is a real member's page, and img/ holds its pictures: his
+# portrait and banner, LinkedIn post photos with other students in them,
+# and company, school and badge artwork that is not ours to republish.
+# They live here, outside public/, so no build copies them into a deploy
+# either; the Vite dev server still serves this folder at
+# /fixtures/portfolio/, which is all ?fixture=ben needs.
+#
+# The invented fixtures' pictures are generated shapes named fx-*, and
+# those are committed.
+ben.json
+img/*
+!img/fx-*

@@ -1,5 +1,5 @@
 {
-  "slug": "ben-paulson-test01",
+  "slug": "ben-paulson",
   "name": "Ben Paulson",
   "imageUrl": "https://img.clerk.com/eyJ0eXBlIjoicHJveHkiLCJzcmMiOiJodHRwczovL2ltYWdlcy5jbGVyay5kZXYvb2F1dGhfZ2l0aHViL2ltZ18zQzZrNW1ZSUpYMktXUEFrZzN1aHZyVUt2akkifQ",
   "headline": "Applied AI Engineer at Direct Supply, MSOE ML Master's '25, Stanford D.School Innovation Fellow",
@@ -10,6 +10,7 @@
     "hubUrl": "https://msoe-maic.com",
     "logoUrl": "https://gdxifnnfirnzljtxnhch.supabase.co/storage/v1/object/public/chapter-logos/8d09420c-becd-42eb-9506-e7f9a1afa636/c0949032-6627-4879-a64a-de7f7066e041.jpg",
     "primaryColor": "#4f8fea",
+    "accentColor": "#a855f7",
     "verifyStudentId": "f14c22da-cc49-4037-aa8a-dbd2e5b0550f",
     "acronym": "MAIC"
   },
@@ -33,7 +34,8 @@
         "points": 1,
         "phase": null,
         "badgeIcon": null,
-        "learningTreeNodeRef": null
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null
       },
       {
         "id": "starting-msoe",
@@ -70,6 +72,7 @@
       "status": null,
       "language": "Python",
       "stars": 2,
+      "imageUrl": null,
       "date": "2026-05-01T19:45:23Z"
     },
     {
@@ -83,6 +86,7 @@
       "status": null,
       "language": "JavaScript",
       "stars": 2,
+      "imageUrl": null,
       "date": "2026-04-03T20:41:25Z"
     },
     {
@@ -96,6 +100,7 @@
       "status": null,
       "language": "Jupyter Notebook",
       "stars": 9,
+      "imageUrl": null,
       "date": "2025-11-15T18:19:46Z"
     },
     {
@@ -109,6 +114,7 @@
       "status": null,
       "language": "Jupyter Notebook",
       "stars": 2,
+      "imageUrl": null,
       "date": "2025-03-16T20:46:52Z"
     },
     {
@@ -122,6 +128,7 @@
       "status": null,
       "language": "Jupyter Notebook",
       "stars": 1,
+      "imageUrl": null,
       "date": "2023-05-17T21:25:00Z"
     }
   ],
@@ -166,7 +173,8 @@
         "company": "Direct Supply",
         "current": true,
         "location": "Milwaukee, WI (On-site)",
-        "description": "Full-time on the Applied AI team at a 1,001\u20135,000 person healthcare company serving senior living."
+        "description": "Full-time on the Applied AI team at a 1,001\u20135,000 person healthcare company serving senior living.",
+        "logoUrl": null
       },
       {
         "role": "Data Science Intern",
@@ -179,7 +187,8 @@
         "company": "Direct Supply",
         "current": false,
         "location": "Milwaukee, WI",
-        "description": "Three-year internship spanning the Applied AI / data science org; converted into a full-time Applied AI Engineer role."
+        "description": "Three-year internship spanning the Applied AI / data science org; converted into a full-time Applied AI Engineer role.",
+        "logoUrl": null
       },
       {
         "role": "President & Founder (former)",
@@ -193,7 +202,8 @@
         "company": "MSOE AI-Club (MAIC)",
         "current": false,
         "location": "Milwaukee, WI",
-        "description": "Built MAIC from a small student group into one of the largest undergraduate AI clubs in the U.S. before passing the presidency in May 2025."
+        "description": "Built MAIC from a small student group into one of the largest undergraduate AI clubs in the U.S. before passing the presidency in May 2025.",
+        "logoUrl": null
       },
       {
         "role": "AI Development Lead",
@@ -206,7 +216,8 @@
         "company": "NILUS",
         "current": false,
         "location": "Remote (Santiago, Chile)",
-        "description": "Contract role with a climate-tech org building artificial glaciers (\"ice stupas\") to restore freshwater to dry regions."
+        "description": "Contract role with a climate-tech org building artificial glaciers (\"ice stupas\") to restore freshwater to dry regions.",
+        "logoUrl": null
       },
       {
         "role": "Research Team Lead \u2014 UN FAO Commodity Price Prediction",
@@ -218,7 +229,8 @@
         "company": "MSOE AI-Club",
         "current": false,
         "location": "Milwaukee, WI",
-        "description": "Mentored an 8-person undergrad research team building forecasting models for the UN FAO's GIEWS early-warning system."
+        "description": "Mentored an 8-person undergrad research team building forecasting models for the UN FAO's GIEWS early-warning system.",
+        "logoUrl": null
       },
       {
         "role": "CT-Scan Medical Imaging AI Researcher",
@@ -230,7 +242,8 @@
         "company": "MSOE AI-Club",
         "current": false,
         "location": "Milwaukee, WI",
-        "description": "Eight-person undergrad research team generating 3D CT volumes from paired 2D X-rays."
+        "description": "Eight-person undergrad research team generating 3D CT volumes from paired 2D X-rays.",
+        "logoUrl": null
       },
       {
         "role": "Project Manager \u2014 Cancer Screening AI Research",
@@ -242,7 +255,8 @@
         "company": "MSOE AI-Club",
         "current": false,
         "location": "Milwaukee, WI",
-        "description": "Led a 7-person undergrad team as a freshman applying ML to hyperspectral biopsy imagery."
+        "description": "Led a 7-person undergrad team as a freshman applying ML to hyperspectral biopsy imagery.",
+        "logoUrl": null
       },
       {
         "role": "Game Director (Self-Employed)",
@@ -253,7 +267,8 @@
         "company": "Independent",
         "current": false,
         "location": "Remote",
-        "description": "Self-taught game development pursued during COVID; the spark that pushed him into a CS degree."
+        "description": "Self-taught game development pursued during COVID; the spark that pushed him into a CS degree.",
+        "logoUrl": null
       }
     ],
     "education": [
@@ -266,7 +281,8 @@
           "GPA: 4.0 / 4.0",
           "Capstone: deep-research AI agent for sales coaching that traverses real call/CRM data, runs 50+ investigative queries per session, and produces structured manager-ready reports.",
           "Capstone shipped to production as Close-Rate's leading product offering; first pilot saw 20%+ close-rate lifts across reps."
-        ]
+        ],
+        "logoUrl": null
       },
       {
         "field": "Computer Science",
@@ -277,7 +293,8 @@
           "GPA: 4.0 / 4.0 \u2014 Class of 2025 Valedictorian and commencement speaker.",
           "Fred F. Loock Outstanding Student Award (2025) and Thomas W. Davis Student Leadership Award (2023).",
           "Stanford D.School University Innovation Fellow."
-        ]
+        ],
+        "logoUrl": null
       },
       {
         "field": "Valedictorian",
@@ -287,9 +304,11 @@
         "highlights": [
           "GPA 4.0/4.0, Class Rank 1/140.",
           "AP coursework: Calc AB/BC, Statistics, Lang & Comp, Lit & Comp, Physics I."
-        ]
+        ],
+        "logoUrl": null
       }
-    ]
+    ],
+    "source": "resume"
   },
   "github": {
     "username": "Benja-Pauls",

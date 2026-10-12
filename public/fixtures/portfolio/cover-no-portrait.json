@@ -1,0 +1,254 @@
+{
+  "slug": "jordan-reyes",
+  "name": "Jordan Reyes",
+  "imageUrl": null,
+  "headline": "Robotics and perception, mostly on small hardware",
+  "chapter": {
+    "id": "00000000-0000-4000-8000-000000000002",
+    "name": "Lakeside Robotics & AI",
+    "slug": "lakeside-robotics-ai",
+    "hubUrl": "https://lakeside-robotics-ai.all-ai-network.org",
+    "logoUrl": null,
+    "primaryColor": "#1f9d73",
+    "accentColor": "#e8590c",
+    "acronym": "LRA",
+    "verifyStudentId": "00000000-0000-4000-8000-0000000000bb"
+  },
+  "chapterCount": 1,
+  "since": "2025-01-20T23:00:00Z",
+  "now": null,
+  "record": {
+    "entries": [
+      {
+        "id": "k1",
+        "kind": "checkin",
+        "date": "2026-09-26T15:00:00Z",
+        "title": "Robot build weekend",
+        "chapterId": "00000000-0000-4000-8000-000000000002",
+        "chapterName": "Lakeside Robotics & AI",
+        "chapterSlug": "lakeside-robotics-ai",
+        "hubUrl": "https://lakeside-robotics-ai.all-ai-network.org",
+        "points": 15,
+        "phase": "Build day",
+        "badgeIcon": null,
+        "eventImageUrl": "/fixtures/portfolio/img/fx-event.jpg",
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "k2",
+        "kind": "checkin",
+        "date": "2026-09-12T23:00:00Z",
+        "title": "Fall kickoff",
+        "chapterId": "00000000-0000-4000-8000-000000000002",
+        "chapterName": "Lakeside Robotics & AI",
+        "chapterSlug": "lakeside-robotics-ai",
+        "hubUrl": "https://lakeside-robotics-ai.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "eventImageUrl": null,
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "bd1",
+        "kind": "badge",
+        "date": "2026-04-20T00:00:00Z",
+        "title": "Demo Day Builder",
+        "chapterId": "00000000-0000-4000-8000-000000000002",
+        "chapterName": "Lakeside Robotics & AI",
+        "chapterSlug": "lakeside-robotics-ai",
+        "hubUrl": "https://lakeside-robotics-ai.all-ai-network.org",
+        "points": null,
+        "phase": null,
+        "badgeIcon": "rocket",
+        "learningTreeNodeRef": null,
+        "badgeId": "00000000-0000-4000-8000-0000000000c1",
+        "description": "Showed a working robot at spring demo day."
+      },
+      {
+        "id": "k3",
+        "kind": "checkin",
+        "date": "2026-04-18T23:00:00Z",
+        "title": "Spring demo day",
+        "chapterId": "00000000-0000-4000-8000-000000000002",
+        "chapterName": "Lakeside Robotics & AI",
+        "chapterSlug": "lakeside-robotics-ai",
+        "hubUrl": "https://lakeside-robotics-ai.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "eventImageUrl": null,
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "k4",
+        "kind": "checkin",
+        "date": "2026-02-05T23:00:00Z",
+        "title": "Sensor fusion workshop",
+        "chapterId": "00000000-0000-4000-8000-000000000002",
+        "chapterName": "Lakeside Robotics & AI",
+        "chapterSlug": "lakeside-robotics-ai",
+        "hubUrl": "https://lakeside-robotics-ai.all-ai-network.org",
+        "points": 5,
+        "phase": null,
+        "badgeIcon": null,
+        "eventImageUrl": null,
+        "learningTreeNodeRef": null
+      }
+    ],
+    "totals": {
+      "points": 40,
+      "events": 4,
+      "badges": 1
+    },
+    "startingBalance": 0
+  },
+  "badges": [
+    {
+      "id": "bd1",
+      "name": "Demo Day Builder",
+      "icon": "rocket",
+      "awardedAt": "2026-04-20T00:00:00Z",
+      "chapterName": "Lakeside Robotics & AI",
+      "description": "Showed a working robot at spring demo day.",
+      "badgeId": "00000000-0000-4000-8000-0000000000c1"
+    }
+  ],
+  "projects": [
+    {
+      "id": "jp1",
+      "kind": "build",
+      "title": "Line-following rover",
+      "description": "A rover that follows tape on a classroom floor using a $12 camera and a model small enough for a microcontroller.",
+      "url": "https://example.com/rover",
+      "chapterProject": false,
+      "chapterName": null,
+      "status": "shipped",
+      "language": null,
+      "stars": null,
+      "imageUrl": "/fixtures/portfolio/img/fx-proj-photo.jpg",
+      "date": "2026-05-02T00:00:00Z"
+    },
+    {
+      "id": "jp2",
+      "kind": "chapterProject",
+      "title": "Campus sign reader",
+      "description": "Reads room signs aloud for visitors; the chapter's spring project.",
+      "url": "https://example.com/sign-reader",
+      "chapterProject": true,
+      "chapterName": "Lakeside Robotics & AI",
+      "status": null,
+      "language": null,
+      "stars": null,
+      "imageUrl": "/fixtures/portfolio/img/fx-proj-mark.png",
+      "date": "2026-03-01T00:00:00Z"
+    },
+    {
+      "id": "jp3",
+      "kind": "repo",
+      "title": "tiny-slam",
+      "description": "Minimal 2D SLAM for a wheeled robot, in C++ with no dependencies.",
+      "url": "https://github.com/example-jr/tiny-slam",
+      "chapterProject": false,
+      "chapterName": null,
+      "status": null,
+      "language": "C++",
+      "stars": 12,
+      "imageUrl": null,
+      "date": "2026-08-30T00:00:00Z"
+    },
+    {
+      "id": "jp4",
+      "kind": "repo",
+      "title": "depth_from_mono",
+      "description": null,
+      "url": "https://github.com/example-jr/depth_from_mono",
+      "chapterProject": false,
+      "chapterName": null,
+      "status": null,
+      "language": "Python",
+      "stars": 0,
+      "imageUrl": null,
+      "date": "2026-07-14T00:00:00Z"
+    }
+  ],
+  "resume": {
+    "tagline": "Robotics and perception on small hardware.",
+    "keywords": [
+      "robotics",
+      "perception",
+      "embedded"
+    ],
+    "overview": {
+      "headline": "Robotics and perception, mostly on small hardware",
+      "summary": "Mechanical engineering student who writes the software for the robots too. Most interested in perception that fits on a microcontroller.",
+      "location": "Chicago, IL"
+    },
+    "experience": [
+      {
+        "role": "Robotics Intern",
+        "company": "Example Motion Co.",
+        "period": "May 2026 \u2013 Aug 2026",
+        "location": "Chicago, IL",
+        "description": "Built the test rig for a warehouse robot's obstacle sensor.",
+        "bullets": [],
+        "current": false,
+        "logoUrl": "/fixtures/portfolio/img/fx-logo.png"
+      },
+      {
+        "role": "Lab Assistant",
+        "company": "Example University Robotics Lab",
+        "period": "Sep 2025 \u2013 Present",
+        "location": null,
+        "description": null,
+        "bullets": [
+          "Maintains the lab's fleet of six rovers.",
+          "Runs the Tuesday open hours.",
+          "Wrote the lab's ROS setup guide."
+        ],
+        "current": true,
+        "logoUrl": null
+      }
+    ],
+    "education": [
+      {
+        "school": "Example University",
+        "degree": "B.S.",
+        "field": "Mechanical Engineering",
+        "period": "2024 \u2013 2028",
+        "highlights": [],
+        "logoUrl": null
+      }
+    ],
+    "source": "resume"
+  },
+  "github": {
+    "username": "example-jr",
+    "topLanguages": [
+      "C++",
+      "Python"
+    ]
+  },
+  "cover": {
+    "imageUrl": "/fixtures/portfolio/img/fx-cover.jpg"
+  },
+  "posts": [
+    {
+      "id": "7390000000000000001",
+      "url": "https://www.linkedin.com/feed/update/urn:li:activity:7390000000000000001/",
+      "text": "The rover finally follows the tape all the way round. The model is 180 KB and runs at 20 frames a second on the microcontroller.",
+      "imageUrl": "/fixtures/portfolio/img/fx-post.jpg",
+      "reactions": 23,
+      "postedAt": "2026-05-03T15:00:00Z"
+    },
+    {
+      "id": "7390000000000000002",
+      "url": null,
+      "text": "Looking for a summer team to build a sign reader with. Bring a Raspberry Pi.",
+      "imageUrl": null,
+      "reactions": 1,
+      "postedAt": "2026-02-10T15:00:00Z"
+    }
+  ],
+  "updatedAt": "2026-09-26T16:00:00Z"
+}

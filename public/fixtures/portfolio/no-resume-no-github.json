@@ -1,5 +1,5 @@
 {
-  "slug": "ben-paulson-test01",
+  "slug": "ben-paulson",
   "name": "Ben Paulson",
   "imageUrl": "https://img.clerk.com/eyJ0eXBlIjoicHJveHkiLCJzcmMiOiJodHRwczovL2ltYWdlcy5jbGVyay5kZXYvb2F1dGhfZ2l0aHViL2ltZ18zQzZrNW1ZSUpYMktXUEFrZzN1aHZyVUt2akkifQ",
   "headline": "Applied AI Engineer at Direct Supply, MSOE ML Master's '25, Stanford D.School Innovation Fellow",
@@ -10,6 +10,7 @@
     "hubUrl": "https://msoe-maic.com",
     "logoUrl": "https://gdxifnnfirnzljtxnhch.supabase.co/storage/v1/object/public/chapter-logos/8d09420c-becd-42eb-9506-e7f9a1afa636/c0949032-6627-4879-a64a-de7f7066e041.jpg",
     "primaryColor": "#4f8fea",
+    "accentColor": "#a855f7",
     "verifyStudentId": "f14c22da-cc49-4037-aa8a-dbd2e5b0550f",
     "acronym": "MAIC"
   },
@@ -33,7 +34,8 @@
         "points": 1,
         "phase": null,
         "badgeIcon": null,
-        "learningTreeNodeRef": null
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null
       },
       {
         "id": "starting-msoe",
