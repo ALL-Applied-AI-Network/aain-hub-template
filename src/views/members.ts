@@ -329,6 +329,17 @@ function fold(s: string): string {
     .trim();
 }
 
+/** A folded full-name query as the board prints a member without an ALL
+ *  account (2026-10-16, lib/public-name.ts on the dashboard): first word
+ *  and the last word's initial. "jane doe" -> "jane d.", so typing your
+ *  full name still finds "Jane D.". Empty for a one-word query. */
+function shortName(q: string): string {
+  const words = q.split(/\s+/).filter(Boolean);
+  if (words.length < 2) return "";
+  const initial = Array.from(words[words.length - 1]).find((ch) => ch.toLowerCase() !== ch.toUpperCase()) ?? "";
+  return initial ? `${words[0]} ${initial}.` : "";
+}
+
 /* ── The leaderboard ───────────────────────────────────────────────────── */
 
 /**
@@ -948,6 +959,7 @@ function wireBoard(
   const applyFilter = () => {
     if (!input) return;
     const q = fold(input.value);
+    const short = shortName(q);
     closeMemberCard(false);
     clearHighlight();
     const rows = rowEls();
@@ -956,7 +968,8 @@ function wireBoard(
       // style.display, not [hidden]: `.board__row { display: grid }` is
       // an author rule and beats the UA's `[hidden] { display: none }`
       // at the same specificity, so a hidden row would stay visible.
-      const match = !q || (row.dataset.name ?? "").includes(q);
+      const name = row.dataset.name ?? "";
+      const match = !q || name.includes(q) || (!!short && name === short);
       row.style.display = match ? "" : "none";
       if (match && q) hits.push(row);
     }
