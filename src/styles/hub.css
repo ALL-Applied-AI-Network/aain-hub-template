@@ -1561,10 +1561,11 @@ a.chip:hover {
   }
 }
 
-/* ══ .group — a titled run of records with a drawn spine ══════════
-   One per year in the events archive. The 1px rule down the date-tile
-   centreline is motion 4: it draws itself once as you reach the group
-   and never again. */
+/* ══ .group — a titled run of records ══════════════════════════════
+   One per year in the events archive. There used to be a 1px spine
+   down the date tiles; it was positioned, so it painted over every
+   row, and the rows are separate bordered boxes, so it read as a
+   scratch across them rather than as a line joining them. */
 .group + .group { margin-top: 2.75rem; }
 
 .group__head {
@@ -1586,26 +1587,6 @@ a.chip:hover {
   font-size: 0.8125rem;
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
-}
-
-.group__list { position: relative; --rule-x: 28px; }
-.group__rule {
-  position: absolute;
-  left: var(--rule-x);
-  top: 12px;
-  bottom: 12px;
-  width: 1px;
-  background: var(--border);
-  transform: scaleY(0);
-  transform-origin: top;
-  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.group.in .group__rule { transform: scaleY(1); }
-/* No observer, no JS: the spine is simply there. */
-html:not(.js-rv) .group__rule { transform: scaleY(1); }
-
-@media (max-width: 640px) {
-  .group__list { --rule-x: 22px; }
 }
 
 /* ══ .events-view__block — "Coming up", then "The archive" ════════
@@ -5319,13 +5300,15 @@ body.is-holding {
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   Motion — five, and nothing here loops, counts, lifts or drifts.
+   Motion — four, and nothing here loops, counts, lifts or drifts.
 
      1  Boot assembly   body.is-ready, once, in reading order
      2  Band reveal     .rv / .rv-group, one per band, never per card
      3  The term rule   .term-line::after (with the .term-line block)
-     4  The group rule  .group__rule      (with the .group block)
      5  Filter change   .is-filtering, a single opacity step
+
+   (4, the events-archive spine, is gone; the numbers stay so the
+   "Motion N" comments below still point at the right rule.)
 
    The three classes are alternatives set by src/lib/capture.ts, and
    the DEFAULT — none of them — is fully visible. That is the whole
@@ -5420,8 +5403,7 @@ body.is-ready .hero__stats { animation-delay: 0.24s; }
     opacity: 1 !important;
     transform: none !important;
   }
-  .term-line::after,
-  .group__rule {
+  .term-line::after {
     transform: none !important;
   }
   html { scroll-behavior: auto; }
@@ -5457,10 +5439,9 @@ html.is-still .rv-group > * {
   transform: none !important;
 }
 
-/* Drawn rules: the term line's underscore and the events-feed spine
-   both start scaled to zero and are grown by a class. */
+/* Drawn rule: the term line's underscore starts scaled to zero and is
+   grown by a class. */
 html.is-still .term-line::after { transform: scaleX(1) !important; }
-html.is-still .group__rule { transform: scaleY(1) !important; }
 
 /* The mark assembles: every part of it starts at opacity 0 and is
    brought in by a `forwards` animation, which the rule above has just

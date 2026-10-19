@@ -2814,8 +2814,7 @@ function wireNavToggle() {
         41 project cards is a loading screen, not choreography.
      3  The term rule — the 2px line under the term line, drawn once.
 
-   The rest are CSS: boot assembly (body.is-ready), the Events year
-   spine (views/events.ts owns its observer) and the filter step.
+   The rest are CSS: boot assembly (body.is-ready) and the filter step.
 
    Every path here checks the settled case FIRST. Under ?still=1, under
    reduced motion, and in a browser without IntersectionObserver, the

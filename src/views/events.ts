@@ -28,7 +28,6 @@
 
 import { eventPageHref } from "../event-page";
 import type { EventRow } from "../lib/bundle";
-import { isCaptureStill } from "../lib/capture";
 import {
   futureEventsAscending,
   isFutureEvent,
@@ -331,7 +330,6 @@ function renderArchive(
             }</span>
           </div>
           <div class="group__list">
-            <span class="group__rule" aria-hidden="true"></span>
             ${rows}
           </div>
         </section>`;
@@ -457,35 +455,6 @@ function viewHost(ctx: ViewCtx, innerId: string, page: string, section: string):
   return inner;
 }
 
-/** Draw each year group's spine as it is reached. One observer, one
- *  reveal per group, unobserved on first hit — the rows themselves never
- *  animate, because 58 staggered rows is a loading screen.
- *
- *  Skipped entirely in capture mode and under reduced motion, where the
- *  spine is simply already drawn. */
-function revealGroups(host: HTMLElement): void {
-  const groups = [...host.querySelectorAll<HTMLElement>(".group")];
-  const settled =
-    isCaptureStill() ||
-    typeof IntersectionObserver === "undefined" ||
-    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
-  if (settled) {
-    groups.forEach((g) => g.classList.add("in"));
-    return;
-  }
-  const observer = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (!entry.isIntersecting) continue;
-        entry.target.classList.add("in");
-        observer.unobserve(entry.target);
-      }
-    },
-    { threshold: 0.15, rootMargin: "0px 0px -8% 0px" },
-  );
-  groups.forEach((g) => observer.observe(g));
-}
-
 export function mountEventsView(ctx: ViewCtx): void {
   const events = ctx.bundle.events ?? [];
   // A chapter with no events has no Events tab, so this is defence
@@ -541,7 +510,6 @@ export function mountEventsView(ctx: ViewCtx): void {
   });
 
   applyFilter(host, filterFromHash(filters));
-  revealGroups(host);
 }
 
 registerView("events", mountEventsView);
