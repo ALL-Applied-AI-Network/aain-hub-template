@@ -2027,7 +2027,7 @@ function renderJoin(
 
   const aside = document.getElementById("join-aside");
   if (aside && livePages.has("sponsor")) {
-    aside.innerHTML = `Sponsoring, speaking, or hiring? <a class="link--arrow" href="#sponsor">Write to the eboard</a>`;
+    aside.innerHTML = `Sponsoring, speaking, or hiring? <a class="link--arrow" href="#sponsor">Write to us</a>`;
   }
 }
 
@@ -2562,7 +2562,7 @@ const PAGE_HEADER_COPY: Record<
   sponsor: {
     kicker: "Partners",
     title: "Sponsor",
-    desc: "Back {acronym}'s events and projects through the network's involvement platform, or write to the eboard directly.",
+    desc: "Back {acronym}'s events and projects through the network's involvement platform, or write to us and the network's team introduces you to the eboard.",
   },
 };
 

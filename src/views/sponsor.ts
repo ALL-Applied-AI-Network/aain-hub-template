@@ -11,10 +11,11 @@
 
      1. "Sponsor Organization →" — the whole tiered funnel, on the
         platform that runs it.
-     2. The chapter's own inbox, inlined below. It is a genuinely
-        different thing from the funnel: it posts to
-        /api/public/sponsor/{slug}, which lands in the eboard's Inbox
-        tab and survives officer turnover, and it is the right door for
+     2. A note, inlined below. It is a genuinely different thing from
+        the funnel: it posts to /api/public/sponsor/{slug}, which goes
+        to the network's team first; they introduce the writer to the
+        eboard in a thread that survives officer turnover. It is the
+        right door for
         "can you speak at our thing", "we're hiring", "what would it
         cost to feed 40 people pizza".
 
@@ -93,11 +94,11 @@ function pitchLine(ctx: ViewCtx): string {
 function formHtml(chapterName: string): string {
   return `
     <div class="block-head">
-      <h2 class="section__subhead">Or write to the eboard</h2>
+      <h2 class="section__subhead">Or write to us</h2>
       <p class="section__desc">
         Sponsor an event, bring a speaker, recruit our members, or propose
-        something else. Your note lands directly in the eboard's inbox —
-        they'll get back within a few days.
+        something else. Your note goes to the ALL Applied AI Network team,
+        who introduce you to our eboard.
       </p>
     </div>
     <form class="sponsor-form" novalidate aria-label="Contact ${escapeAttr(chapterName)}">
@@ -142,9 +143,10 @@ function formHtml(chapterName: string): string {
           <polyline points="20 6 9 17 4 12"/>
         </svg>
       </div>
-      <h3 class="sponsor-form__success-title">Got it — thanks for reaching out.</h3>
+      <h3 class="sponsor-form__success-title">Got it. Thanks for reaching out.</h3>
       <p class="sponsor-form__success-desc">
-        The eboard has your note and typically replies within a few days.
+        The ALL Applied AI Network team has your note. They'll introduce you to
+        our eboard or write back, usually within a week.
         If anything's urgent, feel free to email us directly.
       </p>
     </div>`;
@@ -215,7 +217,7 @@ function wireForm(host: HTMLElement, slug: string): void {
       successEl.scrollIntoView({ block: "nearest" });
     } catch {
       statusEl.textContent =
-        "Network error — please try again, or email the eboard directly.";
+        "Network error. Please try again, or write to support@all-ai-network.org.";
       statusEl.classList.add("sponsor-form__status--error");
       submitBtn.disabled = false;
       submitLabel.textContent = "Send inquiry";
