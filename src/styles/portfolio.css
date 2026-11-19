@@ -171,10 +171,11 @@ button { font-family: inherit; }
   font: 600 28px/1.1 var(--display); letter-spacing: -0.025em;
   color: var(--mc-t1); overflow-wrap: anywhere;
 }
+/* The headline in full, however long: it is the member's own words, and
+   nothing else on this page repeats them. */
 .mc-headline {
   margin: 6px 0 0; max-width: 62ch;
-  font-size: 14px; line-height: 1.45; color: var(--mc-t2);
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  font-size: 14px; line-height: 1.45; color: var(--mc-t2); overflow-wrap: anywhere;
 }
 .mc-aff {
   display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 12px 0 0;
