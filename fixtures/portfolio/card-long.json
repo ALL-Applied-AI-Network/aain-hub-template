@@ -147,5 +147,17 @@
       "Python"
     ]
   },
+  "competitions": [
+    {
+      "eventId": "00000000-0000-4000-9000-00000000c101",
+      "eventTitle": "Northern Lakes Fall Interpretability Challenge",
+      "eventDate": "2026-11-01T22:00:00Z",
+      "chapterName": "Northern Lakes Undergraduate Applied Artificial Intelligence Society",
+      "teamName": "InterpretabilityAndRetrievalSystemsWorkingGroupOfNorthernLakes",
+      "projectTitle": "SparseAutoencoderFeatureBrowserForLibraryArchives",
+      "place": "Winner",
+      "certificateUrl": null
+    }
+  ],
   "updatedAt": "2026-11-10T23:31:00Z"
 }

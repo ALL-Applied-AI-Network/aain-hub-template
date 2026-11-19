@@ -577,9 +577,10 @@ function medallion(bd: CardBadge, pic: Pic): string {
 /** A placement tile: on the card's Built shelf (`extra` carries the
  *  arrival hooks) and in the Competitions section. */
 export function placementTile(t: CardPlacement, extra = ""): string {
+  const team = [t.team, t.projectTitle].filter(Boolean).join(" · ");
   const body = `
-          <span class="mc-award__top">${placementMedal(t.metal)}<span class="mc-award__place">${esc(t.place)}<small>${esc(t.eventTitle)}</small></span></span>
-          ${t.team || t.projectTitle ? `<span class="mc-award__team">${esc([t.team, t.projectTitle].filter(Boolean).join(" · "))}</span>` : ""}
+          <span class="mc-award__top">${placementMedal(t.metal)}<span class="mc-award__place" title="${attr(`${t.place}, ${t.eventTitle}`)}">${esc(t.place)}<small>${esc(t.eventTitle)}</small></span></span>
+          ${team ? `<span class="mc-award__team" title="${attr(team)}">${esc(team)}</span>` : ""}
           ${t.meta ? `<span class="mc-award__meta">${esc(t.meta)}</span>` : ""}`;
   const cls = `mc-tile mc-award mc-award--${t.metal}`;
   return t.href
