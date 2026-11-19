@@ -1,0 +1,130 @@
+{
+  "slug": "priya-nair",
+  "name": "Priya Nair",
+  "imageUrl": null,
+  "headline": "Data science sophomore. Speech models that fit on small devices.",
+  "chapter": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "name": "Example AI Club",
+    "slug": "example-ai-club",
+    "hubUrl": "https://example-ai-club.all-ai-network.org",
+    "logoUrl": null,
+    "primaryColor": "#8f4fe8",
+    "accentColor": "#f0b429",
+    "acronym": "EAC",
+    "verifyStudentId": null
+  },
+  "chapterCount": 1,
+  "chapters": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "name": "Example AI Club",
+      "acronym": "EAC",
+      "themePrimary": "#8f4fe8",
+      "hubUrl": "https://example-ai-club.all-ai-network.org",
+      "since": "2026-09-03T23:00:00Z"
+    }
+  ],
+  "since": "2026-09-03T23:00:00Z",
+  "now": null,
+  "record": {
+    "entries": [
+      {
+        "id": "e2",
+        "kind": "checkin",
+        "date": "2026-11-12T23:30:00Z",
+        "title": "Build Night",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null,
+        "eventId": "00000000-0000-4000-9000-000000000002"
+      },
+      {
+        "id": "e3",
+        "kind": "checkin",
+        "date": "2026-10-29T23:00:00Z",
+        "title": "Paper Reading: Small Models",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null,
+        "eventId": "00000000-0000-4000-9000-000000000003"
+      },
+      {
+        "id": "e4",
+        "kind": "checkin",
+        "date": "2026-09-24T23:00:00Z",
+        "title": "Intro to Agents Workshop",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null,
+        "eventImageUrl": "/fixtures/portfolio/img/fx-event.jpg",
+        "eventId": "00000000-0000-4000-9000-000000000004"
+      },
+      {
+        "id": "e5",
+        "kind": "badge",
+        "date": "2026-09-24T23:30:00Z",
+        "title": "First Workshop",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": null,
+        "phase": null,
+        "badgeIcon": "lightbulb",
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "e6",
+        "kind": "checkin",
+        "date": "2026-09-03T23:00:00Z",
+        "title": "Fall Kickoff",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null,
+        "eventId": "00000000-0000-4000-9000-000000000006"
+      }
+    ],
+    "totals": {
+      "points": 40,
+      "events": 4,
+      "badges": 1,
+      "brought": 0
+    },
+    "startingBalance": 0
+  },
+  "badges": [
+    {
+      "id": "b1",
+      "name": "First Workshop",
+      "icon": "lightbulb",
+      "awardedAt": "2026-09-24T23:30:00Z",
+      "chapterName": "Example AI Club",
+      "description": "Came to a hands-on workshop."
+    }
+  ],
+  "updatedAt": "2026-11-12T23:31:00Z"
+}

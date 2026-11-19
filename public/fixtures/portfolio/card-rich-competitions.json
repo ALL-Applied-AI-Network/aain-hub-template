@@ -1,0 +1,636 @@
+{
+  "slug": "mara-lindqvist",
+  "name": "Mara Lindqvist",
+  "imageUrl": null,
+  "headline": "Computer engineering junior. Computer vision for factory floors.",
+  "chapter": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "name": "Example AI Club",
+    "slug": "example-ai-club",
+    "hubUrl": "https://example-ai-club.all-ai-network.org",
+    "logoUrl": null,
+    "primaryColor": "#8f4fe8",
+    "accentColor": "#f0b429",
+    "acronym": "EAC",
+    "verifyStudentId": null
+  },
+  "chapterCount": 2,
+  "chapters": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "name": "Example AI Club",
+      "acronym": "EAC",
+      "themePrimary": "#8f4fe8",
+      "hubUrl": "https://example-ai-club.all-ai-network.org",
+      "since": "2025-09-10T23:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "name": "Lakeside Robotics & AI",
+      "acronym": "LRA",
+      "themePrimary": "#1f9d73",
+      "hubUrl": "https://lakeside-robotics-ai.all-ai-network.org",
+      "since": "2026-02-05T23:00:00Z"
+    }
+  ],
+  "since": "2025-09-10T23:00:00Z",
+  "now": null,
+  "record": {
+    "entries": [
+      {
+        "id": "e15",
+        "kind": "badge",
+        "date": "2026-11-12T23:40:00Z",
+        "title": "Brought a Friend",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": null,
+        "phase": null,
+        "badgeIcon": "heart",
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "e7",
+        "kind": "checkin",
+        "date": "2026-11-12T23:30:00Z",
+        "title": "Build Night",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null,
+        "eventId": "00000000-0000-4000-9000-000000000007"
+      },
+      {
+        "id": "e16",
+        "kind": "badge",
+        "date": "2026-11-05T23:00:00Z",
+        "title": "Lab Team",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": null,
+        "phase": null,
+        "badgeIcon": "users",
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "e17",
+        "kind": "badge",
+        "date": "2026-11-05T22:59:00Z",
+        "title": "Shipped",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": null,
+        "phase": null,
+        "badgeIcon": "rocket",
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "e18",
+        "kind": "badge",
+        "date": "2026-11-05T22:58:00Z",
+        "title": "Lab Finalist",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": null,
+        "phase": null,
+        "badgeIcon": "trophy",
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "e8",
+        "kind": "checkin",
+        "date": "2026-11-05T22:00:00Z",
+        "title": "Innovation Lab Finals",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 30,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null,
+        "eventImageUrl": "/fixtures/portfolio/img/fx-event.jpg",
+        "eventId": "00000000-0000-4000-9000-000000000008"
+      },
+      {
+        "id": "e19",
+        "kind": "badge",
+        "date": "2026-10-30T23:30:00Z",
+        "title": "Robotics Demo",
+        "chapterId": "00000000-0000-4000-8000-000000000002",
+        "chapterName": "Lakeside Robotics & AI",
+        "chapterSlug": "lakeside-robotics-ai",
+        "hubUrl": "https://lakeside-robotics-ai.all-ai-network.org",
+        "points": null,
+        "phase": null,
+        "badgeIcon": "/fixtures/portfolio/img/fx-logo.png",
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "e9",
+        "kind": "checkin",
+        "date": "2026-10-30T23:00:00Z",
+        "title": "Fall Kickoff",
+        "chapterId": "00000000-0000-4000-8000-000000000002",
+        "chapterName": "Lakeside Robotics & AI",
+        "chapterSlug": "lakeside-robotics-ai",
+        "hubUrl": "https://lakeside-robotics-ai.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null,
+        "eventId": "00000000-0000-4000-9000-000000000009"
+      },
+      {
+        "id": "e20",
+        "kind": "badge",
+        "date": "2026-10-29T23:30:00Z",
+        "title": "Paper Reader",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": null,
+        "phase": null,
+        "badgeIcon": "scroll",
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "e10",
+        "kind": "checkin",
+        "date": "2026-10-29T23:00:00Z",
+        "title": "Paper Reading: Small Models",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null,
+        "eventId": "00000000-0000-4000-9000-000000000010"
+      },
+      {
+        "id": "e21",
+        "kind": "badge",
+        "date": "2026-10-15T23:30:00Z",
+        "title": "Five Events",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": null,
+        "phase": null,
+        "badgeIcon": "star",
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "e22",
+        "kind": "badge",
+        "date": "2026-10-15T23:20:00Z",
+        "title": "Agent Builder",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": null,
+        "phase": null,
+        "badgeIcon": "brain",
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "e23",
+        "kind": "badge",
+        "date": "2026-10-15T23:10:00Z",
+        "title": "First Commit",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": null,
+        "phase": null,
+        "badgeIcon": "code",
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "e11",
+        "kind": "checkin",
+        "date": "2026-10-15T23:00:00Z",
+        "title": "Innovation Lab Kickoff",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 20,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null,
+        "eventImageUrl": "/fixtures/portfolio/img/fx-event.jpg",
+        "eventId": "00000000-0000-4000-9000-000000000011"
+      },
+      {
+        "id": "e24",
+        "kind": "badge",
+        "date": "2026-10-08T23:30:00Z",
+        "title": "Speaker Night",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": null,
+        "phase": null,
+        "badgeIcon": "mic",
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "e12",
+        "kind": "checkin",
+        "date": "2026-10-08T23:00:00Z",
+        "title": "Speaker Night: AI on the Factory Floor",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 15,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null,
+        "eventImageUrl": "/fixtures/portfolio/img/fx-proj-photo.jpg",
+        "eventId": "00000000-0000-4000-9000-000000000012"
+      },
+      {
+        "id": "e25",
+        "kind": "badge",
+        "date": "2026-09-24T23:30:00Z",
+        "title": "First Workshop",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": null,
+        "phase": null,
+        "badgeIcon": "🛠️",
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "e26",
+        "kind": "badge",
+        "date": "2026-09-24T23:20:00Z",
+        "title": "Build Night",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": null,
+        "phase": null,
+        "badgeIcon": "zap",
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "e13",
+        "kind": "checkin",
+        "date": "2026-09-24T23:00:00Z",
+        "title": "Intro to Agents Workshop",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null,
+        "eventId": "00000000-0000-4000-9000-000000000013"
+      },
+      {
+        "id": "e27",
+        "kind": "badge",
+        "date": "2026-09-10T23:30:00Z",
+        "title": "Kickoff",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": null,
+        "phase": null,
+        "badgeIcon": "sparkles",
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "e28",
+        "kind": "badge",
+        "date": "2026-09-10T23:20:00Z",
+        "title": "On Target",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": null,
+        "phase": null,
+        "badgeIcon": "target",
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "e14",
+        "kind": "checkin",
+        "date": "2026-09-10T23:00:00Z",
+        "title": "Fall Kickoff",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null,
+        "eventId": "00000000-0000-4000-9000-000000000014"
+      }
+    ],
+    "totals": {
+      "points": 115,
+      "events": 8,
+      "badges": 14,
+      "brought": 2
+    },
+    "startingBalance": 0
+  },
+  "badges": [
+    {
+      "id": "b1",
+      "name": "Brought a Friend",
+      "icon": "heart",
+      "awardedAt": "2026-11-12T23:40:00Z",
+      "chapterName": "Example AI Club"
+    },
+    {
+      "id": "b2",
+      "name": "Lab Team",
+      "icon": "users",
+      "awardedAt": "2026-11-05T23:00:00Z",
+      "chapterName": "Example AI Club"
+    },
+    {
+      "id": "b3",
+      "name": "Shipped",
+      "icon": "rocket",
+      "awardedAt": "2026-11-05T22:59:00Z",
+      "chapterName": "Example AI Club"
+    },
+    {
+      "id": "b4",
+      "name": "Lab Finalist",
+      "icon": "trophy",
+      "awardedAt": "2026-11-05T22:58:00Z",
+      "chapterName": "Example AI Club"
+    },
+    {
+      "id": "b5",
+      "name": "Robotics Demo",
+      "icon": "/fixtures/portfolio/img/fx-logo.png",
+      "awardedAt": "2026-10-30T23:30:00Z",
+      "chapterName": "Lakeside Robotics & AI"
+    },
+    {
+      "id": "b6",
+      "name": "Paper Reader",
+      "icon": "scroll",
+      "awardedAt": "2026-10-29T23:30:00Z",
+      "chapterName": "Example AI Club"
+    },
+    {
+      "id": "b7",
+      "name": "Five Events",
+      "icon": "star",
+      "awardedAt": "2026-10-15T23:30:00Z",
+      "chapterName": "Example AI Club"
+    },
+    {
+      "id": "b8",
+      "name": "Agent Builder",
+      "icon": "brain",
+      "awardedAt": "2026-10-15T23:20:00Z",
+      "chapterName": "Example AI Club"
+    },
+    {
+      "id": "b9",
+      "name": "First Commit",
+      "icon": "code",
+      "awardedAt": "2026-10-15T23:10:00Z",
+      "chapterName": "Example AI Club"
+    },
+    {
+      "id": "b10",
+      "name": "Speaker Night",
+      "icon": "mic",
+      "awardedAt": "2026-10-08T23:30:00Z",
+      "chapterName": "Example AI Club"
+    },
+    {
+      "id": "b11",
+      "name": "First Workshop",
+      "icon": "🛠️",
+      "awardedAt": "2026-09-24T23:30:00Z",
+      "chapterName": "Example AI Club"
+    },
+    {
+      "id": "b12",
+      "name": "Build Night",
+      "icon": "zap",
+      "awardedAt": "2026-09-24T23:20:00Z",
+      "chapterName": "Example AI Club"
+    },
+    {
+      "id": "b13",
+      "name": "Kickoff",
+      "icon": "sparkles",
+      "awardedAt": "2026-09-10T23:30:00Z",
+      "chapterName": "Example AI Club"
+    },
+    {
+      "id": "b14",
+      "name": "On Target",
+      "icon": "target",
+      "awardedAt": "2026-09-10T23:20:00Z",
+      "chapterName": "Example AI Club"
+    }
+  ],
+  "learning": {
+    "bands": [
+      {
+        "id": "foundations",
+        "title": "Foundations",
+        "done": 3,
+        "count": 5,
+        "lessons": [
+          {
+            "id": "what-is-ai",
+            "title": "What AI is, and is not",
+            "completedAt": "2026-09-12T15:00:00Z"
+          },
+          {
+            "id": "prompting",
+            "title": "Prompting with structure",
+            "completedAt": "2026-09-20T15:00:00Z"
+          },
+          {
+            "id": "evals",
+            "title": "Your first eval",
+            "completedAt": "2026-10-02T15:00:00Z"
+          }
+        ]
+      }
+    ]
+  },
+  "projects": [
+    {
+      "id": "p1",
+      "kind": "chapterProject",
+      "title": "Linewatch",
+      "description": "Spotting defects on a conveyor from one camera.",
+      "url": "https://example.com/linewatch",
+      "chapterProject": true,
+      "chapterName": "Example AI Club",
+      "status": null,
+      "language": "Python",
+      "stars": 12,
+      "imageUrl": "/fixtures/portfolio/img/fx-proj-photo.jpg",
+      "date": "2026-10-20T00:00:00Z",
+      "repoUrl": "https://github.com/example-ml/linewatch"
+    },
+    {
+      "id": "p2",
+      "kind": "build",
+      "title": "tiny-rag",
+      "description": "Retrieval over a course's lecture notes, on a laptop.",
+      "url": "https://github.com/example-ml/tiny-rag",
+      "chapterProject": false,
+      "chapterName": null,
+      "status": "shipped",
+      "language": "TypeScript",
+      "stars": 5,
+      "imageUrl": null,
+      "date": "2026-09-30T00:00:00Z",
+      "repoUrl": "https://github.com/example-ml/tiny-rag"
+    },
+    {
+      "id": "p3",
+      "kind": "repo",
+      "title": "edge-yolo-bench",
+      "description": "Benchmarks for small detectors on single-board computers.",
+      "url": "https://github.com/example-ml/edge-yolo-bench",
+      "chapterProject": false,
+      "chapterName": null,
+      "status": null,
+      "language": "C++",
+      "stars": 3,
+      "imageUrl": null,
+      "date": "2026-08-14T00:00:00Z"
+    },
+    {
+      "id": "p4",
+      "kind": "repo",
+      "title": "notebook-utils",
+      "description": null,
+      "url": "https://github.com/example-ml/notebook-utils",
+      "chapterProject": false,
+      "chapterName": null,
+      "status": null,
+      "language": "Jupyter Notebook",
+      "stars": 0,
+      "imageUrl": null,
+      "date": "2026-03-02T00:00:00Z"
+    }
+  ],
+  "resume": {
+    "tagline": null,
+    "keywords": [
+      "Computer vision",
+      "PyTorch",
+      "Edge inference",
+      "C++"
+    ],
+    "overview": {
+      "headline": "Computer engineering junior",
+      "location": "Lakeside, WI",
+      "summary": "I build vision systems that run where the work happens: on a camera above a conveyor, on a board the size of a phone.\n\nThis year: defect detection for a local manufacturer's line, with my chapter's lab team."
+    },
+    "experience": [
+      {
+        "role": "Machine learning intern",
+        "company": "Example Manufacturing Co.",
+        "period": "Jun 2026 – Aug 2026",
+        "location": "Lakeside, WI",
+        "description": "Built the first defect detector on the packaging line.",
+        "bullets": [],
+        "current": false,
+        "logoUrl": null
+      }
+    ],
+    "education": [
+      {
+        "school": "Example State University",
+        "degree": "BS",
+        "field": "Computer Engineering",
+        "period": "2024 – 2028",
+        "highlights": [],
+        "logoUrl": null
+      }
+    ],
+    "source": "resume"
+  },
+  "github": {
+    "username": "example-ml",
+    "topLanguages": [
+      "Python",
+      "TypeScript",
+      "C++"
+    ]
+  },
+  "posts": [
+    {
+      "id": "fx-post-1",
+      "url": null,
+      "text": "Our lab team placed at the Innovation Lab finals. One camera, one conveyor, a lot of late nights.",
+      "imageUrl": "/fixtures/portfolio/img/fx-post.jpg",
+      "reactions": 48,
+      "postedAt": "2026-11-06T15:00:00Z"
+    },
+    {
+      "id": "fx-post-2",
+      "url": null,
+      "text": "Small detectors on small boards: notes from a month of benchmarking.",
+      "imageUrl": null,
+      "reactions": 12,
+      "postedAt": "2026-08-20T15:00:00Z"
+    }
+  ],
+  "updatedAt": "2026-11-12T23:41:00Z",
+  "competitions": [
+    {
+      "eventId": "00000000-0000-4000-9000-00000000c001",
+      "eventTitle": "Fall Innovation Lab",
+      "eventDate": "2026-11-05T22:00:00Z",
+      "chapterName": "Example AI Club",
+      "teamName": "Line Sight",
+      "projectTitle": "Linewatch",
+      "place": "1st runner-up",
+      "certificateUrl": "https://example.com/certificate/fx-1"
+    }
+  ]
+}

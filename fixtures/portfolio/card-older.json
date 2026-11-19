@@ -1,0 +1,147 @@
+{
+  "slug": "dana-whitcomb",
+  "name": "Dana Whitcomb",
+  "imageUrl": null,
+  "headline": null,
+  "chapter": {
+    "id": "00000000-0000-4000-8000-000000000002",
+    "name": "Lakeside Robotics & AI",
+    "slug": "lakeside-robotics-ai",
+    "hubUrl": "https://lakeside-robotics-ai.all-ai-network.org",
+    "logoUrl": null,
+    "primaryColor": "#1f9d73",
+    "accentColor": "#e8590c",
+    "acronym": "LRA",
+    "verifyStudentId": null
+  },
+  "chapterCount": 2,
+  "since": "2026-02-05T23:00:00Z",
+  "now": null,
+  "record": {
+    "entries": [
+      {
+        "id": "e29",
+        "kind": "checkin",
+        "date": "2026-10-30T23:00:00Z",
+        "title": "Fall Kickoff",
+        "chapterId": "00000000-0000-4000-8000-000000000002",
+        "chapterName": "Lakeside Robotics & AI",
+        "chapterSlug": "lakeside-robotics-ai",
+        "hubUrl": "https://lakeside-robotics-ai.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null,
+        "eventImageUrl": "/fixtures/portfolio/img/fx-event.jpg",
+        "eventId": "00000000-0000-4000-9000-000000000029"
+      },
+      {
+        "id": "e30",
+        "kind": "checkin",
+        "date": "2026-10-22T23:00:00Z",
+        "title": "Soldering Night",
+        "chapterId": "00000000-0000-4000-8000-000000000002",
+        "chapterName": "Lakeside Robotics & AI",
+        "chapterSlug": "lakeside-robotics-ai",
+        "hubUrl": "https://lakeside-robotics-ai.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null,
+        "eventId": "00000000-0000-4000-9000-000000000030"
+      },
+      {
+        "id": "e31",
+        "kind": "badge",
+        "date": "2026-10-22T23:30:00Z",
+        "title": "Hands On",
+        "chapterId": "00000000-0000-4000-8000-000000000002",
+        "chapterName": "Lakeside Robotics & AI",
+        "chapterSlug": "lakeside-robotics-ai",
+        "hubUrl": "https://lakeside-robotics-ai.all-ai-network.org",
+        "points": null,
+        "phase": null,
+        "badgeIcon": "award",
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "e32",
+        "kind": "checkin",
+        "date": "2026-04-15T23:00:00Z",
+        "title": "Spring Demo Day",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null,
+        "eventId": "00000000-0000-4000-9000-000000000032"
+      },
+      {
+        "id": "e33",
+        "kind": "badge",
+        "date": "2026-04-15T23:30:00Z",
+        "title": "Demo Day",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": null,
+        "phase": null,
+        "badgeIcon": "medal",
+        "learningTreeNodeRef": null
+      }
+    ],
+    "totals": {
+      "points": 30,
+      "events": 3,
+      "badges": 2
+    },
+    "startingBalance": 0
+  },
+  "badges": [
+    {
+      "id": "b1",
+      "name": "Hands On",
+      "icon": "award",
+      "awardedAt": "2026-10-22T23:30:00Z",
+      "chapterName": "Lakeside Robotics & AI"
+    },
+    {
+      "id": "b2",
+      "name": "Demo Day",
+      "icon": "medal",
+      "awardedAt": "2026-04-15T23:30:00Z",
+      "chapterName": "Example AI Club"
+    }
+  ],
+  "projects": [
+    {
+      "id": "p1",
+      "kind": "build",
+      "title": "Line-following rover",
+      "description": "A rover that follows tape with one camera and a PID loop.",
+      "url": null,
+      "chapterProject": false,
+      "chapterName": null,
+      "status": "building",
+      "language": null,
+      "stars": null,
+      "imageUrl": "/fixtures/portfolio/img/fx-proj-dark.png",
+      "date": "2026-10-01T00:00:00Z"
+    }
+  ],
+  "resume": {
+    "tagline": "Robotics, mostly on small hardware.",
+    "keywords": [],
+    "overview": null,
+    "experience": [],
+    "education": [],
+    "source": "linkedin"
+  },
+  "updatedAt": "2026-10-30T23:31:00Z"
+}

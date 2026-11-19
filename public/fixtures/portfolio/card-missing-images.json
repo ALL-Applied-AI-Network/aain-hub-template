@@ -1,0 +1,129 @@
+{
+  "slug": "sol-ferreira",
+  "name": "Sol Ferreira",
+  "imageUrl": "/fixtures/portfolio/img/fx-missing-portrait.jpg",
+  "headline": "Accessibility tools for campus spaces.",
+  "chapter": {
+    "id": "00000000-0000-4000-8000-000000000004",
+    "name": "Riverbend AI Collective",
+    "slug": "riverbend-ai-collective",
+    "hubUrl": "https://riverbend-ai-collective.all-ai-network.org",
+    "logoUrl": null,
+    "primaryColor": null,
+    "accentColor": null,
+    "acronym": "RAC",
+    "verifyStudentId": null
+  },
+  "chapterCount": 1,
+  "chapters": [
+    {
+      "id": "00000000-0000-4000-8000-000000000004",
+      "name": "Riverbend AI Collective",
+      "acronym": "RAC",
+      "themePrimary": null,
+      "hubUrl": "https://riverbend-ai-collective.all-ai-network.org",
+      "since": "2026-09-17T23:00:00Z"
+    }
+  ],
+  "since": "2026-09-17T23:00:00Z",
+  "now": null,
+  "record": {
+    "entries": [
+      {
+        "id": "e38",
+        "kind": "checkin",
+        "date": "2026-11-04T23:00:00Z",
+        "title": "Demo Night",
+        "chapterId": "00000000-0000-4000-8000-000000000004",
+        "chapterName": "Riverbend AI Collective",
+        "chapterSlug": "riverbend-ai-collective",
+        "hubUrl": "https://riverbend-ai-collective.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null,
+        "eventImageUrl": "/fixtures/portfolio/img/fx-missing-event.jpg",
+        "eventId": "00000000-0000-4000-9000-000000000038"
+      },
+      {
+        "id": "e39",
+        "kind": "checkin",
+        "date": "2026-10-21T23:00:00Z",
+        "title": "Guest Workshop",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null,
+        "eventImageUrl": "/fixtures/portfolio/img/fx-missing-event-2.jpg",
+        "eventId": "00000000-0000-4000-9000-000000000039"
+      },
+      {
+        "id": "e40",
+        "kind": "badge",
+        "date": "2026-10-21T23:30:00Z",
+        "title": "Guest",
+        "chapterId": "00000000-0000-4000-8000-000000000004",
+        "chapterName": "Riverbend AI Collective",
+        "chapterSlug": "riverbend-ai-collective",
+        "hubUrl": "https://riverbend-ai-collective.all-ai-network.org",
+        "points": null,
+        "phase": null,
+        "badgeIcon": "/fixtures/portfolio/img/fx-missing-badge.png",
+        "learningTreeNodeRef": null
+      },
+      {
+        "id": "e41",
+        "kind": "checkin",
+        "date": "2026-09-17T23:00:00Z",
+        "title": "First Meeting",
+        "chapterId": "00000000-0000-4000-8000-000000000004",
+        "chapterName": "Riverbend AI Collective",
+        "chapterSlug": "riverbend-ai-collective",
+        "hubUrl": "https://riverbend-ai-collective.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null,
+        "eventId": "00000000-0000-4000-9000-000000000041"
+      }
+    ],
+    "totals": {
+      "points": 30,
+      "events": 3,
+      "badges": 1,
+      "brought": 0
+    },
+    "startingBalance": 0
+  },
+  "badges": [
+    {
+      "id": "b1",
+      "name": "Guest",
+      "icon": "/fixtures/portfolio/img/fx-missing-badge.png",
+      "awardedAt": "2026-10-21T23:30:00Z",
+      "chapterName": "Riverbend AI Collective"
+    }
+  ],
+  "projects": [
+    {
+      "id": "p1",
+      "kind": "build",
+      "title": "Campus sign reader",
+      "description": "Reads room signs aloud from a phone camera.",
+      "url": "https://example.com/sign-reader",
+      "chapterProject": false,
+      "chapterName": null,
+      "status": "shipped",
+      "language": null,
+      "stars": null,
+      "imageUrl": "/fixtures/portfolio/img/fx-missing-project.jpg",
+      "date": "2026-10-10T00:00:00Z"
+    }
+  ],
+  "updatedAt": "2026-11-04T23:31:00Z"
+}

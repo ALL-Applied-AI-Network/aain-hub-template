@@ -1,0 +1,58 @@
+{
+  "slug": "theo-marsh",
+  "name": "Theo Marsh",
+  "imageUrl": null,
+  "headline": null,
+  "chapter": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "name": "Example AI Club",
+    "slug": "example-ai-club",
+    "hubUrl": "https://example-ai-club.all-ai-network.org",
+    "logoUrl": null,
+    "primaryColor": "#8f4fe8",
+    "accentColor": "#f0b429",
+    "acronym": "EAC",
+    "verifyStudentId": null
+  },
+  "chapterCount": 1,
+  "chapters": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "name": "Example AI Club",
+      "acronym": "EAC",
+      "themePrimary": "#8f4fe8",
+      "hubUrl": "https://example-ai-club.all-ai-network.org",
+      "since": "2026-11-12T23:30:00Z"
+    }
+  ],
+  "since": "2026-11-12T23:30:00Z",
+  "now": null,
+  "record": {
+    "entries": [
+      {
+        "id": "e1",
+        "kind": "checkin",
+        "date": "2026-11-12T23:30:00Z",
+        "title": "Build Night",
+        "chapterId": "00000000-0000-4000-8000-000000000001",
+        "chapterName": "Example AI Club",
+        "chapterSlug": "example-ai-club",
+        "hubUrl": "https://example-ai-club.all-ai-network.org",
+        "points": 10,
+        "phase": null,
+        "badgeIcon": null,
+        "learningTreeNodeRef": null,
+        "eventImageUrl": null,
+        "eventId": "00000000-0000-4000-9000-000000000001"
+      }
+    ],
+    "totals": {
+      "points": 10,
+      "events": 1,
+      "badges": 0,
+      "brought": 0
+    },
+    "startingBalance": 0
+  },
+  "updatedAt": "2026-11-12T23:31:00Z"
+}
