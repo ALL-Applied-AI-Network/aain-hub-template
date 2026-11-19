@@ -124,8 +124,8 @@ button { font-family: inherit; }
    takes one condition. */
 
 .mc-box { container: mcard / inline-size; min-width: 0; }
-.mc {
-  --c: #4f8fea;
+/* The card's greys, also worn by the Competitions section's tiles. */
+.mc, .mc-awards {
   --mc-card: var(--bg-surface);
   --mc-line: rgba(255, 255, 255, 0.09);
   --mc-line-hover: rgba(255, 255, 255, 0.2);
@@ -134,6 +134,9 @@ button { font-family: inherit; }
   --mc-t1: #f4f4f6;
   --mc-t2: #b4b4b8;
   --mc-t3: #8e8e93;
+}
+.mc {
+  --c: #4f8fea;
   position: relative;
   background: var(--mc-card);
   border: 1px solid var(--mc-line);
@@ -145,7 +148,7 @@ button { font-family: inherit; }
   font: 400 14px/1.45 var(--sans);
 }
 .mc--none { border-top: 1px solid var(--mc-line); padding-top: 24px; }
-.mc svg { flex: none; }
+.mc svg, .mc-awards svg { flex: none; }
 .mc-quiet { color: var(--mc-t3); }
 
 /* Who */
@@ -292,6 +295,12 @@ button { font-family: inherit; }
 }
 .mc-award__team { font-size: 12.5px; line-height: 1.45; color: var(--mc-t2); }
 .mc-award__meta { margin-top: auto; font-size: 12px; color: var(--mc-t3); }
+
+/* Competitions, under Projects: every placement, in the card's tile. */
+.mc-awards {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px;
+  color: var(--mc-t1); font: 400 14px/1.45 var(--sans);
+}
 
 /* Chips: badges and check-ins, each named. */
 .mc-chip {

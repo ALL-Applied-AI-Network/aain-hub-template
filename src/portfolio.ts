@@ -35,7 +35,7 @@ import { badgeGlyph } from "./portfolio-badge-icons";
 import { chapterColors } from "./portfolio-colors";
 import { languageColor } from "./portfolio-lang";
 import { plainText } from "./plain-text";
-import { cardFromJson, initialsOf, renderCard, toneOf } from "./portfolio-card";
+import { cardFromJson, initialsOf, placementsOf, placementTile, renderCard, toneOf } from "./portfolio-card";
 
 declare const __HUB_CONFIG__: { hub_domain?: string };
 
@@ -317,6 +317,7 @@ function renderHeader(b: Bundle): string {
     img: safeImg,
     sections: {
       projects: (b.projects ?? []).length > 0,
+      competitions: placementsOf(b.competitions).length > 0,
       badges: (b.badges ?? []).length > 0,
       events: ev.checkins.length + ev.carried.length > 0,
     },
@@ -442,6 +443,18 @@ function renderProjects(b: Bundle): string {
   }
   html += renderLanguages(b);
   return section("projects", "Projects", landing("projects", all.length), html);
+}
+
+/* ── competitions ───────────────────────────────────────────────── */
+
+/** Every placement, in the card's tile. The JSON carries them only when
+ *  the member switched competition results on. The card's Built shelf
+ *  opens with the first ones; this is where all of them are. */
+function renderCompetitions(b: Bundle): string {
+  const list = placementsOf(b.competitions);
+  if (!list.length) return "";
+  return section("competitions", "Competitions", landing("competitions", list.length),
+    `<div class="mc-awards rv-group">${list.map((t) => placementTile(t)).join("")}</div>`);
 }
 
 /** Their most-used languages on GitHub, each underlined in its linguist
@@ -746,7 +759,7 @@ function footerBand(): string {
 /** The work first (what they made, what they said about it), then the
  *  career, then the record the chapter keeps, then the schools. */
 function renderPage(b: Bundle): string {
-  return renderHeader(b) + renderProjects(b) + renderPosts(b) + renderAbout(b) + renderExperience(b) +
+  return renderHeader(b) + renderProjects(b) + renderCompetitions(b) + renderPosts(b) + renderAbout(b) + renderExperience(b) +
     renderEvents(b) + renderBadges(b) + renderEducation(b) + renderLearning(b) + renderCode(b) + footerBand();
 }
 

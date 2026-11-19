@@ -15,7 +15,7 @@
    handle, since when, and where; the page's address top right; then the
    shelves, in this fixed order:
 
-     Built       a placement first when the JSON carries `competitions`
+     Built       placements first when the JSON carries `competitions`
                  (it only does when the member switched them on), then
                  projects in the shape of GitHub's pinned repos: photo or
                  repo glyph, name, kind, one line, language, stars, Shipped
@@ -116,17 +116,21 @@ export type CardSource = {
 
 export type CardChapter = { id: string; name: string; acronym: string; color: string; href: string | null };
 
+/** A placement: the Built shelf opens with them, and the Competitions
+ *  section under the card lists every one. */
+export type CardPlacement = {
+  kind: "placement";
+  place: string;
+  metal: Metal;
+  eventTitle: string;
+  team: string;
+  projectTitle: string | null;
+  meta: string;
+  href: string | null;
+};
+
 export type CardBuilt =
-  | {
-      kind: "placement";
-      place: string;
-      metal: Metal;
-      eventTitle: string;
-      team: string;
-      projectTitle: string | null;
-      meta: string;
-      href: string | null;
-    }
+  | CardPlacement
   | {
       kind: "project";
       name: string;
@@ -203,7 +207,7 @@ export type CardOptions = {
   img: (raw: string | null | undefined) => string | null;
   /** Which sections the page below the card has, so "All N ›" never
    *  points at one that isn't there. */
-  sections: { projects: boolean; badges: boolean; events: boolean };
+  sections: { projects: boolean; competitions: boolean; badges: boolean; events: boolean };
 };
 
 /** How many of each shelf the card shows before "All N ›". */
@@ -368,6 +372,28 @@ function badgeArt(icon: string | null, name: string, img: CardOptions["img"]): C
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
+/** Every placement the JSON carries, in its order. It carries them only
+ *  when the member switched competition results on; one with no place or
+ *  no event is skipped, here and in the Competitions section alike. */
+export function placementsOf(list: CardSource["competitions"]): CardPlacement[] {
+  const out: CardPlacement[] = [];
+  for (const c of list ?? []) {
+    if (!c?.place?.trim() || !c.eventTitle?.trim()) continue;
+    const teamName = c.teamName?.trim() ?? "";
+    out.push({
+      kind: "placement",
+      place: c.place.trim(),
+      metal: placeMetal(c.place),
+      eventTitle: c.eventTitle.trim(),
+      team: teamName ? (/^team\b/i.test(teamName) ? teamName : `Team ${teamName}`) : "",
+      projectTitle: c.projectTitle?.trim() || null,
+      meta: [c.chapterName, termOf(c.eventDate)].filter(Boolean).join(" · "),
+      href: safeHttp(c.certificateUrl),
+    });
+  }
+  return out;
+}
+
 export function cardFromJson(b: CardSource, o: CardOptions): CardModel {
   /* Who they are with: every chapter, primary first. */
   type Raw = { id: string; name: string; acronym: string | null; color: string | null; hubUrl: string | null };
@@ -391,24 +417,24 @@ export function cardFromJson(b: CardSource, o: CardOptions): CardModel {
   const leafById = new Map(raw.map((c) => [c.id, normalizeHex(c.color) ? cardColor(c.color) : null]));
   const colorByName = new Map(chapters.map((c) => [c.name, c.color]));
 
-  /* Built. */
+  /* Built: the placements, then the projects. */
   const projectsHref = o.sections.projects ? "#pp-projects" : "";
-  const built: CardBuilt[] = [];
-  for (const c of b.competitions ?? []) {
-    if (!c?.place?.trim() || !c.eventTitle?.trim()) continue;
-    const teamName = c.teamName?.trim() ?? "";
-    built.push({
-      kind: "placement",
-      place: c.place.trim(),
-      metal: placeMetal(c.place),
-      eventTitle: c.eventTitle.trim(),
-      team: teamName ? (/^team\b/i.test(teamName) ? teamName : `Team ${teamName}`) : "",
-      projectTitle: c.projectTitle?.trim() || null,
-      meta: [c.chapterName, termOf(c.eventDate)].filter(Boolean).join(" · "),
-      href: safeHttp(c.certificateUrl),
-    });
+  const placements = placementsOf(b.competitions);
+  const tiles = projectTiles(b.projects ?? [], o.img, projectsHref);
+  const built: CardBuilt[] = [...placements, ...tiles];
+  const placementsShown = Math.min(placements.length, SHOWN.built);
+  const tilesShown = Math.min(tiles.length, SHOWN.built - placementsShown);
+  // "All N ›" goes to the section that holds the ones the card leaves
+  // out, and N is the number that section counts, so the number clicked
+  // is the number landed on. Projects counts every project the JSON sends
+  // (a repo the card folds into its project is a card of its own there);
+  // Competitions counts every placement.
+  let builtAll: CardShelf["all"] = null;
+  if (tiles.length > tilesShown && o.sections.projects) {
+    builtAll = { n: (b.projects ?? []).length, href: "#pp-projects", land: "projects" };
+  } else if (placements.length > placementsShown && o.sections.competitions) {
+    builtAll = { n: placements.length, href: "#pp-competitions", land: "competitions" };
   }
-  built.push(...projectTiles(b.projects ?? [], o.img, projectsHref));
 
   /* Earned. */
   const badgeRows = [...(b.badges ?? [])].sort((x, y) => (y.awardedAt ?? "").localeCompare(x.awardedAt ?? ""));
@@ -450,15 +476,7 @@ export function cardFromJson(b: CardSource, o: CardOptions): CardModel {
 
   /* The shelves, in their fixed order; a shelf with nothing is absent. */
   const shelves: CardShelf[] = [];
-  if (built.length) {
-    const more = built.length - SHOWN.built;
-    shelves.push({
-      key: "built",
-      title: "Built",
-      lines: [],
-      all: more > 0 && projectsHref ? { n: built.length, href: projectsHref, land: "projects" } : null,
-    });
-  }
+  if (built.length) shelves.push({ key: "built", title: "Built", lines: [], all: builtAll });
   if (badges.length || carried) {
     const lines: CardShelf["lines"] = [];
     if (badgeCount > 0) lines.push({ n: badgeCount, label: plural(badgeCount, "badge", "badges") });
@@ -556,18 +574,22 @@ function medallion(bd: CardBadge, pic: Pic): string {
   return `<span class="mc-med" style="--m:${attr(bd.color)}" aria-hidden="true">${MEDALLION}${inner}</span>`;
 }
 
-function builtTile(t: CardBuilt, j: number, pic: Pic): string {
-  const style = ` style="--j:${j}"`;
-  if (t.kind === "placement") {
-    const body = `
+/** A placement tile: on the card's Built shelf (`extra` carries the
+ *  arrival hooks) and in the Competitions section. */
+export function placementTile(t: CardPlacement, extra = ""): string {
+  const body = `
           <span class="mc-award__top">${placementMedal(t.metal)}<span class="mc-award__place">${esc(t.place)}<small>${esc(t.eventTitle)}</small></span></span>
           ${t.team || t.projectTitle ? `<span class="mc-award__team">${esc([t.team, t.projectTitle].filter(Boolean).join(" · "))}</span>` : ""}
           ${t.meta ? `<span class="mc-award__meta">${esc(t.meta)}</span>` : ""}`;
-    const cls = `mc-tile mc-award mc-award--${t.metal}`;
-    return t.href
-      ? `<a class="${cls}" data-chip${style} href="${attr(t.href)}"${ext}>${body}</a>`
-      : `<div class="${cls}" data-chip${style}>${body}</div>`;
-  }
+  const cls = `mc-tile mc-award mc-award--${t.metal}`;
+  return t.href
+    ? `<a class="${cls}"${extra} href="${attr(t.href)}"${ext}>${body}</a>`
+    : `<div class="${cls}"${extra}>${body}</div>`;
+}
+
+function builtTile(t: CardBuilt, j: number, pic: Pic): string {
+  const style = ` style="--j:${j}"`;
+  if (t.kind === "placement") return placementTile(t, ` data-chip${style}`);
   const meta = [
     t.language
       ? `<span class="mc-lang" style="--l:${attr(languageColor(t.language) ?? "#8e8e93")}"><i aria-hidden="true"></i>${esc(t.language)}</span>`

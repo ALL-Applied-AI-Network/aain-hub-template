@@ -21,13 +21,13 @@ function load(relative) {
   return context.exports;
 }
 
-const { cardFromJson, renderCard, initialsOf, placeMetal, termOf, SHOWN } = load("src/portfolio-card.ts");
+const { cardFromJson, renderCard, initialsOf, placeMetal, placementsOf, termOf, SHOWN } = load("src/portfolio-card.ts");
 const fixture = (name) => JSON.parse(fs.readFileSync(path.join(ROOT, "fixtures/portfolio", `${name}.json`), "utf8"));
 const img = (raw) => {
   const v = (raw ?? "").trim();
   return /^https:\/\//.test(v) || /^\/fixtures\/portfolio\/img\/[\w.-]+$/.test(v) ? v : null;
 };
-const all = { projects: true, badges: true, events: true };
+const all = { projects: true, competitions: true, badges: true, events: true };
 const card = (b, sections = all) => cardFromJson(b, { host: b.slug ? `${b.slug}.all-ai-network.org` : null, img, sections });
 const html = (m) => renderCard(m, (src, cls) => `<img class="${cls}" src="${src}">`);
 // The module runs in its own realm, so compare plain copies.
@@ -103,13 +103,41 @@ const ZERO = />0<\/b>|\b0 (events?|points?|badges?|friends? brought)\b|All 0\b/;
   assert.equal(m.built[0].metal, "silver");
   assert.equal(m.built[0].team, "Team Line Sight");
   assert.equal(m.built[0].meta, "Example AI Club · Fall 2026");
-  assert.equal(m.shelves[0].all.n, 5);
+  // "All N" counts what Projects counts (4), not the placement too.
+  same(m.shelves[0].all, { n: 4, href: "#pp-projects", land: "projects" });
   assert.equal(card(fixture("card-rich")).built.some((b) => b.kind === "placement"), false);
   assert.equal(placeMetal("Winner"), "gold");
   assert.equal(placeMetal("2nd runner-up"), "bronze");
   assert.equal(placeMetal("Honorable mention"), "steel");
   assert.equal(termOf("2026-03-01"), "Spring 2026");
   assert.equal(termOf("2026-07-01"), "Summer 2026");
+}
+
+// "All N" is the number the section it lands on counts.
+{
+  const base = fixture("card-rich-competitions");
+  const c = base.competitions[0];
+  const four = [1, 2, 3, 4].map((i) => ({ ...c, eventId: `e${i}`, eventTitle: `Lab ${i}` }));
+  // Four placements and no projects: the fourth waits in Competitions.
+  let m = card({ ...base, projects: [], competitions: four });
+  same(m.shelves[0].all, { n: 4, href: "#pp-competitions", land: "competitions" });
+  assert.equal(placementsOf(four).length, 4);
+  // Three placements fill the shelf; the projects wait in Projects.
+  m = card({ ...base, competitions: four.slice(0, 3) });
+  same(m.built.map((t) => t.kind), ["placement", "placement", "placement"]);
+  same(m.shelves[0].all, { n: 4, href: "#pp-projects", land: "projects" });
+  // One placement and two projects: everything is on the card.
+  m = card({ ...base, projects: base.projects.slice(0, 2) });
+  assert.equal(m.shelves[0].all, null);
+  // A repo folded into its project on the card is its own card in
+  // Projects, so Projects counts it and so does "All".
+  const rich = fixture("card-rich");
+  const twin = { ...rich.projects[3], id: "twin", title: "tiny-rag", url: "https://github.com/example-ml/tiny-rag" };
+  m = card({ ...rich, projects: [...rich.projects, twin] });
+  same(m.built.map((t) => t.name), ["Linewatch", "tiny-rag", "edge-yolo-bench"]);
+  same(m.shelves[0].all, { n: 5, href: "#pp-projects", land: "projects" });
+  // A placement with no place or no event is nowhere, card or section.
+  assert.equal(placementsOf([{ ...c, place: " " }, { ...c, eventTitle: "" }]).length, 0);
 }
 
 // Older JSON: `chapter` stands in for `chapters`, "and 1 more", no
@@ -168,7 +196,7 @@ const ZERO = />0<\/b>|\b0 (events?|points?|badges?|friends? brought)\b|All 0\b/;
 
 // "All N" never points at a section the page does not have.
 {
-  const m = card(fixture("card-rich"), { projects: false, badges: false, events: false });
+  const m = card(fixture("card-rich"), { projects: false, competitions: false, badges: false, events: false });
   assert.ok(m.shelves.every((s) => s.all === null));
 }
 
@@ -182,4 +210,4 @@ const ZERO = />0<\/b>|\b0 (events?|points?|badges?|friends? brought)\b|All 0\b/;
   assert.equal(initialsOf("  "), "?");
 }
 
-console.log("PASS: member card shelves, zero rule, older JSON, competitions gate, repo fold, picture fallbacks, escaping");
+console.log("PASS: member card shelves, zero rule, All counts, older JSON, competitions gate, repo fold, picture fallbacks, escaping");
