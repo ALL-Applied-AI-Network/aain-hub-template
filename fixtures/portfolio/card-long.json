@@ -113,6 +113,20 @@
   ],
   "projects": [
     {
+      "id": "p2",
+      "kind": "build",
+      "title": "LibraryArchiveRetrievalBenchmarkSuite",
+      "description": "Search over a library's scanned finding aids, with a small benchmark of real reference questions.",
+      "url": "https://example.com/archive-search",
+      "chapterProject": false,
+      "chapterName": null,
+      "status": "building",
+      "language": null,
+      "stars": null,
+      "imageUrl": "/fixtures/portfolio/img/fx-logo.png",
+      "date": "2026-10-15T00:00:00Z"
+    },
+    {
       "id": "p1",
       "kind": "repo",
       "title": "sparse-autoencoder-feature-visualization-toolkit-for-small-models",
