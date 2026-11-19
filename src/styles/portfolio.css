@@ -5,14 +5,15 @@
    colour slots are set on <html> at runtime from the chapter's two
    colours (src/portfolio-colors.ts):
 
-     primary  the cover band, the portrait ring, the numbers, the date
-              tiles, the build tags, the meters, links
+     primary  the date tiles, the build tags, the meters, links, the
+              counts a card link lands on (the card itself paints with
+              each chapter's own colour: see "the card")
      second   chapter-project tags, reaction counts, badge glyphs
               (= the primary when the chapter's second colour is
               missing or unreadable)
 
    Everything else that has colour on this page is the member's own:
-   their cover, their project covers and post photos, the logos of
+   their portrait, their project covers and post photos, the logos of
    where they worked and studied, the badges' artwork, and GitHub's
    colour for each language. Solid fills only: no gradient, glow, blur.
 
@@ -96,9 +97,9 @@ button { font-family: inherit; }
 .pp-topbar.is-on { transform: none; }
 .pp-topbar__who { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .pp-topbar__av {
-  position: relative; flex: none; width: 28px; height: 28px; border-radius: 50%; overflow: hidden;
+  position: relative; flex: none; width: 28px; height: 28px; border-radius: 8px; overflow: hidden;
   display: grid; place-items: center;
-  background: var(--pp-accent); color: var(--pp-ink-text);
+  background: var(--tone, #7a5bc4); color: #fff;
   font: 700 0.68rem/1 var(--display);
 }
 .pp-topbar__av img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -108,135 +109,311 @@ button { font-family: inherit; }
 }
 .pp-topbar .pp-btn { padding: 8px 12px; min-height: 36px; flex: none; }
 
-/* ── the cover ──────────────────────────────────────────────────── */
-/* The member's LinkedIn banner, or a solid band in the chapter's
-   primary. The band is shorter than a banner: it is a colour, not a
-   picture, and needs no room to be looked at. A banner that fails to
-   load leaves the band at the banner's height. */
-.pp-cover {
-  position: relative; height: 300px; border-radius: 20px; overflow: hidden;
-  background: var(--pp-accent);
-}
-.pp-cover--band { height: 172px; }
-.pp-cover__img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 38%; }
+/* ── the card (portfolio-card.ts) ───────────────────────────────── */
+/* The member's card at the top of the page, drawn to match the card the
+   dashboard shows in its "What visitors see" frame. It carries its own
+   text greys (a step lighter than the page's, as the dashboard's are) and
+   paints with --c (the primary chapter's colour: the top edge), --mk-c
+   (each chapter's mark), --m (a badge's medallion) and the host's colour
+   on each date leaf. Every color-mix() has a plain colour before it for a
+   browser that cannot mix.
 
-/* ── who: the portrait over the cover's edge, the name under it ─── */
-.pp-id {
+   The card is a size container: under 620px of its own width the labels
+   sit over their shelves and each shelf is one horizontal row that snaps,
+   so a chip cut off at the edge says there is more. Each @container rule
+   takes one condition. */
+
+.mc-box { container: mcard / inline-size; min-width: 0; }
+.mc {
+  --c: #4f8fea;
+  --mc-card: var(--bg-surface);
+  --mc-line: rgba(255, 255, 255, 0.09);
+  --mc-line-hover: rgba(255, 255, 255, 0.2);
+  --mc-soft: rgba(255, 255, 255, 0.03);
+  --mc-link: #8fb5f2;
+  --mc-t1: #f4f4f6;
+  --mc-t2: #b4b4b8;
+  --mc-t3: #8e8e93;
   position: relative;
-  display: grid; grid-template-columns: 164px minmax(0, 1fr); gap: 0 26px;
+  background: var(--mc-card);
+  border: 1px solid var(--mc-line);
+  /* The primary chapter's colour along the top edge; none without one. */
+  border-top: 3px solid var(--c);
+  border-radius: 18px;
+  padding: 22px 26px;
+  color: var(--mc-t1);
+  font: 400 14px/1.45 var(--sans);
+}
+.mc--none { border-top: 1px solid var(--mc-line); padding-top: 24px; }
+.mc svg { flex: none; }
+.mc-quiet { color: var(--mc-t3); }
+
+/* Who */
+.mc-head {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 18px;
   align-items: start;
-  margin-top: -82px; padding: 0 28px;
 }
-/* The text column starts level with the portrait, so it is pushed down
-   past the cover's edge: the name is always on the page, never on the
-   picture (a banner often has words of its own in it). */
-.pp-id__text { min-width: 0; padding-top: 98px; }
-
-/* The portrait sits on a disc of the page's ground, which cuts it out of
-   the cover, inside the chapter's ring. The ring draws once on arrival
-   and stays; the portrait opens out of its own centre. A member with no
-   photo (or one that fails to load) gets their initials on the chapter's
-   colour instead. */
-.pp-photo {
-  position: relative; width: 164px; height: 164px; border-radius: 50%;
-  background: var(--bg-base);
-}
-.pp-photo__mono,
-.pp-photo__img {
-  position: absolute; inset: 10px;
-  width: calc(100% - 20px); height: calc(100% - 20px);
-  border-radius: 50%;
-}
-.pp-photo__mono {
+/* The photo over the initials on a tone from the name: a photo that
+   fails to load leaves the initials. */
+.mc-portrait {
+  position: relative; width: 72px; height: 72px; border-radius: 18px; overflow: hidden;
   display: grid; place-items: center;
-  background: var(--pp-accent); color: var(--pp-ink-text);
-  font: 700 2.9rem/1 var(--display); letter-spacing: 0.01em;
+  background: var(--tone, #7a5bc4); color: #fff;
+  font: 600 24px/1 var(--display); letter-spacing: -0.01em;
 }
-.pp-photo:has(.pp-photo__img) .pp-photo__mono { visibility: hidden; }
-.pp-photo__img { object-fit: cover; background: var(--bg-surface); }
-.pp-photo__ring { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.pp-photo__ring circle {
-  fill: none; stroke: var(--pp-accent); stroke-width: 2; stroke-linecap: round;
+.mc-portrait__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: var(--bg-surface-2); }
+.mc-who { min-width: 0; }
+.mc-name {
+  margin: 3px 0 0;
+  font: 600 28px/1.1 var(--display); letter-spacing: -0.025em;
+  color: var(--mc-t1); overflow-wrap: anywhere;
+}
+.mc-headline {
+  margin: 6px 0 0; max-width: 62ch;
+  font-size: 14px; line-height: 1.45; color: var(--mc-t2);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.mc-aff {
+  display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 12px 0 0;
+  font-size: 12.5px; line-height: 1.4; color: var(--mc-t2);
+}
+.mc-aff__i {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 24px; max-width: 100%;
+  color: inherit;
+}
+.mc-aff__i > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-aff__i.mc-quiet { color: var(--mc-t3); }
+.mc-gh { display: inline-grid; width: 15px; height: 15px; }
+.mc-gh svg { width: 15px; height: 15px; }
+/* A chapter's mark: its acronym in its own colour, never an uploaded logo. */
+.mc-mark {
+  flex: none; width: 24px; height: 24px; border-radius: 7px;
+  display: grid; place-items: center;
+  background: #1b2333;
+  background: color-mix(in srgb, var(--mk-c) 16%, var(--bg-base));
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid color-mix(in srgb, var(--mk-c) 42%, transparent);
+  color: #dfe7f5;
+  color: color-mix(in srgb, var(--mk-c) 70%, #fff);
+  font: 700 7.4px/1 var(--display); letter-spacing: 0.01em;
+}
+.mc-mark.is-long { font-size: 7px; letter-spacing: 0; }
+
+/* The page's own address, top right: a click copies it. */
+.mc-url {
+  display: inline-flex; align-items: center; max-width: 100%;
+  margin: 0; padding: 7px 0 0; border: 0; background: none;
+  font: 400 12px/1.3 var(--sans); color: var(--mc-t3);
+  white-space: nowrap; cursor: pointer;
+}
+/* A long address gives way to the name: past 44 characters it ends in "…"
+   (the button copies the whole of it). */
+.mc-head > .mc-url { max-width: 44ch; }
+.mc-url .pp-chip__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; transition: opacity 0.12s; }
+.mc-url.is-swap .pp-chip__label { opacity: 0; }
+
+/* Shelves */
+.mc-shelves { margin-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.07); }
+.mc-shelf {
+  display: grid; grid-template-columns: 112px minmax(0, 1fr); column-gap: 16px;
+  padding-top: 16px;
+}
+.mc-shelf__k { margin: 0; font: 600 13.5px/1.3 var(--display); color: var(--mc-t1); }
+.mc-shelf__t { display: inline-flex; align-items: center; white-space: nowrap; }
+.mc-shelf__lines { display: block; margin-top: 4px; font: 400 12px/1.5 var(--sans); color: var(--mc-t3); }
+.mc-shelf__lines span { display: block; }
+.mc-shelf__lines b { font-weight: 600; color: var(--mc-t2); font-variant-numeric: tabular-nums; }
+.mc-all {
+  display: flex; width: fit-content; align-items: center; gap: 3px; margin-top: 8px;
+  font: 500 12px/1 var(--sans); color: var(--mc-link); white-space: nowrap;
+}
+.mc-row { position: relative; min-width: 0; }
+
+/* Built: a placement first, then projects in GitHub's pinned-repo shape. */
+.mc-built { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.mc-built[data-n="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* One build: as wide as a lone badge, so its name has room. */
+.mc-built[data-n="1"] { grid-template-columns: minmax(0, 1fr); max-width: 340px; }
+.mc-tile {
+  position: relative; display: flex; flex-direction: column; gap: 7px; min-width: 0; min-height: 112px;
+  padding: 12px 13px 11px; border-radius: 12px;
+  background: var(--mc-soft); border: 1px solid var(--mc-line);
+  color: inherit; transition: border-color 0.14s;
+}
+.mc-proj__top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+/* The project's photo over the repo glyph: a photo that fails to load
+   leaves the glyph. */
+.mc-proj__media { position: relative; flex: none; width: 34px; height: 34px; border-radius: 8px; overflow: hidden; }
+.mc-proj__repo {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  background: rgba(255, 255, 255, 0.05); color: var(--mc-t2);
+}
+.mc-proj__thumb { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.mc-proj__name { min-width: 0; font: 600 14px/1.2 var(--display); color: var(--mc-t1); }
+.mc-proj__name > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-proj__name > .mc-proj__kind { margin-top: 2px; font: 400 11.5px/1.3 var(--sans); color: var(--mc-t3); }
+.mc-proj__desc {
+  font-size: 12.5px; line-height: 1.45; color: var(--mc-t2); overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.mc-proj__meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: auto;
+  font-size: 12px; color: var(--mc-t3);
+}
+.mc-proj__meta > * { white-space: nowrap; }
+.mc-lang { display: inline-flex; align-items: center; gap: 6px; }
+.mc-lang i { width: 9px; height: 9px; border-radius: 50%; background: var(--l); }
+.mc-stars { display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
+.mc-shipped { color: #5fd18a; }
+
+/* A placement: a medal in its metal, the place, the event, the team. */
+.mc-award {
+  --medal: #9aa3b5;
+  gap: 8px;
+  background: #18191e;
+  background: color-mix(in srgb, var(--medal) 6%, var(--mc-card));
+  border-color: rgba(255, 255, 255, 0.16);
+  border-color: color-mix(in srgb, var(--medal) 30%, transparent);
+}
+.mc-award--gold { --medal: #e3bd5a; }
+.mc-award--silver { --medal: #c9ced8; }
+.mc-award--bronze { --medal: #cd8d5c; }
+.mc-award__top { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.mc-medal { display: block; }
+.mc-award__place {
+  min-width: 0; font: 600 15px/1.15 var(--display); color: var(--mc-t1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mc-award__place small {
+  display: block; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;
+  font: 400 11.5px/1.3 var(--sans);
+  color: var(--mc-t2);
+  color: color-mix(in srgb, var(--medal) 70%, #fff);
+}
+.mc-award__team { font-size: 12.5px; line-height: 1.45; color: var(--mc-t2); }
+.mc-award__meta { margin-top: auto; font-size: 12px; color: var(--mc-t3); }
+
+/* Chips: badges and check-ins, each named. */
+.mc-chip {
+  position: relative; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px;
+  align-items: center; min-width: 0; margin: 0;
+  padding: 5px 10px 5px 5px; border-radius: 11px;
+  background: var(--mc-soft); border: 1px solid var(--mc-line);
+  color: inherit; text-align: left;
+}
+.mc-chip__t { min-width: 0; }
+.mc-chip__t b {
+  display: block; font: 600 13px/1.25 var(--sans); color: var(--mc-t1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mc-chip__t small {
+  display: block; margin-top: 2px; font-size: 11.5px; line-height: 1.3; color: var(--mc-t3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-.pp-name {
-  font: 700 clamp(2.1rem, 4.4vw, 2.9rem)/1.05 var(--display);
-  letter-spacing: -0.02em;
-  color: var(--text-primary);
-  overflow-wrap: anywhere;
-}
-/* One mask per word, so each rises out of its own baseline on arrival.
-   The small padding keeps descenders inside the mask. */
-.pp-w {
-  display: inline-block; vertical-align: top; max-width: 100%;
-  overflow: hidden; padding-bottom: 0.1em; margin-bottom: -0.1em;
-}
-.pp-w > span { display: inline-block; max-width: 100%; overflow-wrap: anywhere; }
-.pp-headline {
-  margin-top: 8px; max-width: 64ch;
-  font: 400 1.06rem/1.5 var(--sans); color: var(--text-secondary);
-}
-.pp-meta {
-  margin-top: 8px;
-  display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px;
-  font: 400 0.88rem/1.5 var(--sans); color: var(--text-tertiary);
-}
-.pp-meta__chapter { color: var(--pp-accent-text); font-weight: 500; }
-a.pp-meta__chapter {
-  text-decoration: underline; text-decoration-color: rgba(var(--pp-accent-rgb), 0.35);
-  text-decoration-thickness: 1px; text-underline-offset: 3px;
-  transition: text-decoration-color 0.15s;
+/* Earned: the newest badges, by name. */
+.mc-bds { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: start; }
+.mc-bds--one { grid-template-columns: minmax(0, 1fr); max-width: 340px; }
+.mc-carried { grid-template-columns: auto minmax(0, 1fr); padding: 5px 12px 5px 5px; }
+.mc-carried__n {
+  min-width: 30px; height: 30px; padding: 0 7px; border-radius: 999px;
+  display: grid; place-items: center; background: rgba(255, 255, 255, 0.06);
+  font: 600 12.5px/1 var(--display); font-variant-numeric: tabular-nums; color: var(--mc-t1);
 }
 
-.pp-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 28px 0; }
-.pp-chip {
-  display: inline-flex; align-items: center; gap: 7px; max-width: 100%;
-  height: 34px; padding: 0 13px;
-  border-radius: 999px; border: 1px solid var(--border-strong);
-  background: transparent; color: var(--text-secondary);
-  font: 500 0.8rem/1 var(--sans);
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+/* A badge's medallion: a rim and a milled edge in its chapter's colour
+   around a neutral face, with the badge's own art in the middle. */
+.mc-med { --m: #4f8fea; position: relative; display: grid; place-items: center; width: 30px; height: 30px; flex: none; }
+.mc-med__ring { position: absolute; inset: 0; width: 100%; height: 100%; }
+.mc-med__rim {
+  fill: #1a2233; fill: color-mix(in srgb, var(--m) 24%, #141418);
+  stroke: #6f8fc0; stroke: color-mix(in srgb, var(--m) 78%, #fff 12%);
+  stroke-width: 1.1;
 }
-.pp-chip svg { width: 14px; height: 14px; flex: none; }
-.pp-chip__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: opacity 0.12s; }
-.pp-chip.is-swap .pp-chip__label { opacity: 0; }
+.mc-med__face {
+  fill: #121318; fill: color-mix(in srgb, var(--m) 9%, #0f0f13);
+  stroke: rgba(255, 255, 255, 0.14); stroke: color-mix(in srgb, var(--m) 40%, transparent);
+  stroke-width: 0.7;
+}
+.mc-med__ticks line {
+  stroke: #6f8fc0; stroke: color-mix(in srgb, var(--m) 70%, #fff 10%);
+  stroke-width: 0.8; opacity: 0.5;
+}
+.mc-med__g {
+  position: relative; display: grid; place-items: center; line-height: 1;
+  color: #d3dcec; color: color-mix(in srgb, var(--m) 30%, #fff);
+}
+.mc-med__g svg { width: 13px; height: 13px; }
+.mc-med__g--emoji { font-size: 12px; }
+.mc-med__g--txt { font: 700 11px/1 var(--display); }
+.mc-med__img {
+  position: absolute; top: 13%; left: 13%; width: 74%; height: 74%;
+  border-radius: 50%; object-fit: cover; background: #0f0f13;
+}
 
-/* The numbers, one strip with a rule between each. Each is a button: it
-   takes the page to the rows it counts, and the number itself travels
-   there (portfolio.ts flyDoor). */
-.pp-doors {
-  display: grid;
-  grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr));
-  max-width: calc(var(--n, 4) * 260px);
-  margin-top: 30px;
-  border: 1px solid var(--border); border-radius: var(--r);
-  background: var(--bg-surface);
-  overflow: hidden;
+/* Checked in: the newest events, each with its photo or a date leaf in
+   the host chapter's colour. */
+.mc-evs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: start; }
+.mc-ev { grid-template-columns: 38px minmax(0, 1fr); padding: 6px 10px 6px 6px; }
+.mc-ev__media { position: relative; width: 38px; height: 38px; border-radius: 8px; overflow: hidden; }
+.mc-ev__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.mc-ev__leaf {
+  position: absolute; inset: 0; border-radius: 8px;
+  display: grid; place-content: center; text-align: center;
+  background: #172033; background: color-mix(in srgb, var(--c) 14%, #111115);
+  border: 1px solid rgba(255, 255, 255, 0.16); border: 1px solid color-mix(in srgb, var(--c) 40%, transparent);
 }
-.pp-door {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
-  padding: 18px 22px;
-  border: 0; background: transparent; color: inherit; text-align: left;
-  cursor: pointer;
-  transition: background-color 0.15s;
+.mc-ev__leaf b { font: 600 15px/1 var(--display); color: var(--mc-t1); font-variant-numeric: tabular-nums; }
+.mc-ev__leaf span {
+  margin-top: 2px; font: 700 8.5px/1 var(--sans); letter-spacing: 0.08em; text-transform: uppercase;
+  color: #b9c9e6; color: color-mix(in srgb, var(--c) 70%, #fff);
 }
-.pp-door + .pp-door { border-left: 1px solid var(--border); }
-.pp-door__n {
-  font: 700 2rem/1 var(--display); letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums; color: var(--pp-accent-text);
-}
-.pp-door__n.is-away { visibility: hidden; }
-.pp-door__l { font: 400 0.82rem/1.3 var(--sans); color: var(--text-secondary); }
+.mc-ev__leaf.is-plain { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.1); }
+.mc-ev__leaf.is-plain span { color: var(--mc-t3); }
 
-/* The number in flight, fixed to the viewport for the half-second it
-   takes to reach its section. */
-.pp-ghost {
-  position: fixed; left: 0; top: 0; z-index: 20; pointer-events: none;
-  font-family: var(--display); font-weight: 700; line-height: 1;
-  letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
-  color: var(--pp-accent-text);
-  will-change: transform;
+.mc-url:focus-visible,
+.mc-aff__link:focus-visible,
+.mc-all:focus-visible,
+a.mc-tile:focus-visible {
+  outline: 2px solid var(--mc-link); outline-offset: 2px; border-radius: 6px;
+}
+a.mc-tile:focus-visible { border-radius: 12px; }
+
+/* The whole page width: the four newest badges sit in one row. */
+@container mcard (min-width: 860px) {
+  .mc-bds:not(.mc-bds--one) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .mc-shelf { grid-template-columns: 124px minmax(0, 1fr); }
+}
+/* A laptop-narrow card: a narrower label column gives the tiles room. */
+@container mcard (max-width: 780px) {
+  .mc-shelf { grid-template-columns: 96px minmax(0, 1fr); column-gap: 12px; }
+  .mc-award__place { font-size: 14px; }
+}
+/* Phones, and any card under 620px. */
+@container mcard (max-width: 620px) {
+  .mc { padding: 18px 16px 16px; }
+  .mc--none { padding-top: 20px; }
+  .mc-head { grid-template-columns: auto minmax(0, 1fr); gap: 14px; }
+  .mc-portrait { width: 56px; height: 56px; border-radius: 15px; font-size: 19px; }
+  .mc-name { font-size: 23px; }
+  .mc-headline { font-size: 13.5px; }
+  .mc-head > .mc-url { grid-column: 1 / -1; padding-top: 0; justify-self: start; max-width: 100%; }
+  .mc-shelf { grid-template-columns: minmax(0, 1fr); row-gap: 9px; }
+  .mc-shelf__k { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+  .mc-shelf__lines { margin: 0; display: inline; }
+  .mc-shelf__lines span { display: inline; }
+  .mc-shelf__lines span + span::before { content: " · "; }
+  .mc-all { margin: 0 0 0 auto; }
+  /* Each shelf one horizontal row that snaps. */
+  .mc-built, .mc-bds, .mc-evs {
+    display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 8px;
+    margin-right: -16px; padding-right: 16px; scrollbar-width: none;
+  }
+  .mc-built::-webkit-scrollbar, .mc-bds::-webkit-scrollbar, .mc-evs::-webkit-scrollbar { display: none; }
+  .mc-built > * { flex: 0 0 min(74%, 260px); scroll-snap-align: start; }
+  .mc-built[data-n="1"], .mc-bds--one { max-width: none; }
+  .mc-bds > * { flex: 0 0 196px; scroll-snap-align: start; }
+  .mc-evs > * { flex: 0 0 214px; scroll-snap-align: start; }
 }
 
 /* ── section chrome ─────────────────────────────────────────────── */
@@ -253,9 +430,8 @@ a.pp-meta__chapter {
 }
 .pp-section__count b { font-weight: 500; font-variant-numeric: tabular-nums; }
 .pp-section__sep { margin: 0 3px; }
-/* A door's number stands in for the count while it travels, and the
-   count wears the chapter's colour for a moment once it has landed. */
-.pp-section__count b.is-awaiting { visibility: hidden; }
+/* The count an "All N ›" on the card points at wears the chapter's
+   colour for a moment once the page has arrived at it. */
 .pp-section__count b.is-landed { animation: pp-landed 1.6s var(--move); }
 @keyframes pp-landed {
   0%, 45% { color: var(--pp-accent-text); }
@@ -560,17 +736,14 @@ html.js-rv .pp-band.in .pp-band__bar i { transform: none; }
 .pp-btn span { transition: opacity 0.12s; }
 .pp-btn.is-swap span { opacity: 0; }
 .pp-more { margin-top: 16px; }
-.pp-chip:focus-visible,
 .pp-btn:focus-visible,
 .pp-card:focus-visible,
 .pp-post:focus-visible,
 .pp-read:focus-visible,
 .pp-pcard__title a:focus-visible,
-a.pp-meta__chapter:focus-visible,
 .pp-footer a:focus-visible {
   outline: 2px solid var(--pp-accent-text); outline-offset: 2px;
 }
-.pp-door:focus-visible { outline: 2px solid var(--pp-accent-text); outline-offset: -3px; border-radius: 12px; }
 .pp-section__title:focus-visible { outline: 2px solid var(--pp-accent-text); outline-offset: 4px; border-radius: 4px; }
 
 /* ── footer ─────────────────────────────────────────────────────── */
@@ -613,15 +786,16 @@ html.pp-still .pp-band__meter i.done::after, html.pp-still .pp-band__bar i { tra
 
 /* ── hover: pointer devices only, colour and border only ────────── */
 @media (hover: hover) and (pointer: fine) {
-  .pp-chip:hover { color: var(--text-primary); border-color: rgba(255, 255, 255, 0.26); }
-  .pp-door:hover { background-color: var(--bg-surface-2); }
-  a.pp-meta__chapter:hover { text-decoration-color: currentColor; }
   .pp-feature:hover, .pp-pcard:hover, .pp-card:hover, .pp-post:hover { border-color: var(--border-strong); }
   a.pp-card:hover .pp-card__title, .pp-pcard__title a:hover { color: var(--pp-accent-text); }
   a.pp-card:hover .pp-out, .pp-pcard__title a:hover .pp-out { color: var(--pp-accent-text); }
   .pp-read:hover, .pp-footer a:hover { text-decoration: underline; text-underline-offset: 3px; }
   .pp-btn:hover { border-color: rgba(255, 255, 255, 0.28); }
   .pp-btn.pp-bullets__more:hover { color: var(--text-secondary); }
+  a.mc-tile:hover { border-color: var(--mc-line-hover); }
+  a.mc-award:hover { border-color: rgba(255, 255, 255, 0.3); border-color: color-mix(in srgb, var(--medal) 60%, transparent); }
+  .mc-aff__link:hover, .mc-url:hover { color: var(--mc-t1); }
+  .mc-all:hover { text-decoration: underline; text-underline-offset: 3px; }
   .pp-shell__link:hover { text-decoration: underline; text-underline-offset: 3px; }
 }
 
@@ -630,8 +804,8 @@ html.pp-still .pp-band__meter i.done::after, html.pp-still .pp-band__bar i { tra
   html.js-rv .rv, html.js-rv .rv-group > *, html.js-rv .pp-rest > * > * { opacity: 1; transform: none; transition: none; }
   html.js-rv .pp-band__meter i.done::after, html.js-rv .pp-band__bar i { transform: none; transition: none; }
   .pp-section__count b.is-landed { animation: none; }
-  .pp-topbar, .pp-chip, .pp-chip__label, .pp-door, .pp-btn span, .pp-feature, .pp-pcard,
-  .pp-card, .pp-card__title, .pp-post, .pp-out, a.pp-meta__chapter { transition: none; }
+  .pp-topbar, .pp-btn span, .pp-feature, .pp-pcard,
+  .pp-card, .pp-card__title, .pp-post, .pp-out, .mc-tile, .mc-url .pp-chip__label { transition: none; }
 }
 
 /* ── breakpoints ────────────────────────────────────────────────── */
@@ -645,23 +819,6 @@ html.pp-still .pp-band__meter i.done::after, html.pp-still .pp-band__bar i { tra
 @media (max-width: 760px) {
   .pp { padding: 14px 16px 0; }
   .pp-topbar { padding: 0 16px; }
-  .pp-cover { height: 170px; border-radius: 14px; }
-  .pp-cover--band { height: 112px; }
-  .pp-id { grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: -58px; padding: 0 4px; }
-  .pp-id__text { padding-top: 0; }
-  .pp-photo { width: 116px; height: 116px; }
-  .pp-photo__mono, .pp-photo__img { inset: 7px; width: calc(100% - 14px); height: calc(100% - 14px); }
-  .pp-photo__mono { font-size: 2.1rem; }
-  .pp-name { font-size: clamp(1.8rem, 8.6vw, 2.2rem); }
-  .pp-headline { font-size: 0.98rem; }
-  .pp-chips { margin: 16px 4px 0; }
-  .pp-doors { margin-top: 22px; max-width: none; }
-  /* data-n, not the style attribute: the arrival rewrites that. */
-  .pp-doors[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .pp-doors[data-n="4"] .pp-door:nth-child(3) { border-left: 0; }
-  .pp-doors[data-n="4"] .pp-door:nth-child(n + 3) { border-top: 1px solid var(--border); }
-  .pp-door { padding: 14px 16px; }
-  .pp-door__n { font-size: 1.65rem; }
   .pp-section { padding-top: 60px; }
   .pp-section__head { margin-bottom: 16px; }
   .pp-section__title { font-size: 1.45rem; }
@@ -690,12 +847,6 @@ html.pp-still .pp-band__meter i.done::after, html.pp-still .pp-band__bar i { tra
 }
 @media (max-width: 640px) {
   .pp-cards { grid-template-columns: minmax(0, 1fr); }
-}
-@media (max-width: 560px) {
-  /* The chapter, the date and the place each on their own line rather
-     than a "·" left hanging at the end of one. */
-  .pp-meta { flex-direction: column; align-items: flex-start; gap: 0; }
-  .pp-meta__sep { display: none; }
 }
 @media (max-width: 520px) {
   .pp-posts, .pp-posts--1 { grid-template-columns: minmax(0, 1fr); max-width: none; }

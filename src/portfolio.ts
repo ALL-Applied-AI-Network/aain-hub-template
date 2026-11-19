@@ -2,34 +2,30 @@
 
    One keyless fetch of the member bundle, then the whole page is rendered
    once from string templates. It is the same person officers open on the
-   dashboard: who they are and where to find them, three or four numbers
-   that are doors to the rows they count, then the work itself — projects
+   dashboard: at the top, the member's card (portfolio-card.ts) — who they
+   are, who they are with, and three shelves of what they built, earned
+   and turned up to, each item named — then the work itself: projects
    with their real covers, their own LinkedIn posts, the roles, the events
    they turned up to, the badges, the schools.
-
-   Ben, 2026-10-12: the page was "pretty bland … doesn't include many
-   colors nor images that could be of the actual content of stuff they
-   worked on, or from their actual posts". So it now carries the member's
-   LinkedIn cover, project covers, post photos, company and school logos,
-   event photos and the badges' own artwork — every one of them a field of
-   the bundle, on our storage, never a hotlink — and two chapter colours
-   instead of one.
 
    Rules the page keeps:
    - Only what /api/public/member/{slug} sends. A section with no data is
      absent, never empty, and no number is ever printed as zero.
    - Two chapter colours (portfolio-colors.ts), both contrast-gated; a
      second colour that cannot be read is dropped, never faked.
+   - Pictures come from the bundle's own fields, on our storage, never a
+     hotlink: project covers, post photos, company and school logos, event
+     photos and the badges' own artwork.
    - No gradient, glow, blur or orb; no hover lift (hover changes colour
      or border, on pointer devices only).
    - Never: an accent disc or bullet before text, a "Now · member of …"
      line, an ID strip, eyebrows in mono capitals, a colophon, a logo
-     inside a seal, a hand-drawn company or school logo.
-   - The name sits under the cover, never on it: a LinkedIn banner often
-     has its own words in it (the first draft printed a name over one).
-   - Motion settles. The arrival is one seekable timeline (?seek=ms
-     freezes it at that frame); after it, nothing runs until a visitor
-     does something, and then only for as long as that takes. */
+     inside a seal, a hand-drawn company or school logo, a rank, stat
+     tiles or "Verified".
+   - Motion settles, in transform and opacity only. The arrival is one
+     seekable timeline (?seek=ms freezes it at that frame); after it,
+     nothing runs until a visitor does something, and then only for as
+     long as that takes. Reduced motion gets the finished page. */
 
 document.documentElement.classList.add("js-rv");
 
@@ -39,7 +35,7 @@ import { badgeGlyph } from "./portfolio-badge-icons";
 import { chapterColors } from "./portfolio-colors";
 import { languageColor } from "./portfolio-lang";
 import { plainText } from "./plain-text";
-import { GITHUB_MARK } from "./lib/brand-marks";
+import { cardFromJson, initialsOf, renderCard, toneOf } from "./portfolio-card";
 
 declare const __HUB_CONFIG__: { hub_domain?: string };
 
@@ -125,7 +121,7 @@ type Bundle = {
   slug: string | null;
   name: string;
   /** The Clerk avatar when actually set, else the mirrored LinkedIn
-   *  photo, else null → initials on the chapter colour. */
+   *  photo, else null → initials on a tone picked from the name. */
   imageUrl: string | null;
   headline: string | null;
   chapter: {
@@ -138,16 +134,41 @@ type Bundle = {
     /** The chapter's second colour (theme_accent). */
     accentColor: string | null;
     acronym: string | null;
+    /** Not read here: the page is the member's record itself. */
     verifyStudentId: string | null;
   } | null;
   chapterCount: number;
+  /** Every chapter on the record, primary first. Absent in bundles older
+   *  than the card; `chapter` then stands in for the list. */
+  chapters?: {
+    id: string;
+    name: string;
+    acronym: string | null;
+    themePrimary: string | null;
+    hubUrl: string | null;
+    since: string;
+  }[];
+  /** Placements on competition teams. Absent unless the member switched
+   *  Competition results on (and absent when there are none). */
+  competitions?: {
+    eventId: string;
+    eventTitle: string;
+    eventDate: string;
+    chapterName: string;
+    teamName: string;
+    projectTitle: string | null;
+    place: string;
+    certificateUrl: string | null;
+  }[];
   since: string;
   /** Read by nothing on this page: the present-tense line it fed
    *  repeated the first row of the record under it. */
   now: { kind: "learning" | "building" | "checkin"; text: string } | null;
   record?: {
     entries: Entry[];
-    totals: { points: number; events: number; badges: number };
+    /** `brought`: friends who signed up through the member's Bring a
+     *  Friend link. Absent in older bundles. */
+    totals: { points: number; events: number; badges: number; brought?: number };
     /** Points carried in from before events were tracked. */
     startingBalance: number;
   };
@@ -163,8 +184,8 @@ type Bundle = {
     source: "resume" | "linkedin";
   };
   github?: { username: string; topLanguages: string[] };
-  /** The LinkedIn banner, mirrored. Absent → a solid band in the
-   *  chapter's primary. */
+  /** The LinkedIn banner, mirrored. Not drawn: the card replaced the
+   *  cover at the top of the page. */
   cover?: { imageUrl: string };
   /** Up to 6 original LinkedIn posts, most-reacted first. */
   posts?: Post[];
@@ -189,12 +210,6 @@ function formatLong(iso: string): string {
 }
 function plural(n: number, word: string, many = `${word}s`): string {
   return `${n.toLocaleString()} ${n === 1 ? word : many}`;
-}
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).map((w) => w.replace(/[^\p{L}\p{N}]/gu, "")).filter(Boolean);
-  if (!parts.length) return "";
-  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 }
 /** The first letter or digit of a name, for an initial tile. */
 function initial(name: string): string {
@@ -241,13 +256,12 @@ const ext = ' target="_blank" rel="noopener"';
 const btn = (label: string, extra = "", cls = "") =>
   `<button type="button" class="pp-btn${cls}"${extra}><span>${label}</span></button>`;
 
-const LINK_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
 const OUT_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>`;
 
 /**
  * An image from the bundle. `fail` is what a broken load leaves behind:
  *   "drop"   the <img> goes and whatever is painted under it shows (the
- *            initials, the band, an initial tile, a date tile);
+ *            initials, the repo glyph, an initial tile, a date tile);
  *   "frame"  the picture's whole frame goes and its card closes up
  *            around the text, as if it never had a picture.
  * `fit` asks fitCovers to look at the image's edge first (project covers).
@@ -279,40 +293,9 @@ const section = (key: string, title: string, count: string, body: string) => `
 /** The number a door lands on, inside a section's count. */
 const landing = (key: string, n: number) => `<b data-land="${key}">${n.toLocaleString()}</b>`;
 
-/* ── the header: cover, portrait, name, links, numbers ──────────── */
+/* ── the card: who they are, and what they built, earned, turned up to */
 
-/* The ring draws once around the portrait on arrival, in the chapter's
-   colour, and stays. 2πr with r = 48.5 in a 100-unit box. */
-const RING = 304.7;
-
-/** The member's LinkedIn banner, or a solid band in the chapter's primary
- *  when they have none. A banner that fails to load leaves the band. */
-function renderCover(b: Bundle): string {
-  const src = safeImg(b.cover?.imageUrl);
-  return `<div class="pp-cover${src ? "" : " pp-cover--band"}" id="pp-cover" aria-hidden="true">${
-    src ? pic(src, "pp-cover__img", "drop", { eager: true }) : ""}</div>`;
-}
-
-function renderPortrait(b: Bundle): string {
-  const photo = safeImg(b.imageUrl);
-  return `
-    <div class="pp-photo" id="pp-photo">
-      <span class="pp-photo__mono" aria-hidden="true">${esc(initials(b.name))}</span>${
-        photo ? pic(photo, "pp-photo__img", "drop", { eager: true }) : ""}
-      <svg class="pp-photo__ring" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="48.5" stroke-dasharray="${RING}" transform="rotate(-90 50 50)"/></svg>
-    </div>`;
-}
-
-/** The name, one masked span per word so the arrival can raise each word
- *  out of its own baseline. Screen readers get the name once, whole. */
-function renderName(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  return `<h1 class="pp-name" id="pp-name" aria-label="${attr(name)}">${words
-    .map((w) => `<span class="pp-w" aria-hidden="true"><span>${esc(w)}</span></span>`)
-    .join(" ")}</h1>`;
-}
-
-/** This page's own address, as the chip prints it and as Copy link and
+/** This page's own address, as the card prints it and as Copy link and
  *  the share sheet hand it over: the canonical {slug}.all-ai-network.org
  *  with nothing after it, never location.href (which carries ?seek=,
  *  tracking tags, or the dashboard preview's own URL). Without a slug
@@ -324,82 +307,21 @@ function pageUrl(b: Bundle): string {
   return b.slug ? `https://${b.slug}.${HUB_DOMAIN}/` : `${location.origin}/`;
 }
 
+/** The card replaces the old header (cover, portrait, chips, numbers).
+ *  Its "All N ›" links land on the sections below, so it is told which
+ *  of them the page will have. */
 function renderHeader(b: Bundle): string {
-  const ch = b.chapter;
-  const headline = b.headline ?? b.resume?.tagline ?? null;
-  const hub = safeHttp(ch?.hubUrl);
-  const chapterName = ch
-    ? hub
-      ? `<a class="pp-meta__chapter" href="${attr(hub)}">${esc(ch.name)}</a>`
-      : `<span class="pp-meta__chapter">${esc(ch.name)}</span>`
-    : "";
-  const more = b.chapterCount > 1 ? `<span>and ${plural(b.chapterCount - 1, "more chapter")}</span>` : "";
-  const where = plainText(b.resume?.overview?.location);
-  const meta = [
-    chapterName ? `<span>${chapterName}${more ? ` ${more}` : ""}</span>` : "",
-    `<span>Member since ${formatMonth(b.since)}</span>`,
-    where ? `<span>${esc(where)}</span>` : "",
-  ].filter(Boolean).join(`<span class="pp-meta__sep" aria-hidden="true">·</span>`);
-
-  // Where to find them: this page's own address (a click copies it),
-  // their GitHub, and the chapter's own record of them.
-  const host = pageHost(b);
-  const verify = ch?.verifyStudentId
-    ? `${DASHBOARD_ORIGIN}/verify/${encodeURIComponent(ch.verifyStudentId)}` : null;
-  const chips = [
-    `<button type="button" class="pp-chip" data-copy aria-label="Copy the link to this page">${LINK_ICON}<span class="pp-chip__label">${esc(host)}</span></button>`,
-    b.github
-      ? `<a class="pp-chip" href="https://github.com/${attr(b.github.username)}"${ext}>${GITHUB_MARK}<span class="pp-chip__label">${esc(b.github.username)}</span></a>`
-      : "",
-    verify ? `<a class="pp-chip" href="${attr(verify)}"${ext}><span class="pp-chip__label">Network record</span>${OUT_ICON}</a>` : "",
-  ].filter(Boolean).join("");
-
-  return `
-  <header class="pp-head" id="pp-head">
-    ${renderCover(b)}
-    <div class="pp-id">
-      ${renderPortrait(b)}
-      <div class="pp-id__text">
-        ${renderName(b.name)}
-        ${headline ? `<p class="pp-headline pp-late">${esc(headline)}</p>` : ""}
-        <p class="pp-meta pp-late">${meta}</p>
-      </div>
-    </div>
-    <div class="pp-chips" id="pp-chips">${chips}</div>
-    ${renderDoors(b)}
-  </header>`;
-}
-
-/**
- * The numbers, and each one is a door to the rows it counts: events and
- * points open Events, badges the Badges, projects the Projects. A number
- * that would be zero is not a door to anything, so it is not here.
- */
-function renderDoors(b: Bundle): string {
-  const doors: { key: string; n: number; label: string; to: string }[] = [];
-  const t = b.record?.totals;
   const ev = eventRows(b);
-  const hasEvents = ev.checkins.length + ev.carried.length > 0;
-  if (t && t.events >= 1 && hasEvents) doors.push({ key: "events", n: t.events, label: t.events === 1 ? "event" : "events", to: "events" });
-  if (t && t.points >= 1 && hasEvents) doors.push({ key: "points", n: t.points, label: t.points === 1 ? "point" : "points", to: "events" });
-  const nb = (b.badges ?? []).length;
-  if (nb) doors.push({ key: "badges", n: nb, label: nb === 1 ? "badge" : "badges", to: "badges" });
-  const np = (b.projects ?? []).length;
-  if (np) doors.push({ key: "projects", n: np, label: np === 1 ? "project" : "projects", to: "projects" });
-  if (!doors.length) return "";
-  const SECTION: Record<string, string> = {
-    events: ev.checkins.length ? "Events" : "Points", badges: "Badges", projects: "Projects",
-  };
-  // The count is said twice: --n sizes the columns, and data-n is what the
-  // phone rule matches. Never match on the style attribute: the arrival
-  // writes the strip's opacity into it, which reserialises "--n:4" as
-  // "--n: 4;", and every visitor who saw the arrival got four cramped
-  // columns at 390px instead of two by two.
-  return `<div class="pp-doors" id="pp-doors" data-n="${doors.length}" style="--n:${doors.length}">${doors
-    .map(
-      (d) => `<button type="button" class="pp-door" data-door="${d.key}" data-to="${d.to}" aria-label="${attr(`${d.n.toLocaleString()} ${d.label}, go to ${SECTION[d.to]}`)}"><b class="pp-door__n">${d.n.toLocaleString()}</b><span class="pp-door__l">${d.label}</span></button>`,
-    )
-    .join("")}</div>`;
+  const model = cardFromJson(b, {
+    host: pageHost(b),
+    img: safeImg,
+    sections: {
+      projects: (b.projects ?? []).length > 0,
+      badges: (b.badges ?? []).length > 0,
+      events: ev.checkins.length + ev.carried.length > 0,
+    },
+  });
+  return renderCard(model, (src, cls) => pic(src, cls, "drop", { eager: true }));
 }
 
 /* ── projects ───────────────────────────────────────────────────── */
@@ -978,78 +900,55 @@ function settleAll(root: ParentNode) {
 }
 
 /**
- * The arrival, in beats that never overlap in one place:
+ * The arrival: the card, then its shelves, in beats that never overlap
+ * in one place. Transform and opacity only.
  *
- *   0–480     the cover fades up, settling from a 3% overscale
- *   120–580   the portrait opens out of its centre, over the cover's edge
- *   260–1000  the chapter's ring draws around it, clockwise from the top
- *   300–740   the name rises out of its own baseline, a word at a time
- *   540–840   the headline and the chapter line
- *   600–…     the link chips, 40 ms apart
- *   720–…     the numbers' strip, and the numbers 40 ms apart
+ *   0–420     the card fades up, rising 10px
+ *   200–…     each shelf's label rises 6px and fades in, 40 ms apart,
+ *             its chips following 24 ms apart, 320 ms each
  *
- * `reveal` runs as the numbers land, so the sections standing in the
- * first screen come in under a header that is already there, never
- * beside one that is still arriving.
+ * `reveal` runs as the last shelf starts, so the sections standing in the
+ * first screen come in under a card that is already there, never beside
+ * one that is still arriving.
  *
  * ?seek=ms renders exactly one frame of this and stops; a seek at or
  * past the end is the finished page, every section shown.
  */
 function mountArrival(seek: number | null, reveal: () => void, settle: () => void) {
-  const cover = $("#pp-cover");
-  const coverImg = $(".pp-cover__img");
-  const photo = $("#pp-photo");
-  const ring = $<SVGCircleElement>(".pp-photo__ring circle");
-  const words = $$(".pp-w > span");
-  const late = $$(".pp-late");
-  const chips = $$("#pp-chips > *");
-  const strip = $("#pp-doors");
-  const doors = $$("#pp-doors > *");
-  const DOOR0 = 720;
-  const END = Math.max(1000, DOOR0 + Math.max(0, doors.length - 1) * 40 + 380, 600 + Math.max(0, chips.length - 1) * 40 + 320);
+  const card = $(".mc");
+  const SHELF0 = 200;
+  const shelves = $$(".mc-shelf").map((sh, i) => ({
+    label: $(".mc-shelf__k", sh),
+    chips: $$("[data-chip]", sh),
+    at: SHELF0 + i * 40,
+  }));
+  const lastChip = shelves.reduce((m, sh) => Math.max(m, sh.at + sh.chips.length * 24), 0);
+  const END = Math.max(420, lastChip + 320);
+  const REVEAL = shelves.length ? shelves[shelves.length - 1].at : SHELF0;
   const T = (t: number, a: number, b: number) => Math.max(0, Math.min(1, (t - a) / (b - a)));
+  const rise = (el: HTMLElement | null, p: number, px: number) => {
+    if (!el) return;
+    el.style.opacity = p < 1 ? String(p) : "";
+    el.style.transform = p < 1 ? `translateY(${(px * (1 - p)).toFixed(2)}px)` : "";
+  };
   let revealed = false;
 
   const frame = (t: number) => {
-    let p = ENTER(T(t, 0, 480));
-    if (cover) cover.style.opacity = p < 1 ? String(p) : "";
-    if (coverImg) coverImg.style.transform = p < 1 ? `scale(${(1.03 - 0.03 * p).toFixed(4)})` : "";
-    if (photo) {
-      p = ENTER(T(t, 120, 580));
-      photo.style.clipPath = p < 1 ? `circle(${(50 * p).toFixed(2)}% at 50% 50%)` : "";
-      photo.style.transform = p < 1 ? `scale(${(0.9 + 0.1 * p).toFixed(4)})` : "";
+    rise(card, ENTER(T(t, 0, 420)), 10);
+    for (const sh of shelves) {
+      rise(sh.label, ENTER(T(t, sh.at, sh.at + 320)), 6);
+      sh.chips.forEach((c, j) => {
+        const a = sh.at + (j + 1) * 24;
+        rise(c, ENTER(T(t, a, a + 320)), 6);
+      });
     }
-    ring?.style.setProperty("stroke-dashoffset", String(RING * (1 - MOVE(T(t, 260, 1000)))));
-    words.forEach((w, i) => {
-      p = ENTER(T(t, 300 + i * 40, 300 + i * 40 + 440));
-      w.style.transform = p < 1 ? `translateY(${(105 * (1 - p)).toFixed(2)}%)` : "";
-    });
-    p = ENTER(T(t, 540, 840));
-    for (const el of late) {
-      el.style.opacity = String(p);
-      el.style.transform = p < 1 ? `translateY(${(8 * (1 - p)).toFixed(2)}px)` : "";
-    }
-    chips.forEach((c, i) => {
-      p = ENTER(T(t, 600 + i * 40, 600 + i * 40 + 320));
-      c.style.opacity = String(p);
-      c.style.transform = p < 1 ? `translateY(${(6 * (1 - p)).toFixed(2)}px)` : "";
-    });
-    // The strip is one bordered box, so it comes in with its first
-    // number rather than standing empty while the numbers wait.
-    if (strip) strip.style.opacity = String(ENTER(T(t, DOOR0, DOOR0 + 380)));
-    doors.forEach((d, i) => {
-      p = ENTER(T(t, DOOR0 + i * 40, DOOR0 + i * 40 + 380));
-      d.style.opacity = String(p);
-      d.style.transform = p < 1 ? `translateY(${(12 * (1 - p)).toFixed(2)}px)` : "";
-    });
-    if (t >= DOOR0 + 120 && !revealed) { revealed = true; reveal(); }
+    if (t >= REVEAL && !revealed) { revealed = true; reveal(); }
   };
   const clear = () => {
-    for (const el of [cover, coverImg, photo, ...words, ...late, ...chips, strip, ...doors]) {
+    for (const el of [card, ...shelves.flatMap((sh) => [sh.label, ...sh.chips])]) {
       if (!el) continue;
-      el.style.opacity = ""; el.style.transform = ""; el.style.clipPath = "";
+      el.style.opacity = ""; el.style.transform = "";
     }
-    ring?.style.removeProperty("stroke-dashoffset");
   };
 
   document.documentElement.classList.add("pp-arrive");
@@ -1069,33 +968,28 @@ function mountArrival(seek: number | null, reveal: () => void, settle: () => voi
   requestAnimationFrame(tick);
 }
 
-/* ── doors: the number travels to the rows it counts ────────────── */
+/* ── "All N ›": the card's way to the rows it summarises ───────────── */
 
-let flight: { cancel: () => void } | null = null;
+let jumping: { cancel: () => void } | null = null;
 
 /**
- * Click a number, and the page moves to the section it counts while the
- * number itself flies there and becomes that section's count: 12 events
- * in the header lands as the 12 in "Events · 12 events". One rAF loop
- * drives the scroll and the flight together for ~0.5 s and then stops.
- * A wheel or a touch during it hands the page straight back.
+ * Click "All 8 ›" (or a project tile with no link of its own) and the page
+ * moves to the section it points at, the section's heading takes focus,
+ * and the matching count in the section's title wears the chapter's
+ * colour for a moment. One rAF loop drives the scroll for ~0.5 s and then
+ * stops; a wheel, a touch or a key during it hands the page straight back.
  */
-function flyDoor(door: HTMLElement) {
-  flight?.cancel();
-  const key = door.dataset.door ?? "";
-  const to = door.dataset.to ?? "";
-  const sectionEl = document.getElementById(`pp-${to}`);
-  const heading = document.getElementById(`pp-${to}-h`);
+function jumpTo(link: HTMLAnchorElement) {
+  jumping?.cancel();
+  const id = (link.getAttribute("href") ?? "").replace(/^#/, "");
+  const sectionEl = id ? document.getElementById(id) : null;
+  const heading = sectionEl ? document.getElementById(`${id}-h`) : null;
   if (!sectionEl || !heading) return;
-  const target = sectionEl.querySelector<HTMLElement>(`[data-land="${key}"]`);
-  const num = door.querySelector<HTMLElement>(".pp-door__n");
+  const key = link.dataset.landKey ?? "";
+  const target = key ? sectionEl.querySelector<HTMLElement>(`[data-land="${key}"]`) : null;
 
-  // The section is about to be read: show it now rather than on reveal.
-  // Its rise (.rv, 14px) is cut short and only the fade kept: the scroll
-  // and the number are both aimed from the measurements below, and a
-  // section still on its way up would be measured 14px low, so the
-  // number would land under its count and then the count would jump.
-  // Coming from below the fold, the rise was never going to be seen.
+  // The section is about to be read: show it now rather than on reveal,
+  // and without its rise, so the scroll is aimed at where it will stay.
   if (!reduced && getComputedStyle(sectionEl).transform !== "none") {
     sectionEl.style.transition = "opacity 0.5s var(--enter)";
     const settle = (e: TransitionEvent) => {
@@ -1114,7 +1008,6 @@ function flyDoor(door: HTMLElement) {
   const offset = 76;
   const maxY = document.documentElement.scrollHeight - innerHeight;
   const endY = Math.max(0, Math.min(maxY, startY + sectionEl.getBoundingClientRect().top - offset));
-
   const land = () => {
     heading.focus({ preventScroll: true });
     if (target) {
@@ -1123,73 +1016,34 @@ function flyDoor(door: HTMLElement) {
       target.classList.add("is-landed");
     }
   };
-
   if (reduced || Math.abs(endY - startY) < 2) {
     window.scrollTo(0, endY);
     land();
     return;
   }
 
-  // The ghost: a copy of the door's number, fixed to the viewport,
-  // travelling from where it is to where the count will be once the
-  // scroll has finished.
-  let ghost: HTMLElement | null = null;
-  let from: DOMRect | null = null;
-  let toRect: { left: number; top: number; fs: number } | null = null;
-  if (num && target) {
-    from = num.getBoundingClientRect();
-    const tr = target.getBoundingClientRect();
-    toRect = { left: tr.left, top: tr.top - (endY - startY), fs: parseFloat(getComputedStyle(target).fontSize) };
-    ghost = document.createElement("span");
-    ghost.className = "pp-ghost";
-    ghost.textContent = num.textContent;
-    ghost.setAttribute("aria-hidden", "true");
-    ghost.style.fontSize = getComputedStyle(num).fontSize;
-    ghost.style.left = `${from.left}px`;
-    ghost.style.top = `${from.top}px`;
-    document.body.appendChild(ghost);
-    target.classList.add("is-awaiting");
-    num.classList.add("is-away");
-  }
-  const fs0 = num ? parseFloat(getComputedStyle(num).fontSize) : 0;
   const D = Math.round(Math.min(640, Math.max(380, Math.abs(endY - startY) * 0.4)));
   const start = performance.now();
   let raf = 0;
   let done = false;
-
   const finish = (landed: boolean) => {
     if (done) return;
     done = true;
     cancelAnimationFrame(raf);
-    ghost?.remove();
-    target?.classList.remove("is-awaiting");
-    num?.classList.remove("is-away");
     removeEventListener("wheel", interrupt);
     removeEventListener("touchstart", interrupt);
     removeEventListener("keydown", interrupt);
-    flight = null;
+    jumping = null;
     if (landed) land();
   };
   const interrupt = () => finish(false);
   addEventListener("wheel", interrupt, { passive: true });
   addEventListener("touchstart", interrupt, { passive: true });
   addEventListener("keydown", interrupt);
-  flight = { cancel: () => finish(false) };
-
+  jumping = { cancel: () => finish(false) };
   const tick = (now: number) => {
     const k = Math.min(1, (now - start) / D);
-    const e = MOVE(k);
-    window.scrollTo(0, startY + (endY - startY) * e);
-    if (ghost && from && toRect) {
-      // The number arcs slightly (it leaves a little faster than it
-      // falls) so it reads as travelling, not as sliding on a rail.
-      const ex = ENTER(k);
-      const x = from.left + (toRect.left - from.left) * ex;
-      const y = from.top + (toRect.top - from.top) * e;
-      const fs = fs0 + (toRect.fs - fs0) * e;
-      ghost.style.transform = `translate(${(x - from.left).toFixed(1)}px, ${(y - from.top).toFixed(1)}px)`;
-      ghost.style.fontSize = `${fs.toFixed(2)}px`;
-    }
+    window.scrollTo(0, startY + (endY - startY) * MOVE(k));
     if (k >= 1) { finish(true); return; }
     raf = requestAnimationFrame(tick);
   };
@@ -1217,7 +1071,7 @@ function mountTopbar(b: Bundle) {
   const photo = safeImg(b.imageUrl);
   bar.innerHTML = `
     <span class="pp-topbar__who">
-      <span class="pp-topbar__av" aria-hidden="true"><span>${esc(initials(b.name))}</span>${photo ? pic(photo, "", "drop") : ""}</span>
+      <span class="pp-topbar__av" style="--tone:${attr(toneOf(b.name))}" aria-hidden="true"><span>${esc(initialsOf(b.name))}</span>${photo ? pic(photo, "", "drop") : ""}</span>
       <span class="pp-topbar__name">${esc(b.name)}</span>
     </span>${btn("Copy link", " data-copy")}`;
   bar.hidden = false;
@@ -1238,7 +1092,7 @@ function mountButtons(bundle: Bundle) {
       try { await navigator.clipboard.writeText(url); } catch { return; }
       const label = $(".pp-chip__label", b) ?? $("span", b)!;
       const was = label.textContent ?? "";
-      // Hold the width, so "Copied" does not pull the chips beside it.
+      // Hold the width, so "Copied" does not pull what is beside it.
       b.style.minWidth = `${b.offsetWidth}px`;
       const swap = (text: string) => {
         if (reduced) { label.textContent = text; return; }
@@ -1264,8 +1118,12 @@ function mountButtons(bundle: Bundle) {
       b.parentElement!.remove();
     });
   }
-  for (const d of $$<HTMLButtonElement>("[data-door]")) {
-    d.addEventListener("click", () => flyDoor(d));
+  for (const a of $$<HTMLAnchorElement>("a[data-jump]")) {
+    a.addEventListener("click", (e) => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      e.preventDefault();
+      jumpTo(a);
+    });
   }
 }
 
@@ -1274,7 +1132,7 @@ function fitName() {
   const el = $("#pp-name");
   if (!el) return;
   let size = parseFloat(getComputedStyle(el).fontSize);
-  while (el.offsetHeight > size * 1.08 * 2 + 4 && size > 18) {
+  while (el.offsetHeight > size * 1.1 * 2 + 4 && size > 18) {
     size -= 1;
     el.style.fontSize = `${size}px`;
   }
